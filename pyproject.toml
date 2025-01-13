@@ -1,0 +1,47 @@
+[project]
+name = "DDDM-EVC"  # Replace with your project name
+version = "0.1.0"
+description = "Decoupled Denoising Diffusion Models for Emotional Voice Conversion"
+authors = [
+    { name = "Alexander Baur", email = "alexander.baur@studium.uni-hamburg.de" }
+]
+
+[tool.poetry]
+package-mode = false
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu124"
+priority = "explicit"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = { version = "2.5.1+cu124", source = "pytorch" }
+torchaudio = { version = "2.5.1+cu124", source = "pytorch" }
+
+[tool.poetry.group.lint.dependencies]
+pre-commit = "^2.15.0"
+black = "^24.10.0"
+flake8 = "^7.1.1"
+mypy = "^1.14.1"
+isort = "^5.13.2"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.4"
+pytest-cov = "^6.0.0"
+
+[tool.black]
+line-length = 88
+target-version = ["py38", "py39", "py310"]
+skip-string-normalization = true
+
+[tool.flake8]
+max-line-length = 88
+exclude = ["build/", "dist/"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = "3.8"
+strict = true

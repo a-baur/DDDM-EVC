@@ -1,0 +1,6 @@
+.*venv/
+.idea
+.python-version
+poetry.lock
+dist/
+tmp*/
