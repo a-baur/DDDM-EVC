@@ -1,5 +1,5 @@
 import math
-from typing import Any, List, Union
+from typing import Any, List, Tuple, Union
 
 import torch
 from torch.nn import functional as F
@@ -124,7 +124,9 @@ def intersperse(lst: list, item: Any) -> list:
     return result
 
 
-def kl_divergence(m_p: float, logs_p: float, m_q: float, logs_q: float) -> torch.Tensor:
+def kl_divergence(
+    m_p: torch.Tensor, logs_p: torch.Tensor, m_q: torch.Tensor, logs_q: torch.Tensor
+) -> torch.Tensor:
     """
     Compute KL(P||Q) with P and Q being diagonal Gaussian.
 
@@ -204,14 +206,16 @@ def slice_segments_audio(
 
 def rand_slice_segments(
     x: torch.Tensor, x_lengths: int = None, segment_size: int = 4
-) -> torch.Tensor:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Randomly slice segments from the input tensor along the time dimension.
 
     :param x: Input tensor batch (B, D, T)
     :param x_lengths: Lengths of the input sequences (B,)
     :param segment_size: Size of the segments
-    :return: Randomly sliced segments for each tensor in batch (B, D, segment_size)
+    :return: Tuple of
+        - Randomly sliced segments for each tensor in batch (B, D, segment_size)
+        - Starting indices of the segments (B,)
     """
     b, d, t = x.size()
     if x_lengths is None:
@@ -384,7 +388,7 @@ def clip_grad_value_(
     """
     if isinstance(parameters, torch.Tensor):
         parameters = [parameters]
-    parameters = list(filter(lambda p: p.grad is not None, parameters))
+    parameters = list(filter(lambda param: param.grad is not None, parameters))
     norm_type = float(norm_type)
     if clip_value is not None:
         clip_value = float(clip_value)

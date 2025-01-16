@@ -1,4 +1,5 @@
 import math
+from typing import Tuple
 
 import torch
 from torch import nn
@@ -83,14 +84,14 @@ class MultiHeadAttention(nn.Module):
         key: torch.Tensor,
         value: torch.Tensor,
         mask: torch.Tensor = None,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         # reshape [b, d, t] -> [b, n_h, t, d_k]
         b: int
         d: int
         t_s: int
         t_t: int
 
-        b, d, t_s, t_t = (*key.size(), query.size(2))  # type: ignore
+        b, d, t_s, t_t = (*key.size(), query.size(2))  # type: ignore  # noqa
         query = query.view(b, self.n_heads, self.k_channels, t_t).transpose(2, 3)
         key = key.view(b, self.n_heads, self.k_channels, t_s).transpose(2, 3)
         value = value.view(b, self.n_heads, self.k_channels, t_s).transpose(2, 3)
