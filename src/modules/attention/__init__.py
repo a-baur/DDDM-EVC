@@ -7,7 +7,7 @@ Glow-TTS: https://github.com/jaywalnut310/glow-tts/blob/13e997689d643410f5d9f1f9
 
 Modifications:
 - moved static helper functions outside the class
-"""
+"""  # noqa: E501
 
 from attention import MultiHeadAttention
 

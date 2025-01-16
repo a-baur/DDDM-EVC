@@ -4,9 +4,7 @@ Utility functions for dealing with sqeuential data.
 import torch
 
 
-def sequence_mask(
-        length: torch.Tensor, max_length: int = None
-) -> torch.Tensor:
+def sequence_mask(length: torch.Tensor, max_length: int = None) -> torch.Tensor:
     """
     Create a boolean mask to ignore the padding
     elements in a batch of sequences.
@@ -28,9 +26,7 @@ def sequence_mask(
     return x.unsqueeze(0) < length.unsqueeze(1)
 
 
-def temporal_avg_pool(
-        x: torch.Tensor, mask: torch.Tensor = None
-) -> torch.Tensor:
+def temporal_avg_pool(x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
     """
     Apply average pooling to the sequence data.
 
