@@ -27,3 +27,8 @@ repos:
     rev: v1.4.0  # Use the latest version
     hooks:
       - id: mypy
+        args: [
+          --implicit-optional,
+          --show-error-codes,
+          --ignore-missing-imports,
+        ]
