@@ -1,3 +1,10 @@
+"""
+Speaker encoder module, based on the
+Mel-Style Encoder from Meta-StyleSpeech.
+
+Implementation based on:
+https://github.com/hayeong0/DDDM-VC/blob/7f826a366b2941c7f020de07956bf5161c4979b4/model/styleencoder.py
+"""
 import torch
 from torch import nn
 from torch.nn import functional as F
