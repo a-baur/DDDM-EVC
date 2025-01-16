@@ -135,10 +135,8 @@ class StyleEncoder(nn.Module):
 
         # Transformer mask for self-attention.
         # Masks padding tokens.
-        attn_mask = (
-                mask.unsqueeze(2)
-                * mask.unsqueeze(-1)
-        )  # (B, T, 1) * (B, 1, T) -> (B, T, T)
+        # (B, T, 1) * (B, 1, T) -> (B, T, T)
+        attn_mask = mask.unsqueeze(2) * mask.unsqueeze(-1)
         y = self.slf_attn(x, x, attn_mask=attn_mask)
         x = x + self.atten_drop(y)
 
