@@ -54,7 +54,7 @@ class Conv1dGLU(nn.Module):
         in_channels: int,
         out_channels: int,
         kernel_size: int,
-        dropout: torch.Tensor,
+        dropout: float,
     ) -> None:
         super(Conv1dGLU, self).__init__()
         self.out_channels = out_channels
