@@ -2,6 +2,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from src.util import temporal_avg_pool
+
 
 class Mish(nn.Module):
     """
@@ -128,29 +130,6 @@ class StyleEncoder(torch.nn.Module):
 
         x = self.fc(x)
 
-        w = self.temporal_avg_pool(x, mask=mask)
+        w = temporal_avg_pool(x, mask=mask)
 
         return w
-
-    @staticmethod
-    def temporal_avg_pool(
-            x: torch.Tensor, mask: torch.Tensor = None
-    ) -> torch.Tensor:
-        """
-        Temporal average pooling.
-
-        Use mask so that padding values are
-        not considered in the average pooling.
-
-        :param x: Input tensor (B, C, T).
-        :param mask: Mask padding values (B, T).
-        :return: Output tensor (B, C).
-        """
-        if mask is None:
-            out = torch.mean(x, dim=2)
-        else:
-            len_ = mask.sum(dim=2)
-            x = x.sum(dim=2)
-            out = torch.div(x, len_)
-
-        return out
