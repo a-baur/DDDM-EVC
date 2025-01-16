@@ -9,7 +9,8 @@ HierSpeechpp: https://github.com/sh-lee-prml/HierSpeechpp/blob/main/styleencoder
 Modifications:
 - moved temporal_avg_pool outside the class
 - added type hints and docstrings
-"""
+- renamed to SpeakerEncoder
+"""  # noqa: E501
 
 import torch
 from torch import nn
@@ -30,7 +31,7 @@ class Mish(nn.Module):
     https://arxiv.org/vc/arxiv/papers/1908/1908.08681v1.pdf
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Mish, self).__init__()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -48,7 +49,13 @@ class Conv1dGLU(nn.Module):
     https://arxiv.org/abs/1612.08083
     """
 
-    def __init__(self, in_channels, out_channels, kernel_size, dropout):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dropout: torch.Tensor,
+    ) -> None:
         super(Conv1dGLU, self).__init__()
         self.out_channels = out_channels
         self.conv1 = nn.Conv1d(
@@ -65,7 +72,7 @@ class Conv1dGLU(nn.Module):
         return x
 
 
-class StyleEncoder(nn.Module):
+class SpeakerEncoder(nn.Module):
     """
     Style encoder module.
 
@@ -94,7 +101,9 @@ class StyleEncoder(nn.Module):
     https://arxiv.org/abs/2004.04634
     """
 
-    def __init__(self, in_dim=513, hidden_dim=128, out_dim=256):
+    def __init__(
+        self, in_dim: int = 513, hidden_dim: int = 128, out_dim: int = 256
+    ) -> None:
         super().__init__()
 
         self.in_dim = in_dim
@@ -130,7 +139,7 @@ class StyleEncoder(nn.Module):
         self.atten_drop = nn.Dropout(self.dropout)
         self.fc = nn.Conv1d(self.hidden_dim, self.out_dim, 1)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         x = self.spectral(x) * mask
         x = self.temporal(x) * mask
 
