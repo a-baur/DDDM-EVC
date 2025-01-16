@@ -2,9 +2,14 @@
 Speaker encoder module, based on the
 Mel-Style Encoder from Meta-StyleSpeech.
 
-Implementation based on:
-https://github.com/hayeong0/DDDM-VC/blob/7f826a366b2941c7f020de07956bf5161c4979b4/model/styleencoder.py
+Implementation based on
+https://github.com/sh-lee-prml/HierSpeechpp/blob/main/styleencoder.py
+
+Modifications:
+- moved temporal_avg_pool outside the class
+- added type hints and docstrings
 """
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -59,7 +64,7 @@ class Conv1dGLU(nn.Module):
         return x
 
 
-class StyleEncoder(torch.nn.Module):
+class StyleEncoder(nn.Module):
     """
     Style encoder module.
 
@@ -128,11 +133,12 @@ class StyleEncoder(torch.nn.Module):
         x = self.spectral(x) * mask
         x = self.temporal(x) * mask
 
-        # Transformer mask
+        # Transformer mask for self-attention.
+        # Masks padding tokens.
         attn_mask = (
-                mask.unsqueeze(2)  # add dim (B, T, 1)
-                * mask.unsqueeze(-1)  # add dim (B, T, 1)
-        )  # (B, T, T)
+                mask.unsqueeze(2)
+                * mask.unsqueeze(-1)
+        )  # (B, T, 1) * (B, 1, T) -> (B, T, T)
         y = self.slf_attn(x, x, attn_mask=attn_mask)
         x = x + self.atten_drop(y)
 
