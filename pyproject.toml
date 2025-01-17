@@ -18,6 +18,8 @@ priority = "explicit"
 python = "^3.10"
 torch = { version = "2.5.1+cu124", source = "pytorch" }
 torchaudio = { version = "2.5.1+cu124", source = "pytorch" }
+soundfile = {platform = "win32", version = "^0.13.0"}
+sox = {platform = "linux", version = "^1.5.0"}
 numpy = "^2.2.1"
 
 [tool.poetry.group.lint]
