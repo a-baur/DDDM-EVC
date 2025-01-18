@@ -1,5 +1,13 @@
 from config.schema import Config
+from data.dataloader import get_dataloader
+from data.datasets import load_librispeech
 
 if __name__ == "__main__":
     cfg = Config.from_yaml("config/config.yaml")
-    print(cfg.dataloader.num_workers)
+
+    dataset = load_librispeech(
+        root=cfg.dataset.path, url="dev-clean", folder_in_archive="LibriSpeech"
+    )
+
+    dataloader = get_dataloader(dataset, cfg.training.batch_size, cfg.dataloader)
+    print(next(iter(dataloader)))
