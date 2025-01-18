@@ -33,9 +33,17 @@ class Config:
 
     @classmethod
     def from_yaml(cls, path: str) -> "Config":
-        data = OmegaConf.load(path)
+        """
+        Load a Config object from a YAML file
+        with type validation.
+
+        :param path: Path to the YAML file
+        :return: Config object
+        """
+        cfg = OmegaConf.structured(Config)
+        cfg.merge_with(OmegaConf.load(path))
         return cls(
-            training=TrainingConfig(**data.training),
-            dataset=DatasetConfig(**data.dataset),
-            dataloader=DataLoaderConfig(**data.dataloader),
+            training=TrainingConfig(**cfg.training),
+            dataset=DatasetConfig(**cfg.dataset),
+            dataloader=DataLoaderConfig(**cfg.dataloader),
         )
