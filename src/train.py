@@ -1,5 +1,5 @@
 from config.schema import Config
-from data.dataloader import get_dataloader
+from data.dataloader import AudioDataloader
 from data.datasets import load_librispeech
 
 if __name__ == "__main__":
@@ -9,5 +9,5 @@ if __name__ == "__main__":
         root=cfg.dataset.path, url="dev-clean", folder_in_archive="LibriSpeech"
     )
 
-    dataloader = get_dataloader(dataset, cfg.training.batch_size, cfg.dataloader)
+    dataloader = AudioDataloader(dataset, cfg.training.batch_size, cfg.dataloader)
     print(next(iter(dataloader)))

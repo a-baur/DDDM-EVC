@@ -22,18 +22,20 @@ def collate_fn(batch: list) -> tuple[torch.Tensor, list[int]]:
     return waveforms, sample_rates
 
 
-def get_dataloader(
-    dataset: Dataset,
-    batch_size: int,
-    cfg: DataLoaderConfig,
-) -> DataLoader:
-    sampler = DistributedSampler(dataset) if cfg.distributed else None
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        num_workers=cfg.num_workers,
-        sampler=sampler,
-        drop_last=cfg.drop_last,
-        collate_fn=collate_fn,
-        shuffle=(sampler is None),
-    )
+class AudioDataloader(DataLoader):
+    def __init__(
+        self,
+        dataset: Dataset,
+        batch_size: int,
+        cfg: DataLoaderConfig,
+    ) -> None:
+        sampler = DistributedSampler(dataset) if cfg.distributed else None
+        super().__init__(
+            dataset,
+            batch_size=batch_size,
+            num_workers=cfg.num_workers,
+            sampler=sampler,
+            drop_last=cfg.drop_last,
+            collate_fn=collate_fn,
+            shuffle=(sampler is None),
+        )
