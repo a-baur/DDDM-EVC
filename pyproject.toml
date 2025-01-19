@@ -48,9 +48,7 @@ jupyter = "^1.1.1"
 matplotlib = "^3.10.0"
 
 [tool.pytest.ini_options]
-pythonpath = [
-    "src"
-]
+pythonpath = "src"
 
 [tool.black]
 line-length = 88

@@ -15,8 +15,7 @@ poetry install
 Run the training:
 
 ```bash
-cd src
-poetry run python train.py
+poetry run python src/train.py
 ```
 
 Run tests:
