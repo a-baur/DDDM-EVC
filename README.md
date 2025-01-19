@@ -18,3 +18,9 @@ Run the training:
 cd src
 poetry run python train.py
 ```
+
+Run tests:
+
+```bash
+poetry run pytest
+```
