@@ -1,9 +1,9 @@
-from config.schema import Config
+from config import Config
 from data.dataloader import AudioDataloader
 from data.datasets import load_librispeech
 
 if __name__ == "__main__":
-    cfg = Config.from_yaml("config/config.yaml")
+    cfg = Config.from_yaml("config.yaml")
 
     dataset = load_librispeech(
         root=cfg.dataset.path, url="dev-clean", folder_in_archive="LibriSpeech"

@@ -16,8 +16,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from src.modules import MultiHeadAttention
-from src.util import temporal_avg_pool
+from modules import MultiHeadAttention
+from util import temporal_avg_pool
 
 
 class Mish(nn.Module):

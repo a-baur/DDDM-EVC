@@ -5,7 +5,7 @@ training:
 
 dataset:
   name: "LibriSpeech"
-  path: "D:/DDDM-EVC/data/datasets"
+  path: "../datasets"
 
 dataloader:
   num_workers: 4

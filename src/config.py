@@ -1,7 +1,11 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from omegaconf import MISSING, OmegaConf
+
+# Path to the config directory
+CONFIG_PATH = Path(__file__).parent.parent / "config"
 
 
 @dataclass
@@ -32,16 +36,16 @@ class Config:
     dataloader: DataLoaderConfig
 
     @classmethod
-    def from_yaml(cls, path: str) -> "Config":
+    def from_yaml(cls, name: str) -> "Config":
         """
         Load a Config object from a YAML file
         with type validation.
 
-        :param path: Path to the YAML file
+        :param name: Name of the YAML file
         :return: Config object
         """
         cfg = OmegaConf.structured(Config)
-        cfg.merge_with(OmegaConf.load(path))
+        cfg.merge_with(OmegaConf.load(CONFIG_PATH / name))
         return cls(
             training=TrainingConfig(**cfg.training),
             dataset=DatasetConfig(**cfg.dataset),

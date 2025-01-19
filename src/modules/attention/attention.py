@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-import src.modules.attention.util as util
+import modules.attention.util as util
 
 
 class MultiHeadAttention(nn.Module):
