@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 
-from config.schema import DataLoaderConfig
+from config import DataLoaderConfig
 
 
 def collate_fn(batch: list) -> tuple[torch.Tensor, list[int]]:

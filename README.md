@@ -11,3 +11,10 @@ Install dependencies:
 pip install poetry
 poetry install
 ```
+
+Run the training:
+
+```bash
+cd src
+poetry run python train.py
+```
