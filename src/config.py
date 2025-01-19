@@ -30,10 +30,23 @@ class DataLoaderConfig:
 
 
 @dataclass
+class SpeakerEncoderConfig:
+    in_dim: int
+    hidden_dim: int
+    out_dim: int
+
+
+@dataclass
+class ModelsConfig:
+    speaker_encoder: SpeakerEncoderConfig
+
+
+@dataclass
 class Config:
     training: TrainingConfig
     dataset: DatasetConfig
     dataloader: DataLoaderConfig
+    models: ModelsConfig
 
     @classmethod
     def from_yaml(cls, name: str) -> "Config":
@@ -50,4 +63,5 @@ class Config:
             training=TrainingConfig(**cfg.training),
             dataset=DatasetConfig(**cfg.dataset),
             dataloader=DataLoaderConfig(**cfg.dataloader),
+            models=ModelsConfig(**cfg.models),
         )

@@ -9,7 +9,7 @@ Modifications:
 - moved static helper functions outside the class
 """  # noqa: E501
 
-from attention import MultiHeadAttention
+from .attention import MultiHeadAttention
 
 __all__ = [
     "MultiHeadAttention",

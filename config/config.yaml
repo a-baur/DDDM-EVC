@@ -7,6 +7,12 @@ dataset:
   name: "LibriSpeech"
   path: "../datasets"
 
+models:
+  speaker_encoder:
+    in_dim: 80
+    hidden_dim: 256
+    out_dim: 256
+
 dataloader:
   num_workers: 4
   distributed: False

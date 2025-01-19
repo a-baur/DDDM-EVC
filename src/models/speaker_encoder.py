@@ -16,6 +16,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from config import SpeakerEncoderConfig
 from modules import MultiHeadAttention
 from util import temporal_avg_pool
 
@@ -101,14 +102,12 @@ class SpeakerEncoder(nn.Module):
     https://arxiv.org/abs/2004.04634
     """
 
-    def __init__(
-        self, in_dim: int = 513, hidden_dim: int = 128, out_dim: int = 256
-    ) -> None:
+    def __init__(self, cfg: SpeakerEncoderConfig) -> None:
         super().__init__()
 
-        self.in_dim = in_dim
-        self.hidden_dim = hidden_dim
-        self.out_dim = out_dim
+        self.in_dim = cfg.in_dim
+        self.hidden_dim = cfg.hidden_dim
+        self.out_dim = cfg.out_dim
         self.kernel_size = 5
         self.n_head = 2
         self.dropout = 0.1

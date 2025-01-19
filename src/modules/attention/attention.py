@@ -67,7 +67,7 @@ class MultiHeadAttention(nn.Module):
                 self.conv_k.bias.copy_(self.conv_q.bias)
 
     def forward(
-        self, x: torch.Tensor, c: torch.Tensoir, attn_mask: torch.Tensor = None
+        self, x: torch.Tensor, c: torch.Tensor, attn_mask: torch.Tensor = None
     ) -> torch.Tensor:
         q = self.conv_q(x)
         k = self.conv_k(c)
