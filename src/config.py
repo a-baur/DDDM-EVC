@@ -30,6 +30,24 @@ class DataLoaderConfig:
 
 
 @dataclass
+class MelTransformConfig:
+    sample_rate: int
+    filter_length: int
+    win_length: int
+    hop_length: int
+    n_mel_channels: int
+    f_min: int
+    f_max: int
+
+
+@dataclass
+class DataConfig:
+    dataset: DatasetConfig
+    dataloader: DataLoaderConfig
+    mel_transform: MelTransformConfig
+
+
+@dataclass
 class SpeakerEncoderConfig:
     in_dim: int
     hidden_dim: int
@@ -44,8 +62,7 @@ class ModelsConfig:
 @dataclass
 class Config:
     training: TrainingConfig
-    dataset: DatasetConfig
-    dataloader: DataLoaderConfig
+    data: DataConfig
     models: ModelsConfig
 
     @classmethod
@@ -61,7 +78,6 @@ class Config:
         cfg.merge_with(OmegaConf.load(CONFIG_PATH / name))
         return cls(
             training=TrainingConfig(**cfg.training),
-            dataset=DatasetConfig(**cfg.dataset),
-            dataloader=DataLoaderConfig(**cfg.dataloader),
+            data=DataConfig(**cfg.data),
             models=ModelsConfig(**cfg.models),
         )
