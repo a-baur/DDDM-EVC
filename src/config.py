@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from omegaconf import MISSING, OmegaConf
+from omegaconf import OmegaConf
 
 # Path to the config directory
 CONFIG_PATH = Path(__file__).parent.parent / "config"
@@ -10,15 +10,16 @@ CONFIG_PATH = Path(__file__).parent.parent / "config"
 
 @dataclass
 class TrainingConfig:
-    batch_size: int = 32
-    learning_rate: float = 0.001
-    epochs: int = 10
+    batch_size: int
+    learning_rate: float
+    epochs: int
+    segment_size: int
 
 
 @dataclass
 class DatasetConfig:
-    name: str = "LibriSpeech"
-    path: str = MISSING
+    name: str
+    path: str
 
 
 @dataclass
@@ -26,7 +27,7 @@ class DataLoaderConfig:
     num_workers: int
     distributed: bool
     pin_memory: bool
-    drop_last: Optional[bool] = False
+    drop_last: Optional[bool]
 
 
 @dataclass

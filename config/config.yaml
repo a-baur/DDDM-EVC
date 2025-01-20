@@ -2,6 +2,7 @@ training:
   batch_size: 32
   learning_rate: 0.001
   epochs: 10
+  segment_size: 35840
 
 models:
   speaker_encoder:

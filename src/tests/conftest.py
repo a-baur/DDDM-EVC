@@ -1,8 +1,7 @@
 import pytest
 
 from config import Config
-from data.dataloader import AudioDataloader
-from data.datasets import load_librispeech
+from data import AudioDataloader, AudioDataset, load_librispeech
 
 CONFIG_NAME = "config.yaml"
 
@@ -14,8 +13,9 @@ def config() -> Config:
 
 @pytest.fixture()  # type: ignore
 def dataloader(config: Config) -> AudioDataloader:
-    dataset = load_librispeech(
-        root=config.dataset.path, url="dev-clean", folder_in_archive="LibriSpeech"
+    librispeech = load_librispeech(
+        root=config.data.dataset.path, url="dev-clean", folder_in_archive="LibriSpeech"
     )
-    dataloader = AudioDataloader(dataset, config.training.batch_size, config.dataloader)
+    dataset = AudioDataset(cfg=config, dataset=librispeech)
+    dataloader = AudioDataloader(dataset, config)
     return dataloader
