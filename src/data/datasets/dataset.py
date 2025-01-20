@@ -19,13 +19,13 @@ class AudioDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        sample = self.dataset[index]
-        sample_len = sample[0].size(1)
+        sample = self.dataset[index][0].squeeze(0)
+        sample_len = sample.size()[-1]
 
         # Pad waveforms to the same length
         padding_length = self.segment_size - sample_len
         padded_waveform = torch.nn.functional.pad(
-            sample[0], (0, padding_length), mode="constant"
+            sample, (0, padding_length), mode="constant"
         ).data
 
         # Create length tensor
