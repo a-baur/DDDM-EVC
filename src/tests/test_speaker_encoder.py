@@ -2,16 +2,11 @@ import torch
 
 import util
 from config import Config
-from data import AudioDataloader, AudioDataset, MelSpectrogramFixed, load_librispeech
+from data import AudioDataloader, MelSpectrogramFixed
 from models import SpeakerEncoder
 
 
 def test_speaker_encoder(config: Config, dataloader: AudioDataloader) -> None:
-    librispeech = load_librispeech(
-        root=config.data.dataset.path, url="dev-clean", folder_in_archive="LibriSpeech"
-    )
-    dataset = AudioDataset(dataset=librispeech, cfg=config)
-    dataloader = AudioDataloader(dataset=dataset, cfg=config)
     speaker_encoder = SpeakerEncoder(config.models.speaker_encoder)
     mel_transform = MelSpectrogramFixed(config.data.mel_transform)
 
@@ -21,8 +16,9 @@ def test_speaker_encoder(config: Config, dataloader: AudioDataloader) -> None:
     length: torch.Tensor
     x, length = batch
 
-    x_mel = mel_transform(x)
-    mask = util.sequence_mask(length, x_mel.size(2)).to(x_mel.dtype)
+    x_mel = mel_transform(x)  # B x C x T
+    mask = util.sequence_mask(length, x_mel.size(2)).to(x_mel.dtype)  # B x T
+    mask = mask.unsqueeze(1)  # B x 1 x T
 
     output = speaker_encoder(x_mel, mask)
     assert output.shape[0] == config.training.batch_size

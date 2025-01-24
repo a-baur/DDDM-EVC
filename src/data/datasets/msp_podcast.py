@@ -38,12 +38,12 @@ class MSPPodcast(torch.utils.data.Dataset):
         self.split = split
         self.fnames, self.lengths = self._load_manifest(split)
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, float]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
         """
         Get a sample from the dataset.
 
         :param index: Index of the sample
-        :return: Tuple of audio and length. Audio is a tensor of shape (segment_size,).
+        :return: Tuple of audio and length of the audio without padding
         """
         fname = self.fnames[index]
         length = self.lengths[index]
@@ -53,10 +53,12 @@ class MSPPodcast(torch.utils.data.Dataset):
         audio_size = audio.size(0)
         if audio_size > self.segment_size:
             audio = self._get_random_segment(audio, length)
+            segment_size = self.segment_size
         else:
             audio = self._get_padded_segment(audio, length)
+            segment_size = audio_size
 
-        return audio, length
+        return audio, segment_size
 
     def __len__(self) -> int:
         return len(self.fnames)

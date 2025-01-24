@@ -1,17 +1,15 @@
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torchaudio.transforms import MelSpectrogram
 
 from config import Config, MelTransformConfig
 
-from .datasets import AudioDataset
-
 
 class AudioDataloader(DataLoader):
     def __init__(
         self,
-        dataset: AudioDataset,
+        dataset: Dataset,
         cfg: Config,
     ) -> None:
         if cfg.data.dataloader.distributed:

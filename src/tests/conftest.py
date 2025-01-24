@@ -1,7 +1,7 @@
 import pytest
 
 from config import Config
-from data import AudioDataloader, AudioDataset, load_librispeech
+from data import AudioDataloader, MSPPodcast
 
 CONFIG_NAME = "config.yaml"
 
@@ -13,9 +13,6 @@ def config() -> Config:
 
 @pytest.fixture()  # type: ignore
 def dataloader(config: Config) -> AudioDataloader:
-    librispeech = load_librispeech(
-        root=config.data.dataset.path, url="dev-clean", folder_in_archive="LibriSpeech"
-    )
-    dataset = AudioDataset(cfg=config, dataset=librispeech)
-    dataloader = AudioDataloader(dataset, config)
+    dataset = MSPPodcast(config.data.dataset, split="development")
+    dataloader = AudioDataloader(dataset=dataset, cfg=config)
     return dataloader
