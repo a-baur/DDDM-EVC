@@ -12,8 +12,11 @@ models:
 
 data:
   dataset:
-    name: "LibriSpeech"
-    path: "./datasets"
+    name: "MSP-Podcast"
+    path: "../datasets/msp-podcast"
+    sampling_rate: 16000
+    segment_size: 35840
+    segment_seed: 10
   dataloader:
     num_workers: 4
     distributed: False

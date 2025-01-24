@@ -20,6 +20,9 @@ class TrainingConfig:
 class DatasetConfig:
     name: str
     path: str
+    sampling_rate: int
+    segment_size: int
+    segment_seed: int
 
 
 @dataclass
