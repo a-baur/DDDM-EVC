@@ -142,9 +142,9 @@ class SpeakerEncoder(nn.Module):
         x = self.spectral(x) * mask
         x = self.temporal(x) * mask
 
-        # Transformer mask for self-attention.
-        # Masks padding tokens.
-        # (B, T, 1) * (B, 1, T) -> (B, T, T)
+        # Self-attention mask to prevent
+        # attending to padding tokens.
+        # (B, 1, 1, T) * (B, 1, T, 1) -> (B, 1, T, T)
         attn_mask = mask.unsqueeze(2) * mask.unsqueeze(-1)
         y = self.slf_attn(x, x, attn_mask=attn_mask)
         x = x + self.atten_drop(y)

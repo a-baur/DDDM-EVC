@@ -2,10 +2,7 @@ training:
   batch_size: 32
   learning_rate: 0.001
   epochs: 10
-
-dataset:
-  name: "LibriSpeech"
-  path: "../datasets"
+  segment_size: 35840
 
 models:
   speaker_encoder:
@@ -13,8 +10,20 @@ models:
     hidden_dim: 256
     out_dim: 256
 
-dataloader:
-  num_workers: 4
-  distributed: False
-  pin_memory: True
-  drop_last: False
+data:
+  dataset:
+    name: "LibriSpeech"
+    path: "./datasets"
+  dataloader:
+    num_workers: 4
+    distributed: False
+    pin_memory: True
+    drop_last: False
+  mel_transform:
+    sample_rate: 16000
+    filter_length: 1280
+    win_length: 1280
+    hop_length: 320
+    n_mel_channels: 80
+    f_min: 0
+    f_max: 8000

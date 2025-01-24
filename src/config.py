@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from omegaconf import MISSING, OmegaConf
+from omegaconf import OmegaConf
 
 # Path to the config directory
 CONFIG_PATH = Path(__file__).parent.parent / "config"
@@ -10,15 +10,16 @@ CONFIG_PATH = Path(__file__).parent.parent / "config"
 
 @dataclass
 class TrainingConfig:
-    batch_size: int = 32
-    learning_rate: float = 0.001
-    epochs: int = 10
+    batch_size: int
+    learning_rate: float
+    epochs: int
+    segment_size: int
 
 
 @dataclass
 class DatasetConfig:
-    name: str = "LibriSpeech"
-    path: str = MISSING
+    name: str
+    path: str
 
 
 @dataclass
@@ -26,7 +27,25 @@ class DataLoaderConfig:
     num_workers: int
     distributed: bool
     pin_memory: bool
-    drop_last: Optional[bool] = False
+    drop_last: Optional[bool]
+
+
+@dataclass
+class MelTransformConfig:
+    sample_rate: int
+    filter_length: int
+    win_length: int
+    hop_length: int
+    n_mel_channels: int
+    f_min: int
+    f_max: int
+
+
+@dataclass
+class DataConfig:
+    dataset: DatasetConfig
+    dataloader: DataLoaderConfig
+    mel_transform: MelTransformConfig
 
 
 @dataclass
@@ -44,8 +63,7 @@ class ModelsConfig:
 @dataclass
 class Config:
     training: TrainingConfig
-    dataset: DatasetConfig
-    dataloader: DataLoaderConfig
+    data: DataConfig
     models: ModelsConfig
 
     @classmethod
@@ -61,7 +79,6 @@ class Config:
         cfg.merge_with(OmegaConf.load(CONFIG_PATH / name))
         return cls(
             training=TrainingConfig(**cfg.training),
-            dataset=DatasetConfig(**cfg.dataset),
-            dataloader=DataLoaderConfig(**cfg.dataloader),
+            data=DataConfig(**cfg.data),
             models=ModelsConfig(**cfg.models),
         )
