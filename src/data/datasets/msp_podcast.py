@@ -1,9 +1,9 @@
+from pathlib import Path
 from typing import Literal
 
 import torch
 import torchaudio
 
-from pathlib import Path
 from config import DatasetConfig
 
 
@@ -31,7 +31,9 @@ class MSPPodcast(torch.utils.data.Dataset):
     ) -> None:
         self.path = Path(cfg.path)
         self.name = cfg.name
-        self.seed = cfg.segment_seed
+        self.sampling_rate = cfg.sampling_rate
+        self.segment_size = cfg.segment_size
+        self.segment_seed = cfg.segment_seed
 
         self.split = split
         self.fnames, self.lengths = self._load_manifest(split)
@@ -41,11 +43,19 @@ class MSPPodcast(torch.utils.data.Dataset):
         Get a sample from the dataset.
 
         :param index: Index of the sample
-        :return: Tuple of audio and length
+        :return: Tuple of audio and length. Audio is a tensor of shape (segment_size,).
         """
         fname = self.fnames[index]
         length = self.lengths[index]
         audio, _ = torchaudio.load(self.path / "Audio" / fname)
+        audio = audio.squeeze(0)  # Remove channel dimension (mono audio)
+
+        audio_size = audio.size(0)
+        if audio_size > self.segment_size:
+            audio = self._get_random_segment(audio, length)
+        else:
+            audio = self._get_padded_segment(audio, length)
+
         return audio, length
 
     def __len__(self) -> int:
@@ -67,3 +77,34 @@ class MSPPodcast(torch.utils.data.Dataset):
         fnames = [t[0] for t in unpacked_tuples]
         lengths = [float(t[1]) for t in unpacked_tuples]
         return fnames, lengths
+
+    def _get_padded_segment(self, audio: torch.Tensor, length: float) -> torch.Tensor:
+        """
+        Pad the audio segment if it is shorter than the segment size.
+
+        :param audio: Audio tensor
+        :param length: Length of the audio
+        :return: Padded audio tensor
+        """
+        return torch.nn.functional.pad(
+            audio,
+            (0, self.segment_size - audio.size(0)),
+            mode="constant",
+            value=0,
+        )
+
+    def _get_random_segment(self, audio: torch.Tensor, length: float) -> torch.Tensor:
+        """
+        Randomly segment the audio.
+
+        :param audio: Audio tensor
+        :param length: Length of the audio
+        :return: Segmented audio tensor
+        """
+        start = torch.randint(
+            low=0,
+            high=audio.size(0) - self.segment_size,
+            size=(1,),
+        ).item()
+        audio = audio[start : start + self.segment_size]  # noqa
+        return audio
