@@ -8,6 +8,10 @@ from models import SpeakerEncoder
 
 def test_speaker_encoder(config: Config, dataloader: AudioDataloader) -> None:
     speaker_encoder = SpeakerEncoder(config.models.speaker_encoder)
+    speaker_encoder.load_state_dict(
+        torch.load("../ckpt/speaker_encoder.pth", map_location="cpu", weights_only=True)
+    )
+
     mel_transform = MelSpectrogramFixed(config.data.mel_transform)
 
     batch = next(iter(dataloader))
