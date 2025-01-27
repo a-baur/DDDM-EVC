@@ -1,7 +1,7 @@
 # Adapted from https://github.com/openai/jukebox
 
 import numpy as np
-import torch as t
+import torch as torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -9,99 +9,147 @@ import modules.vqvae.dist as dist
 
 
 class BottleneckBlock(nn.Module):
-    def __init__(self, k_bins, emb_width, mu):
+    def __init__(self, k_bins: int, emb_width: int, mu: float) -> None:
         super().__init__()
         self.k_bins = k_bins
         self.emb_width = emb_width
         self.mu = mu
-        self.reset_k()
-        self.threshold = 1.0
 
-    def reset_k(self):
         self.init = False
+        self.k = None
         self.k_sum = None
         self.k_elem = None
-        self.register_buffer('k', t.zeros(self.k_bins, self.emb_width).cuda())
+        self.register_k_buffer()
 
-    def _tile(self, x):
+        self.threshold = 1.0
+
+    def register_k_buffer(self) -> None:
+        """
+        Register k buffer. k represents the discrete latent space.
+        :return:
+        """
+        self.register_buffer('k', torch.zeros(self.k_bins, self.emb_width).cuda())
+
+    def _tile(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Tile x to have at least k_bins rows.
+
+        :param x: Input tensor of shape (dim, embedding_width)
+        :return: Tiled tensor of shape (k_bins, embedding_width)
+        """
         d, ew = x.shape
         if d < self.k_bins:
             n_repeats = (self.k_bins + d - 1) // d
             std = 0.01 / np.sqrt(ew)
             x = x.repeat(n_repeats, 1)
-            x = x + t.randn_like(x) * std
+            x = x + torch.randn_like(x) * std
         return x
 
-    def init_k(self, x):
-        mu, emb_width, k_bins = self.mu, self.emb_width, self.k_bins
+    def init_k(self, x: torch.Tensor) -> None:
+        """
+        Initialize k using random vectors from x.
+
+        :param x: Input tensor of shape (dim, embedding_width)
+        :return: None
+        """
         self.init = True
-        # init k_w using random vectors from x
-        y = self._tile(x)
-        _k_rand = y[t.randperm(y.shape[0])][:k_bins]
-        dist.broadcast(_k_rand, 0)
-        self.k = _k_rand
+        mu, emb_width, k_bins = self.mu, self.emb_width, self.k_bins
         assert self.k.shape == (k_bins, emb_width)
+
+        y = self._tile(x)
+        _k_rand = y[torch.randperm(y.shape[0])][:k_bins]
+        dist.broadcast(_k_rand, 0)
+
+        self.k = _k_rand
         self.k_sum = self.k
-        self.k_elem = t.ones(k_bins, device=self.k.device)
+        self.k_elem = torch.ones(k_bins, device=self.k.device)
 
     def restore_k(self, num_tokens=None, threshold=1.0):
-        mu, emb_width, k_bins = self.mu, self.emb_width, self.k_bins
+        """
+        Restore k using random vectors from x.
+        The number of tokens is used to calculate
+        the expected usage of each bin.
+        The threshold is used to determine if a bin is used.
+
+        :param num_tokens: Number of tokens
+        :param threshold: Threshold
+        :return:
+        """
         self.init = True
+        mu, emb_width, k_bins = self.mu, self.emb_width, self.k_bins
         assert self.k.shape == (k_bins, emb_width)
+
         self.k_sum = self.k.clone()
-        self.k_elem = t.ones(k_bins, device=self.k.device)
+        self.k_elem = torch.ones(k_bins, device=self.k.device)
+
         if num_tokens is not None:
             expected_usage = num_tokens / k_bins
             self.k_elem.data.mul_(expected_usage)
             self.k_sum.data.mul_(expected_usage)
+
         self.threshold = threshold
 
+    @torch.no_grad()
     def update_k(self, x, x_l):
+        """
+        Update k using x and x_l.
+
+        :param x: Input tensor of shape (dim, embedding_width)
+        :param x_l: Latent code tensor of shape (dim)
+        :return: Dictionary of metrics
+        """
         mu, emb_width, k_bins = self.mu, self.emb_width, self.k_bins
-        with t.no_grad():
-            # Calculate new centres
-            x_l_onehot = t.zeros(k_bins, x.shape[0], device=x.device)  # k_bins, N * L
-            x_l_onehot.scatter_(0, x_l.view(1, x.shape[0]), 1)
 
-            _k_sum = t.matmul(x_l_onehot, x)  # k_bins, w
-            _k_elem = x_l_onehot.sum(dim=-1)  # k_bins
-            y = self._tile(x)
-            _k_rand = y[t.randperm(y.shape[0])][:k_bins]
+        # Calculate new centres
+        x_l_onehot = torch.zeros(k_bins, x.shape[0], device=x.device)  # k_bins, N * L
+        x_l_onehot.scatter_(0, x_l.view(1, x.shape[0]), 1)
 
-            dist.broadcast(_k_rand, 0)
-            dist.all_reduce(_k_sum)
-            dist.all_reduce(_k_elem)
+        _k_sum = torch.matmul(x_l_onehot, x)  # k_bins, w
+        _k_elem = x_l_onehot.sum(dim=-1)  # k_bins
+        y = self._tile(x)
+        _k_rand = y[torch.randperm(y.shape[0])][:k_bins]
 
-            # Update centres
-            old_k = self.k
-            self.k_sum = mu * self.k_sum + (1.0 - mu) * _k_sum  # w, k_bins
-            self.k_elem = mu * self.k_elem + (1.0 - mu) * _k_elem  # k_bins
-            usage = (self.k_elem.view(k_bins, 1) >= self.threshold).float()
-            self.k = (
-                usage
-                * (self.k_sum.view(k_bins, emb_width) / self.k_elem.view(k_bins, 1))
-                + (1 - usage) * _k_rand
-            )
-            _k_prob = _k_elem / t.sum(
-                _k_elem
-            )  # x_l_onehot.mean(dim=-1)  # prob of each bin
-            entropy = -t.sum(_k_prob * t.log(_k_prob + 1e-8))  # entropy ie how diverse
-            used_curr = (_k_elem >= self.threshold).sum()
-            usage = t.sum(usage)
-            dk = t.norm(self.k - old_k) / np.sqrt(np.prod(old_k.shape))
+        dist.broadcast(_k_rand, 0)
+        dist.all_reduce(_k_sum)
+        dist.all_reduce(_k_elem)
+
+        # Update centres
+        old_k = self.k
+        self.k_sum = mu * self.k_sum + (1.0 - mu) * _k_sum  # w, k_bins
+        self.k_elem = mu * self.k_elem + (1.0 - mu) * _k_elem  # k_bins
+        usage = (self.k_elem.view(k_bins, 1) >= self.threshold).float()
+        self.k = (
+            usage * (self.k_sum.view(k_bins, emb_width) / self.k_elem.view(k_bins, 1))
+            + (1 - usage) * _k_rand
+        )
+        _k_prob = _k_elem / torch.sum(
+            _k_elem
+        )  # x_l_onehot.mean(dim=-1)  # prob of each bin
+        entropy = -torch.sum(
+            _k_prob * torch.log(_k_prob + 1e-8)
+        )  # entropy ie how diverse
+        used_curr = (_k_elem >= self.threshold).sum()
+        usage = torch.sum(usage)
+        dk = torch.norm(self.k - old_k) / np.sqrt(np.prod(old_k.shape))
         return dict(entropy=entropy, used_curr=used_curr, usage=usage, dk=dk)
 
-    def preprocess(self, x):
+    def preprocess(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Preprocess x.
+
+        :param x: Input tensor of shape (dim, embedding_width)
+        :return: Tuple of preprocessed tensor and prenorm
+        """
         # NCT -> NTC -> [NT, C]
         x = x.permute(0, 2, 1).contiguous()
         x = x.view(-1, x.shape[-1])  # x_en = (N * L, w), k_j = (w, k_bins)
 
         if x.shape[-1] == self.emb_width:
-            prenorm = t.norm(x - t.mean(x)) / np.sqrt(np.prod(x.shape))
+            prenorm = torch.norm(x - torch.mean(x)) / np.sqrt(np.prod(x.shape))
         elif x.shape[-1] == 2 * self.emb_width:
             x1, x2 = x[..., : self.emb_width], x[..., self.emb_width :]
-            prenorm = (t.norm(x1 - t.mean(x1)) / np.sqrt(np.prod(x1.shape))) + (
-                t.norm(x2 - t.mean(x2)) / np.sqrt(np.prod(x2.shape))
+            prenorm = (torch.norm(x1 - torch.mean(x1)) / np.sqrt(np.prod(x1.shape))) + (
+                torch.norm(x2 - torch.mean(x2)) / np.sqrt(np.prod(x2.shape))
             )
 
             # Normalise
@@ -110,26 +158,51 @@ class BottleneckBlock(nn.Module):
             assert False, f"Expected {x.shape[-1]} to be (1 or 2) * {self.emb_width}"
         return x, prenorm
 
-    def postprocess(self, x_l, x_d, x_shape):
+    def postprocess(
+        self, x_l: torch.Tensor, x_d: torch.Tensor, x_shape: tuple[int, int]
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Postprocess x_l and x_d.
+
+        :param x_l: Latent code tensor of shape (dim)
+        :param x_d: Decoded tensor of shape (dim, embedding_width)
+        :param x_shape: Shape of x
+        :return: Tuple of postprocessed latent code and decoded tensor
+        """
         # [NT, C] -> NTC -> NCT
         N, T = x_shape
         x_d = x_d.view(N, T, -1).permute(0, 2, 1).contiguous()
         x_l = x_l.view(N, T)
         return x_l, x_d
 
-    def quantise(self, x):
+    def quantise(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Quantise x by computing the latent code x_l.
+        x_l is the index of the closest embedding in k.
+        Fit is the mean squared distance between x and the closest embedding.
+
+        :param x: Input tensor of shape (dim, embedding_width)
+        :return: Tuple of latent code and fit
+        """
         # Calculate latent code x_l
-        k_w = self.k.t()
+        k_w = self.k.torch()
         distance = (
-            t.sum(x**2, dim=-1, keepdim=True)
-            - 2 * t.matmul(x, k_w)
-            + t.sum(k_w**2, dim=0, keepdim=True)
+            torch.sum(x**2, dim=-1, keepdim=True)
+            - 2 * torch.matmul(x, k_w)
+            + torch.sum(k_w**2, dim=0, keepdim=True)
         )  # (N * L, b)
-        min_distance, x_l = t.min(distance, dim=-1)
-        fit = t.mean(min_distance)
+        min_distance, x_l = torch.min(distance, dim=-1)
+        fit = torch.mean(min_distance)
         return x_l, fit
 
-    def dequantise(self, x_l):
+    def dequantise(self, x_l: torch.Tensor) -> torch.Tensor:
+        """
+        Dequantise x_l by computing the decoded tensor x_d
+        as the closest embedding in k.
+
+        :param x_l: Latent code tensor of shape (dim)
+        :return: Decoded tensor of shape (dim, embedding_width)
+        """
         x = F.embedding(x_l, self.k)
         return x
 
@@ -178,7 +251,7 @@ class BottleneckBlock(nn.Module):
             update_metrics = {}
 
         # Loss
-        commit_loss = t.norm(x_d.detach() - x) ** 2 / np.prod(x.shape)
+        commit_loss = torch.norm(x_d.detach() - x) ** 2 / np.prod(x.shape)
 
         # Passthrough
         x_d = x + (x_d - x).detach()
@@ -226,34 +299,3 @@ class Bottleneck(nn.Module):
             if self.training:
                 metrics.append(metric)
         return zs, xs_quantised, commit_losses, metrics
-
-
-class NoBottleneckBlock(nn.Module):
-    def restore_k(self):
-        pass
-
-
-class NoBottleneck(nn.Module):
-    def __init__(self, levels):
-        super().__init__()
-        self.level_blocks = nn.ModuleList()
-        self.levels = levels
-        for level in range(levels):
-            self.level_blocks.append(NoBottleneckBlock())
-
-    def encode(self, xs):
-        return xs
-
-    def decode(self, zs, start_level=0, end_level=None):
-        if end_level is None:
-            end_level = self.levels
-        return zs
-
-    def forward(self, xs):
-        zero = t.zeros(()).cuda()
-        commit_losses = [zero for _ in range(self.levels)]
-        metrics = [
-            dict(entropy=zero, usage=zero, used_curr=zero, pn=zero, dk=zero)
-            for _ in range(self.levels)
-        ]
-        return xs, xs, commit_losses, metrics
