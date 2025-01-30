@@ -11,6 +11,7 @@ class AudioDataloader(DataLoader):
         self,
         dataset: Dataset,
         cfg: Config,
+        **kwargs,
     ) -> None:
         if cfg.data.dataloader.distributed:
             sampler = DistributedSampler(dataset)
@@ -22,8 +23,10 @@ class AudioDataloader(DataLoader):
             batch_size=cfg.training.batch_size,
             num_workers=cfg.data.dataloader.num_workers,
             sampler=sampler,
+            pin_memory=cfg.data.dataloader.pin_memory,
             drop_last=cfg.data.dataloader.drop_last,
             shuffle=(sampler is None),
+            **kwargs,
         )
 
 

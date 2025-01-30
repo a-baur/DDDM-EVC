@@ -22,6 +22,7 @@ hydra-core = "1.3.2"
 soundfile = {platform = "win32", version = "^0.13.0"}
 sox = {platform = "linux", version = "^1.5.0"}
 numpy = "2.2.1"
+AMFM-decompy = "1.0.11"
 
 [tool.poetry.group.lint]
 optional = true

@@ -59,8 +59,47 @@ class SpeakerEncoderConfig:
 
 
 @dataclass
+class Resnet1DConfig:
+    depth: int
+    m_conv: float
+    dilation_growth_rate: int = 1
+    dilation_cycle: Optional[int] = None
+    reverse_dialation: bool = False
+    zero_out: bool = False
+    res_scale: bool = False
+    checkpoint_res: bool = False
+
+
+@dataclass
+class F0VAEConfig:
+    in_dim: int
+    out_dim: int
+    hidden_dim: int
+    levels: int
+    downs_t: list[int]
+    strides_t: list[int]
+    resnet1d: Resnet1DConfig
+
+
+@dataclass
+class F0VQConfig:
+    k_bins: int
+    emb_dim: int
+    levels: int
+    mu: float
+
+
+@dataclass
+class PitchEncoderConfig:
+    f0_encoder: F0VAEConfig
+    vq: F0VQConfig
+    f0_decoder: F0VAEConfig
+
+
+@dataclass
 class ModelsConfig:
     speaker_encoder: SpeakerEncoderConfig
+    pitch_encoder: PitchEncoderConfig
 
 
 @dataclass

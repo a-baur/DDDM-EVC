@@ -5,6 +5,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from config import F0VAEConfig, Resnet1DConfig
+
 from .resnet import Resnet1D
 
 
@@ -31,12 +33,7 @@ class EncoderConvBlock(nn.Module):
         down_t: int | tuple[int] | list[int],
         stride_t: int | tuple[int] | list[int],
         width: int,
-        depth: int,
-        m_conv: float,
-        dilation_growth_rate: int = 1,
-        dilation_cycle: Any = None,
-        zero_out: bool = False,
-        res_scale: bool = False,
+        resnet1d: Resnet1DConfig,
     ) -> None:
         super().__init__()
         blocks = []
@@ -45,17 +42,17 @@ class EncoderConvBlock(nn.Module):
             stride_t, down_t = [stride_t], [down_t]
 
         for k, (s_t, d_t) in enumerate(zip(stride_t, down_t)):
-            first_block = k == 0
-
-            filter_t, pad_t = _get_filter_pad(s_t)
-
             if d_t == 0:
                 continue
 
+            filter_t, pad_t = _get_filter_pad(s_t)
+            first_block = k == 0
+
             for i in range(d_t):
+                first_dilation = i == 0
                 block = nn.Sequential(
                     nn.Conv1d(
-                        input_emb_width if i == 0 and first_block else width,
+                        input_emb_width if first_dilation and first_block else width,
                         width,
                         filter_t,
                         s_t,
@@ -63,12 +60,12 @@ class EncoderConvBlock(nn.Module):
                     ),
                     Resnet1D(
                         width,
-                        depth,
-                        m_conv,
-                        dilation_growth_rate,
-                        dilation_cycle,
-                        zero_out,
-                        res_scale,
+                        resnet1d.depth,
+                        resnet1d.m_conv,
+                        resnet1d.dilation_growth_rate,
+                        resnet1d.dilation_cycle,
+                        resnet1d.zero_out,
+                        resnet1d.res_scale,
                     ),
                 )
                 blocks.append(block)
@@ -89,14 +86,7 @@ class DecoderConvBock(nn.Module):
         down_t: int | tuple[int] | list[int],
         stride_t: int | tuple[int] | list[int],
         width: int,
-        depth: int,
-        m_conv: float,
-        dilation_growth_rate: int = 1,
-        dilation_cycle: Any = None,
-        zero_out: bool = False,
-        res_scale: bool = False,
-        reverse_decoder_dilation: bool = False,
-        checkpoint_res: bool = False,
+        resnet1d: Resnet1DConfig,
     ):
         super().__init__()
         blocks = []
@@ -108,28 +98,29 @@ class DecoderConvBock(nn.Module):
         blocks.append(block)
 
         for k, (s_t, d_t) in enumerate(zip(stride_t, down_t)):
-            last_block = k == len(stride_t) - 1
             if d_t == 0:
                 continue
 
             filter_t, pad_t = _get_filter_pad(s_t)
+            last_block = k == len(stride_t) - 1
 
             for i in range(d_t):
+                last_dilation = i == (d_t - 1)
                 block = nn.Sequential(
                     Resnet1D(
                         width,
-                        depth,
-                        m_conv,
-                        dilation_growth_rate,
-                        dilation_cycle,
-                        zero_out=zero_out,
-                        res_scale=res_scale,
-                        reverse_dilation=reverse_decoder_dilation,
-                        checkpoint_res=checkpoint_res,
+                        resnet1d.depth,
+                        resnet1d.m_conv,
+                        resnet1d.dilation_growth_rate,
+                        resnet1d.dilation_cycle,
+                        resnet1d.zero_out,
+                        resnet1d.res_scale,
+                        resnet1d.reverse_dialation,
+                        resnet1d.checkpoint_res,
                     ),
                     nn.ConvTranspose1d(
                         width,
-                        input_emb_width if i == (d_t - 1) and last_block else width,
+                        input_emb_width if last_dilation and last_block else width,
                         filter_t,
                         s_t,
                         pad_t,
@@ -144,35 +135,24 @@ class DecoderConvBock(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(
-        self,
-        input_emb_width: int,
-        output_emb_width: int,
-        levels: int,
-        downs_t: list,
-        strides_t: list,
-        **block_kwargs: dict,
-    ) -> None:
+    def __init__(self, cfg: F0VAEConfig) -> None:
         super().__init__()
-        self.input_emb_width = input_emb_width
-        self.output_emb_width = output_emb_width
-        self.levels = levels
-        self.downs_t = downs_t
-        self.strides_t = strides_t
-
-        block_kwargs_copy = dict(**block_kwargs)
-        if 'reverse_decoder_dilation' in block_kwargs_copy:
-            del block_kwargs_copy['reverse_decoder_dilation']
+        self.input_emb_width = cfg.in_dim
+        self.output_emb_width = cfg.out_dim
+        self.levels = cfg.levels
+        self.downs_t = cfg.downs_t
+        self.strides_t = cfg.strides_t
 
         self.level_blocks = nn.ModuleList()
         for level in range(self.levels):
             stride_t, down_t = self.strides_t[level], self.downs_t[level]
             block = EncoderConvBlock(
-                input_emb_width if level == 0 else output_emb_width,
-                output_emb_width,
+                cfg.in_dim if level == 0 else cfg.out_dim,
+                cfg.out_dim,
                 down_t=down_t,
                 stride_t=stride_t,
-                **block_kwargs_copy,
+                width=cfg.hidden_dim,
+                resnet1d=cfg.resnet1d,
             )
             self.level_blocks.append(block)
 
@@ -196,7 +176,9 @@ class Encoder(nn.Module):
 
             # assert output has the correct shape
             # given the stride and downsample
-            if isinstance(stride_t, (tuple, list)):
+            if isinstance(stride_t, (tuple, list)) and isinstance(
+                down_t, (tuple, list)
+            ):
                 emb = self.output_emb_width
                 T = T // np.prod([s**d for s, d in zip(stride_t, down_t)])
             else:
@@ -209,33 +191,28 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(
-        self,
-        input_emb_width,
-        output_emb_width,
-        levels,
-        downs_t,
-        strides_t,
-        **block_kwargs,
-    ):
+    def __init__(self, cfg: F0VAEConfig):
         super().__init__()
-        self.input_emb_width = input_emb_width
-        self.output_emb_width = output_emb_width
-        self.levels = levels
+        self.input_emb_width = cfg.in_dim
+        self.output_emb_width = cfg.out_dim
+        self.levels = cfg.levels
 
-        self.downs_t = downs_t
+        self.strides_t, self.downs_t = cfg.strides_t, cfg.downs_t
 
-        self.strides_t = strides_t
-
-        level_block = lambda level, down_t, stride_t: DecoderConvBock(
-            output_emb_width, output_emb_width, down_t, stride_t, **block_kwargs
-        )
         self.level_blocks = nn.ModuleList()
-        iterator = zip(list(range(self.levels)), downs_t, strides_t)
-        for level, down_t, stride_t in iterator:
-            self.level_blocks.append(level_block(level, down_t, stride_t))
+        for level in range(self.levels):
+            self.level_blocks.append(
+                DecoderConvBock(
+                    cfg.in_dim,
+                    cfg.out_dim,
+                    down_t=self.downs_t[level],
+                    stride_t=self.strides_t[level],
+                    width=cfg.hidden_dim,
+                    resnet1d=cfg.resnet1d,
+                )
+            )
 
-        self.out = nn.Conv1d(output_emb_width, input_emb_width, 3, 1, 1)
+        self.out = nn.Conv1d(cfg.out_dim, cfg.in_dim, 3, 1, 1)
 
     def forward(self, xs, all_levels=True):
         if all_levels:
@@ -254,7 +231,9 @@ class Decoder(nn.Module):
         for level, down_t, stride_t in iterator:
             level_block = self.level_blocks[level]
             x = level_block(x)
-            if type(stride_t) is tuple or type(stride_t) is list:
+            if isinstance(stride_t, (tuple, list)) and isinstance(
+                down_t, (tuple, list)
+            ):
                 emb, T = self.output_emb_width, T * np.prod(
                     [s**d for s, d in zip(stride_t, down_t)]
                 )

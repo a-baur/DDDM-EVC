@@ -1,6 +1,7 @@
 """
-Utility functions for dealing with sqeuential data.
+Utility functions for dealing with sequential data.
 """
+
 import torch
 
 

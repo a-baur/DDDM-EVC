@@ -17,7 +17,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from config import SpeakerEncoderConfig
-from modules import MultiHeadAttention
+from modules.attention import MultiHeadAttention
 from util import temporal_avg_pool
 
 

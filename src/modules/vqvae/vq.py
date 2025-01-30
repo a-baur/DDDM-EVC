@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import modules.vqvae.dist as dist
+from config import F0VQConfig
 
 
 class BottleneckBlock(nn.Module):
@@ -185,7 +186,7 @@ class BottleneckBlock(nn.Module):
         :return: Tuple of latent code and fit
         """
         # Calculate latent code x_l
-        k_w = self.k.torch()
+        k_w = self.k.t()
         distance = (
             torch.sum(x**2, dim=-1, keepdim=True)
             - 2 * torch.matmul(x, k_w)
@@ -239,12 +240,12 @@ class Bottleneck(nn.Module):
     Pass series of inputs through bottleneck blocks.
     """
 
-    def __init__(self, l_bins: int, emb_width: int, mu: float, levels: int) -> None:
+    def __init__(self, cfg: F0VQConfig) -> None:
         super().__init__()
-        self.levels = levels
+        self.levels = cfg.levels
         self.level_blocks = nn.ModuleList()
         for _ in range(self.levels):
-            self.level_blocks.append(BottleneckBlock(l_bins, emb_width, mu))
+            self.level_blocks.append(BottleneckBlock(cfg.k_bins, cfg.emb_dim, cfg.mu))
 
     def encode(self, xs: list[torch.Tensor]) -> list[torch.Tensor]:
         """

@@ -10,18 +10,51 @@ models:
     hidden_dim: 256
     out_dim: 256
 
+  pitch_encoder:
+    f0_encoder:
+      in_dim: 1
+      out_dim: 128
+      hidden_dim: 32
+      levels: 1
+      downs_t: [4]
+      strides_t: [2]
+      resnet1d:
+        depth: 4
+        m_conv: 1.0
+        dilation_growth_rate: 3
+
+    vq:
+      k_bins: 20
+      emb_dim: 128
+      levels: 1
+      mu: 0.99
+
+    f0_decoder:
+      in_dim: 1
+      out_dim: 128
+      hidden_dim: 32
+      levels: 1
+      downs_t: [4]
+      strides_t: [2]
+      resnet1d:
+        depth: 4
+        m_conv: 1.0
+        dilation_growth_rate: 3
+
 data:
   dataset:
     name: "MSP-Podcast"
-    path: "/home/alex/dev/DDDM-EVC/datasets/msp-podcast"
+    path: "/data/datasets/MSP-Podcast-1.10/"
     sampling_rate: 16000
     segment_size: 35840
     segment_seed: 10
+
   dataloader:
     num_workers: 4
     distributed: False
     pin_memory: True
     drop_last: False
+
   mel_transform:
     sample_rate: 16000
     filter_length: 1280

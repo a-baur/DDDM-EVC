@@ -1,17 +1,18 @@
 import torch
 import torch.nn as nn
 
+from config import PitchEncoderConfig
 from modules.vqvae import Bottleneck, Decoder, Encoder
 
 LRELU_SLOPE = 0.1
 
 
-class Quantizer(nn.Module):
-    def __init__(self, h):
+class PitchEncoder(nn.Module):
+    def __init__(self, cfg: PitchEncoderConfig) -> None:
         super().__init__()
-        self.encoder = Encoder(**h.f0_encoder_params)
-        self.vq = Bottleneck(**h.f0_vq_params)
-        self.decoder = Decoder(**h.f0_decoder_params)
+        self.encoder = Encoder(cfg.f0_encoder)
+        self.vq = Bottleneck(cfg.vq)
+        self.decoder = Decoder(cfg.f0_decoder)
 
     def forward(
         self, x: torch.Tensor
