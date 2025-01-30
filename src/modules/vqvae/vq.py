@@ -15,10 +15,7 @@ class BottleneckBlock(nn.Module):
         self.emb_width = emb_width
         self.mu = mu
 
-        self.init = False
-        self.k = None
-        self.k_sum = None
-        self.k_elem = None
+        self.init: bool = False
         self.register_k_buffer()
 
         self.threshold = 1.0
@@ -53,18 +50,18 @@ class BottleneckBlock(nn.Module):
         :return: None
         """
         self.init = True
-        mu, emb_width, k_bins = self.mu, self.emb_width, self.k_bins
-        assert self.k.shape == (k_bins, emb_width)
 
         y = self._tile(x)
-        _k_rand = y[torch.randperm(y.shape[0])][:k_bins]
+        _k_rand = y[torch.randperm(y.shape[0])][: self.k_bins]
         dist.broadcast(_k_rand, 0)
 
         self.k = _k_rand
         self.k_sum = self.k
-        self.k_elem = torch.ones(k_bins, device=self.k.device)
+        self.k_elem = torch.ones(self.k_bins, device=self.k.device)
 
-    def restore_k(self, num_tokens=None, threshold=1.0):
+        assert self.k.shape == (self.k_bins, self.emb_width)
+
+    def restore_k(self, num_tokens=None, threshold=1.0) -> None:
         """
         Restore k using random vectors from x.
         The number of tokens is used to calculate
@@ -76,58 +73,60 @@ class BottleneckBlock(nn.Module):
         :return:
         """
         self.init = True
-        mu, emb_width, k_bins = self.mu, self.emb_width, self.k_bins
-        assert self.k.shape == (k_bins, emb_width)
+        assert self.k.shape == (self.k_bins, self.emb_width)
 
         self.k_sum = self.k.clone()
-        self.k_elem = torch.ones(k_bins, device=self.k.device)
+        self.k_elem = torch.ones(self.k_bins, device=self.k.device)
 
         if num_tokens is not None:
-            expected_usage = num_tokens / k_bins
+            expected_usage = num_tokens / self.k_bins
             self.k_elem.data.mul_(expected_usage)
             self.k_sum.data.mul_(expected_usage)
 
         self.threshold = threshold
 
     @torch.no_grad()
-    def update_k(self, x, x_l):
+    def update_k(self, x, x_l) -> dict:
         """
-        Update k using x and x_l.
 
         :param x: Input tensor of shape (dim, embedding_width)
         :param x_l: Latent code tensor of shape (dim)
         :return: Dictionary of metrics
         """
-        mu, emb_width, k_bins = self.mu, self.emb_width, self.k_bins
-
-        # Calculate new centres
-        x_l_onehot = torch.zeros(k_bins, x.shape[0], device=x.device)  # k_bins, N * L
+        # Calculate new centres (k_bins, N * L)
+        # - One hot encode x_l
+        x_l_onehot = torch.zeros(self.k_bins, x.shape[0], device=x.device)
         x_l_onehot.scatter_(0, x_l.view(1, x.shape[0]), 1)
 
+        # - Calculate sum and number of latent codes per bin
         _k_sum = torch.matmul(x_l_onehot, x)  # k_bins, w
         _k_elem = x_l_onehot.sum(dim=-1)  # k_bins
-        y = self._tile(x)
-        _k_rand = y[torch.randperm(y.shape[0])][:k_bins]
 
+        # - Randomly sample from x to replace unused codebook bins
+        y = self._tile(x)
+        _k_rand = y[torch.randperm(y.shape[0])][: self.k_bins]
+
+        # Broadcast and reduce for distributed training
         dist.broadcast(_k_rand, 0)
         dist.all_reduce(_k_sum)
         dist.all_reduce(_k_elem)
 
-        # Update centres
+        # Update centres per minibatch using exponential moving average
+        # - Update k_sum and k_elem
         old_k = self.k
-        self.k_sum = mu * self.k_sum + (1.0 - mu) * _k_sum  # w, k_bins
-        self.k_elem = mu * self.k_elem + (1.0 - mu) * _k_elem  # k_bins
-        usage = (self.k_elem.view(k_bins, 1) >= self.threshold).float()
-        self.k = (
-            usage * (self.k_sum.view(k_bins, emb_width) / self.k_elem.view(k_bins, 1))
-            + (1 - usage) * _k_rand
+        self.k_sum = self.mu * self.k_sum + (1.0 - self.mu) * _k_sum  # w, k_bins
+        self.k_elem = self.mu * self.k_elem + (1.0 - self.mu) * _k_elem  # k_bins
+
+        # - Update k. If bin is sufficiently used, use new centre, else random centre
+        usage = (self.k_elem.view(self.k_bins, 1) >= self.threshold).float()
+        _k_new = self.k_sum.view(self.k_bins, self.emb_width) / self.k_elem.view(
+            self.k_bins, 1
         )
-        _k_prob = _k_elem / torch.sum(
-            _k_elem
-        )  # x_l_onehot.mean(dim=-1)  # prob of each bin
-        entropy = -torch.sum(
-            _k_prob * torch.log(_k_prob + 1e-8)
-        )  # entropy ie how diverse
+        self.k = usage * _k_new + (1 - usage) * _k_rand
+
+        # - Calculate metrics
+        _k_prob = _k_elem / torch.sum(_k_elem)
+        entropy = -torch.sum(_k_prob * torch.log(_k_prob + 1e-8))
         used_curr = (_k_elem >= self.threshold).sum()
         usage = torch.sum(usage)
         dk = torch.norm(self.k - old_k) / np.sqrt(np.prod(old_k.shape))
@@ -135,7 +134,7 @@ class BottleneckBlock(nn.Module):
 
     def preprocess(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Preprocess x.
+        Preprocess x by reshaping and normalising.
 
         :param x: Input tensor of shape (dim, embedding_width)
         :return: Tuple of preprocessed tensor and prenorm
@@ -158,11 +157,12 @@ class BottleneckBlock(nn.Module):
             assert False, f"Expected {x.shape[-1]} to be (1 or 2) * {self.emb_width}"
         return x, prenorm
 
+    @staticmethod
     def postprocess(
-        self, x_l: torch.Tensor, x_d: torch.Tensor, x_shape: tuple[int, int]
+        x_l: torch.Tensor, x_d: torch.Tensor, x_shape: tuple[int, int]
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Postprocess x_l and x_d.
+        Postprocess latent code and decoded tensor.
 
         :param x_l: Latent code tensor of shape (dim)
         :param x_d: Decoded tensor of shape (dim, embedding_width)
@@ -178,7 +178,7 @@ class BottleneckBlock(nn.Module):
     def quantise(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Quantise x by computing the latent code x_l.
-        x_l is the index of the closest embedding in k.
+        x_l is the discreet embedding of the closest bin k.
         Fit is the mean squared distance between x and the closest embedding.
 
         :param x: Input tensor of shape (dim, embedding_width)
@@ -206,75 +206,69 @@ class BottleneckBlock(nn.Module):
         x = F.embedding(x_l, self.k)
         return x
 
-    def encode(self, x):
+    def forward(
+        self, x: torch.Tensor, update_k: bool = True
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict]:
+        """Forward pass through bottleneck"""
+        # Encode x to latent code
         N, width, T = x.shape
-
-        # Preprocess.
         x, prenorm = self.preprocess(x)
-
-        # Quantise
-        x_l, fit = self.quantise(x)
-
-        # Postprocess.
-        x_l = x_l.view(N, T)
-        return x_l
-
-    def decode(self, x_l):
-        N, T = x_l.shape
-        width = self.emb_width
-
-        # Dequantise
-        x_d = self.dequantise(x_l)
-
-        # Postprocess
-        x_d = x_d.view(N, T, width).permute(0, 2, 1).contiguous()
-        return x_d
-
-    def forward(self, x, update_k=True):
-        N, width, T = x.shape
-
-        # Preprocess
-        x, prenorm = self.preprocess(x)
-
-        # Init k if not inited
         if update_k and not self.init:
             self.init_k(x)
-
-        # Quantise and dequantise through bottleneck
         x_l, fit = self.quantise(x)
-        x_d = self.dequantise(x_l)
 
-        # Update embeddings
+        # Decode latent code to x
+        x_d = self.dequantise(x_l)
         if update_k and self.training:
             update_metrics = self.update_k(x, x_l)
         else:
             update_metrics = {}
 
-        # Loss
+        # Calculate commitment loss
         commit_loss = torch.norm(x_d.detach() - x) ** 2 / np.prod(x.shape)
 
-        # Passthrough
-        x_d = x + (x_d - x).detach()
-
-        # Postprocess
+        # Postprocess x_l and x_d
+        x_d = x + (x_d - x).detach()  # Passthrough
         x_l, x_d = self.postprocess(x_l, x_d, (N, T))
+
         return x_l, x_d, commit_loss, dict(fit=fit, pn=prenorm, **update_metrics)
 
 
 class Bottleneck(nn.Module):
-    def __init__(self, l_bins, emb_width, mu, levels):
+    """
+    Pass series of inputs through bottleneck blocks.
+    """
+
+    def __init__(self, l_bins: int, emb_width: int, mu: float, levels: int) -> None:
         super().__init__()
         self.levels = levels
-        level_block = lambda level: BottleneckBlock(l_bins, emb_width, mu)
         self.level_blocks = nn.ModuleList()
-        for level in range(self.levels):
-            self.level_blocks.append(level_block(level))
+        for _ in range(self.levels):
+            self.level_blocks.append(BottleneckBlock(l_bins, emb_width, mu))
 
-    def encode(self, xs):
+    def encode(self, xs: list[torch.Tensor]) -> list[torch.Tensor]:
+        """
+        Encode input tensors.
+
+        :param xs: List of input tensors
+        :return: List of latent codes
+        """
         zs = [level_block.encode(x) for (level_block, x) in zip(self.level_blocks, xs)]
         return zs
 
-    def decode(self, zs, start_level=0, end_level=None):
+    def decode(
+        self, zs: list[torch.Tensor], start_level: int = 0, end_level: int = None
+    ) -> list[torch.Tensor]:
+        """
+        Decode latent codes.
+
+        Use start_level and end_level to decode a subset of the latent codes.
+
+        :param zs: List of latent codes
+        :param start_level: Start of the subset of latent codes to decode
+        :param end_level: End of the subset of latent codes to decode
+        :return: List of decoded tensors
+        """
         if end_level is None:
             end_level = self.levels
         xs_quantised = [
@@ -283,7 +277,15 @@ class Bottleneck(nn.Module):
         ]
         return xs_quantised
 
-    def forward(self, xs):
+    def forward(
+        self, xs: list[torch.Tensor]
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[dict]]:
+        """
+        Pass input tensors through bottleneck blocks.
+
+        :param xs: List of input tensors
+        :return: Tuple of latent codes, decoded tensors, commitment losses, and metrics
+        """
         zs, xs_quantised, commit_losses, metrics = [], [], [], []
         for level in range(self.levels):
             level_block = self.level_blocks[level]

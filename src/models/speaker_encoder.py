@@ -4,7 +4,7 @@ Mel-Style Encoder from Meta-StyleSpeech.
 
 Implementation based on
 DDDM-VC: https://github.com/hayeong0/DDDM-VC/blob/7f826a366b2941c7f020de07956bf5161c4979b4/model/styleencoder.py
-HierSpeechpp: https://github.com/sh-lee-prml/HierSpeechpp/blob/main/styleencoder.py
+StyleSpeech: https://github.com/KevinMIN95/StyleSpeech/blob/f939cf9cb981db7b738fa9c9c9a7fea2dfdd0766/models/StyleSpeech.py#L251
 
 Modifications:
 - moved temporal_avg_pool outside the class
@@ -144,7 +144,8 @@ class SpeakerEncoder(nn.Module):
 
         # Self-attention mask to prevent
         # attending to padding tokens.
-        # (B, 1, 1, T) * (B, 1, T, 1) -> (B, 1, T, T)
+        # mask = (B, 1, T)
+        # attn_mask = (B, 1, 1, T) * (B, 1, T, 1) -> (B, 1, T, T)
         attn_mask = mask.unsqueeze(2) * mask.unsqueeze(-1)
         y = self.slf_attn(x, x, attn_mask=attn_mask)
         x = x + self.atten_drop(y)
