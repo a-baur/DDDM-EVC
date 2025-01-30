@@ -23,7 +23,7 @@ class PitchEncoder(nn.Module):
 
         return f0, f0_commit_losses, f0_metrics
 
-    @torch.no_grad()
+    @torch.no_grad()  # type: ignore
     def code_extraction(self, x: torch.Tensor) -> torch.Tensor:
         f0_h = self.encoder(x)
         f0_h = [x.detach() for x in f0_h]

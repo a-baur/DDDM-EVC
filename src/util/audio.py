@@ -2,13 +2,14 @@
 Utility functions for dealing with audio data.
 """
 
-import numpy as np
-
 import amfm_decompy.basic_tools as basic
 import amfm_decompy.pYAAPT as pYAAPT
+import numpy as np
 
 
-def get_yaapt_f0(audio: np.ndarray, sr: int = 16000, interp: bool = False):
+def get_yaapt_f0(
+    audio: np.ndarray, sr: int = 16000, interp: bool = False
+) -> np.ndarray:
     """
     Get the fundamental frequency using YAAPT.
 

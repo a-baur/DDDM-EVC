@@ -1,4 +1,5 @@
 import torch
+from jedi.inference.gradual.typing import Callable
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torchaudio.transforms import MelSpectrogram
@@ -11,7 +12,7 @@ class AudioDataloader(DataLoader):
         self,
         dataset: Dataset,
         cfg: Config,
-        **kwargs,
+        collate_fn: Callable | None = None,
     ) -> None:
         if cfg.data.dataloader.distributed:
             sampler = DistributedSampler(dataset)
@@ -26,7 +27,7 @@ class AudioDataloader(DataLoader):
             pin_memory=cfg.data.dataloader.pin_memory,
             drop_last=cfg.data.dataloader.drop_last,
             shuffle=(sampler is None),
-            **kwargs,
+            collate_fn=collate_fn,
         )
 
 

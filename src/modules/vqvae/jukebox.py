@@ -38,10 +38,10 @@ class EncoderConvBlock(nn.Module):
         super().__init__()
         blocks = []
 
-        if not isinstance(stride_t, (tuple, list)):
+        if isinstance(stride_t, int) and isinstance(down_t, int):
             stride_t, down_t = [stride_t], [down_t]
 
-        for k, (s_t, d_t) in enumerate(zip(stride_t, down_t)):
+        for k, (s_t, d_t) in enumerate(zip(stride_t, down_t)):  # type: ignore
             if d_t == 0:
                 continue
 
@@ -74,7 +74,7 @@ class EncoderConvBlock(nn.Module):
 
         self.model = nn.Sequential(*blocks)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
 
@@ -91,18 +91,18 @@ class DecoderConvBock(nn.Module):
         super().__init__()
         blocks = []
 
-        if not isinstance(stride_t, (tuple, list)):
+        if isinstance(stride_t, int) and isinstance(down_t, int):
             stride_t, down_t = [stride_t], [down_t]
 
         block = nn.Conv1d(output_emb_width, width, 3, 1, 1)
         blocks.append(block)
 
-        for k, (s_t, d_t) in enumerate(zip(stride_t, down_t)):
+        for k, (s_t, d_t) in enumerate(zip(stride_t, down_t)):  # type: ignore
             if d_t == 0:
                 continue
 
             filter_t, pad_t = _get_filter_pad(s_t)
-            last_block = k == len(stride_t) - 1
+            last_block = k == (len(stride_t) - 1)  # type: ignore
 
             for i in range(d_t):
                 last_dilation = i == (d_t - 1)
@@ -130,7 +130,7 @@ class DecoderConvBock(nn.Module):
 
         self.model = nn.Sequential(*blocks)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
 
@@ -214,7 +214,7 @@ class Decoder(nn.Module):
 
         self.out = nn.Conv1d(cfg.out_dim, cfg.in_dim, 3, 1, 1)
 
-    def forward(self, xs, all_levels=True):
+    def forward(self, xs: torch.Tensor, all_levels: bool = True) -> torch.Tensor:
         if all_levels:
             assert len(xs) == self.levels
         else:

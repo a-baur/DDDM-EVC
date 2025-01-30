@@ -62,7 +62,7 @@ class BottleneckBlock(nn.Module):
 
         assert self.k.shape == (self.k_bins, self.emb_width)
 
-    def restore_k(self, num_tokens=None, threshold=1.0) -> None:
+    def restore_k(self, num_tokens: int = None, threshold: float = 1.0) -> None:
         """
         Restore k using random vectors from x.
         The number of tokens is used to calculate
@@ -86,8 +86,8 @@ class BottleneckBlock(nn.Module):
 
         self.threshold = threshold
 
-    @torch.no_grad()
-    def update_k(self, x, x_l) -> dict:
+    @torch.no_grad()  # type: ignore
+    def update_k(self, x: torch.Tensor, x_l: torch.Tensor) -> dict:
         """
 
         :param x: Input tensor of shape (dim, embedding_width)

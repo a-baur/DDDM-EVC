@@ -13,7 +13,9 @@ def config() -> Config:
     return Config.from_yaml(CONFIG_NAME)
 
 
-def _collate_fn(batch):
+def _collate_fn(
+    batch: list[tuple[torch.Tensor, ...]]
+) -> tuple[torch.Tensor, torch.Tensor]:
     # apply segmentize to each audio
     audio = next(zip(*batch))
     audio = [_segmentize(a) for a in audio]
@@ -46,9 +48,9 @@ def _segmentize(audio: torch.Tensor, segment_size: int = 38000) -> torch.Tensor:
 def dataloader(config: Config) -> AudioDataloader:
     if TESTING_DATASET == "librispeech":
         dataset = load_librispeech("dev-clean", "LibriSpeech")
+        return AudioDataloader(dataset=dataset, cfg=config, collate_fn=_collate_fn)
     elif TESTING_DATASET == "msp-podcast":
         dataset = MSPPodcast(config.data.dataset, split="development")
+        return AudioDataloader(dataset=dataset, cfg=config)
     else:
         raise ValueError(f"Unknown dataset: {TESTING_DATASET}")
-    dataloader = AudioDataloader(dataset=dataset, cfg=config, collate_fn=_collate_fn)
-    return dataloader

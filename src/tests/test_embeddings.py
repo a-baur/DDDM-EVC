@@ -3,7 +3,7 @@ import torch
 import util
 from config import Config
 from data import AudioDataloader, MelSpectrogramFixed
-from models import SpeakerEncoder, PitchEncoder
+from models import PitchEncoder, SpeakerEncoder
 from util import get_yaapt_f0
 
 
