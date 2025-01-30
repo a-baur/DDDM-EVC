@@ -4,14 +4,16 @@ import util
 from config import Config
 from data import AudioDataloader, MelSpectrogramFixed
 from models import PitchEncoder, SpeakerEncoder
-from util import get_yaapt_f0
+from util import get_root_path, get_yaapt_f0
 
 
 def test_speaker_encoder(config: Config, dataloader: AudioDataloader) -> None:
     """Test Meta-StyleSpeech encoder."""
     speaker_encoder = SpeakerEncoder(config.models.speaker_encoder)
+
+    ckpt_file = get_root_path() / "ckpt" / "speaker_encoder.pth"
     speaker_encoder.load_state_dict(
-        torch.load("../ckpt/speaker_encoder.pth", map_location="cpu", weights_only=True)
+        torch.load(ckpt_file.as_posix(), map_location="cpu", weights_only=True)
     )
 
     mel_transform = MelSpectrogramFixed(config.data.mel_transform)

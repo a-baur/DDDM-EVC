@@ -1,21 +1,14 @@
-import os
 import pathlib
 
 import torchaudio
 
-
-def _find_project_root() -> str:
-    """Returns the root directory of the project"""
-    current_dir = pathlib.Path(__file__).parent
-    while not (current_dir / "pyproject.toml").exists():
-        current_dir = current_dir.parent
-    return str(current_dir)
+from util import get_root_path
 
 
 def load_librispeech(
     url: str,
     folder_in_archive: str,
-    path: str = _find_project_root(),
+    path: str | pathlib.Path = get_root_path(),
 ) -> torchaudio.datasets.LIBRISPEECH:
     """
     Load the LibriSpeech dataset.
@@ -25,10 +18,13 @@ def load_librispeech(
     :param path: Path to the root directory (default: project root)
     :return: LibriSpeech dataset
     """
-    root = os.path.join(path, "datasets/librispeech")
-    if not os.path.exists(root):
-        os.makedirs(root)
-    ds = torchaudio.datasets.LIBRISPEECH(root, url, folder_in_archive, download=True)
+    path = pathlib.Path(path)
+    root = path / "datasets" / "librispeech"
+    if not root.exists():
+        root.mkdir(parents=True)
+    ds = torchaudio.datasets.LIBRISPEECH(
+        root.as_posix(), url, folder_in_archive, download=True
+    )
     return ds
 
 
