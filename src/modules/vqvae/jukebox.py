@@ -203,7 +203,7 @@ class Decoder(nn.Module):
         for level in range(self.levels):
             self.level_blocks.append(
                 DecoderConvBock(
-                    cfg.in_dim,
+                    cfg.out_dim,
                     cfg.out_dim,
                     down_t=self.downs_t[level],
                     stride_t=self.strides_t[level],
