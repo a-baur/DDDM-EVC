@@ -36,6 +36,11 @@ def test_pitch_encoder(config: Config, dataloader: AudioDataloader) -> None:
     """Test VQ-VAE pitch encoder."""
     pitch_encoder = PitchEncoder(config.models.pitch_encoder)
 
+    ckpt_file = get_root_path() / "ckpt" / "pitch_encoder.pth"
+    pitch_encoder.load_state_dict(
+        torch.load(ckpt_file.as_posix(), map_location="cpu", weights_only=True)
+    )
+
     batch = next(iter(dataloader))
 
     x: torch.Tensor
