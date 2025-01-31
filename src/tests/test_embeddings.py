@@ -47,9 +47,6 @@ def test_pitch_encoder(config: Config, dataloader: AudioDataloader) -> None:
     f0[ii] = (f0[ii] - f0[ii].mean()) / f0[ii].std()
     f0 = torch.FloatTensor(f0)  # (B x T/80)
     output = pitch_encoder.code_extraction(f0)
-    print(
-        output.shape
-    )  # TODO: Why torch.Size([32, 29]) -> seems to depend on convolutions
 
     assert output.shape[0] == config.training.batch_size
     assert output.min().item() == 0

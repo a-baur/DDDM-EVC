@@ -44,7 +44,7 @@ models:
 data:
   dataset:
     name: "MSP-Podcast"
-    path: "/data/datasets/MSP-Podcast-1.10/"
+    path: "/home/alex/dev/DDDM-EVC/datasets/msp-podcast/"
     sampling_rate: 16000
     segment_size: 35840
     segment_seed: 10

@@ -1,11 +1,24 @@
 import pathlib
 
+import torch
 import torchaudio
 
-from util import get_root_path
+from util import get_root_path, random_segment
 
 
-def load_librispeech(
+def librispeech_collate_fn(
+    batch: list[tuple[torch.Tensor, ...]]
+) -> tuple[torch.Tensor, torch.Tensor]:
+    audio = next(zip(*batch))
+    segments = [random_segment(a, 38000) for a in audio]
+    audio, length = zip(*segments)
+    audio = torch.stack(audio)
+    audio = audio.squeeze(1)  # (B, 1, T) -> (B, T), mono audio
+    length = torch.tensor(length)
+    return audio, length
+
+
+def Librispeech(
     url: str,
     folder_in_archive: str,
     path: str | pathlib.Path = get_root_path(),
@@ -26,7 +39,3 @@ def load_librispeech(
         root.as_posix(), url, folder_in_archive, download=True
     )
     return ds
-
-
-if __name__ == "__main__":
-    load_librispeech(".", "dev-clean", "LibriSpeech")

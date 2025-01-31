@@ -1,5 +1,6 @@
+from typing import Callable
+
 import torch
-from jedi.inference.gradual.typing import Callable
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torchaudio.transforms import MelSpectrogram

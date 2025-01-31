@@ -1,9 +1,9 @@
 from .dataloader import AudioDataloader, MelSpectrogramFixed
-from .datasets import AudioDataset, MSPPodcast, load_librispeech
+from .datasets import Librispeech, MSPPodcast, librispeech_collate_fn
 
 __all__ = [
-    "load_librispeech",
-    "AudioDataset",
+    "Librispeech",
+    "librispeech_collate_fn",
     "AudioDataloader",
     "MSPPodcast",
     "MelSpectrogramFixed",
