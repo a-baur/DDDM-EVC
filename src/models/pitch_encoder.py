@@ -1,14 +1,14 @@
 import torch
 import torch.nn as nn
 
-from config import PitchEncoderConfig
+from config import VQVAEConfig
 from modules.vqvae import Bottleneck, Decoder, Encoder
 
 LRELU_SLOPE = 0.1
 
 
-class PitchEncoder(nn.Module):
-    def __init__(self, cfg: PitchEncoderConfig) -> None:
+class VQVAE(nn.Module):
+    def __init__(self, cfg: VQVAEConfig) -> None:
         super().__init__()
         self.encoder = Encoder(cfg.f0_encoder)
         self.vq = Bottleneck(cfg.vq)

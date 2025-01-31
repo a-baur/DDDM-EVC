@@ -14,66 +14,13 @@ Modifications:
 
 import torch
 from torch import nn
-from torch.nn import functional as F
 
-from config import SpeakerEncoderConfig
-from modules.attention import MultiHeadAttention
+from config import MetaStyleSpeechConfig
+from modules.style_speech import Conv1dGLU, Mish, MultiHeadAttention
 from util import temporal_avg_pool
 
 
-class Mish(nn.Module):
-    """
-    Mish activation function.
-
-    f(x) = x * tanh(softplus(x))
-
-    Reference:
-    Mish: A Self Regularized Non-Monotonic Neural Activation Function
-    https://arxiv.org/vc/arxiv/papers/1908/1908.08681v1.pdf
-    """
-
-    def __init__(self) -> None:
-        super(Mish, self).__init__()
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x * torch.tanh(F.softplus(x))
-
-
-class Conv1dGLU(nn.Module):
-    """
-    Conv1D + GLU (Gated Linear Unit) with residual connection.
-
-    h(X) = (X * W + b) * sigmoid(X * V + c) + x
-
-    Reference:
-    Language Modeling with Gated Convolutional Networks
-    https://arxiv.org/abs/1612.08083
-    """
-
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        dropout: float,
-    ) -> None:
-        super(Conv1dGLU, self).__init__()
-        self.out_channels = out_channels
-        self.conv1 = nn.Conv1d(
-            in_channels, 2 * out_channels, kernel_size=kernel_size, padding=2
-        )
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        residual = x
-        x = self.conv1(x)
-        x1, x2 = torch.split(x, split_size_or_sections=self.out_channels, dim=1)
-        x = x1 * torch.sigmoid(x2)
-        x = residual + self.dropout(x)
-        return x
-
-
-class SpeakerEncoder(nn.Module):
+class MetaStyleSpeech(nn.Module):
     """
     Style encoder module.
 
@@ -102,7 +49,7 @@ class SpeakerEncoder(nn.Module):
     https://arxiv.org/abs/2004.04634
     """
 
-    def __init__(self, cfg: SpeakerEncoderConfig) -> None:
+    def __init__(self, cfg: MetaStyleSpeechConfig) -> None:
         super().__init__()
 
         self.in_dim = cfg.in_dim

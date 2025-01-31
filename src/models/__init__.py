@@ -1,4 +1,4 @@
-from .pitch_encoder import PitchEncoder
-from .speaker_encoder import SpeakerEncoder
+from .pitch_encoder import VQVAE
+from .speaker_encoder import MetaStyleSpeech
 
-__all__ = ['SpeakerEncoder', 'PitchEncoder']
+__all__ = ['MetaStyleSpeech', 'VQVAE']

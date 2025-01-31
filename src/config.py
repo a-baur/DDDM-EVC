@@ -52,7 +52,7 @@ class DataConfig:
 
 
 @dataclass
-class SpeakerEncoderConfig:
+class MetaStyleSpeechConfig:
     in_dim: int
     hidden_dim: int
     out_dim: int
@@ -90,7 +90,7 @@ class F0VQConfig:
 
 
 @dataclass
-class PitchEncoderConfig:
+class VQVAEConfig:
     f0_encoder: F0VAEConfig
     vq: F0VQConfig
     f0_decoder: F0VAEConfig
@@ -98,8 +98,8 @@ class PitchEncoderConfig:
 
 @dataclass
 class ModelsConfig:
-    speaker_encoder: SpeakerEncoderConfig
-    pitch_encoder: PitchEncoderConfig
+    speaker_encoder: MetaStyleSpeechConfig
+    pitch_encoder: VQVAEConfig
 
 
 @dataclass

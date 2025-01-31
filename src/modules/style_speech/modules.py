@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-import modules.attention.util as util
+import modules.style_speech.util as util
 
 
 class MultiHeadAttention(nn.Module):
@@ -167,3 +167,55 @@ class MultiHeadAttention(nn.Module):
             :, slice_start_position:slice_end_position
         ]
         return used_relative_embeddings
+
+
+class Conv1dGLU(nn.Module):
+    """
+    Conv1D + GLU (Gated Linear Unit) with residual connection.
+
+    h(X) = (X * W + b) * sigmoid(X * V + c) + x
+
+    Reference:
+    Language Modeling with Gated Convolutional Networks
+    https://arxiv.org/abs/1612.08083
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dropout: float,
+    ) -> None:
+        super(Conv1dGLU, self).__init__()
+        self.out_channels = out_channels
+        self.conv1 = nn.Conv1d(
+            in_channels, 2 * out_channels, kernel_size=kernel_size, padding=2
+        )
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        residual = x
+        x = self.conv1(x)
+        x1, x2 = torch.split(x, split_size_or_sections=self.out_channels, dim=1)
+        x = x1 * torch.sigmoid(x2)
+        x = residual + self.dropout(x)
+        return x
+
+
+class Mish(nn.Module):
+    """
+    Mish activation function.
+
+    f(x) = x * tanh(softplus(x))
+
+    Reference:
+    Mish: A Self Regularized Non-Monotonic Neural Activation Function
+    https://arxiv.org/vc/arxiv/papers/1908/1908.08681v1.pdf
+    """
+
+    def __init__(self) -> None:
+        super(Mish, self).__init__()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x * torch.tanh(F.softplus(x))

@@ -23,6 +23,7 @@ soundfile = {platform = "win32", version = "^0.13.0"}
 sox = {platform = "linux", version = "^1.5.0"}
 numpy = "2.2.1"
 AMFM-decompy = "1.0.11"
+transformers = "4.48.2"
 
 [tool.poetry.group.lint]
 optional = true

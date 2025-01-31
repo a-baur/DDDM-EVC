@@ -2,13 +2,13 @@ import torch
 
 from config import Config
 from data import AudioDataloader, MelSpectrogramFixed
-from models import PitchEncoder, SpeakerEncoder
+from models import VQVAE, MetaStyleSpeech
 from util import get_normalized_f0, get_root_path, sequence_mask
 
 
 def test_speaker_encoder(config: Config, dataloader: AudioDataloader) -> None:
     """Test Meta-StyleSpeech encoder."""
-    speaker_encoder = SpeakerEncoder(config.models.speaker_encoder)
+    speaker_encoder = MetaStyleSpeech(config.models.speaker_encoder)
 
     ckpt_file = get_root_path() / "ckpt" / "speaker_encoder.pth"
     speaker_encoder.load_state_dict(
@@ -34,7 +34,7 @@ def test_speaker_encoder(config: Config, dataloader: AudioDataloader) -> None:
 
 def test_pitch_encoder(config: Config, dataloader: AudioDataloader) -> None:
     """Test VQ-VAE pitch encoder."""
-    pitch_encoder = PitchEncoder(config.models.pitch_encoder)
+    pitch_encoder = VQVAE(config.models.pitch_encoder)
 
     ckpt_file = get_root_path() / "ckpt" / "pitch_encoder.pth"
     pitch_encoder.load_state_dict(

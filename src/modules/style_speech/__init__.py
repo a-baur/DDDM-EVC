@@ -9,8 +9,10 @@ Modifications:
 - moved static helper functions outside the class
 """  # noqa: E501
 
-from .attention import MultiHeadAttention
+from .modules import Conv1dGLU, Mish, MultiHeadAttention
 
 __all__ = [
     "MultiHeadAttention",
+    "Conv1dGLU",
+    "Mish",
 ]
