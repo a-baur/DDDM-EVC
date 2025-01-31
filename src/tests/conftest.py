@@ -4,8 +4,8 @@ from config import Config
 from data import AudioDataloader, Librispeech, MSPPodcast, librispeech_collate_fn
 
 CONFIG_NAME = "config.yaml"
-# TESTING_DATASET = "librispeech"
-TESTING_DATASET = "msp-podcast"
+TESTING_DATASET = "librispeech"
+# TESTING_DATASET = "msp-podcast"
 
 
 @pytest.fixture()  # type: ignore

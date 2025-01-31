@@ -1,10 +1,9 @@
 import torch
 
-import util
 from config import Config
 from data import AudioDataloader, MelSpectrogramFixed
 from models import PitchEncoder, SpeakerEncoder
-from util import get_root_path, get_yaapt_f0
+from util import get_normalized_f0, get_root_path, sequence_mask
 
 
 def test_speaker_encoder(config: Config, dataloader: AudioDataloader) -> None:
@@ -25,7 +24,7 @@ def test_speaker_encoder(config: Config, dataloader: AudioDataloader) -> None:
     x, length = batch
 
     x_mel = mel_transform(x)  # B x C x T
-    mask = util.sequence_mask(length, x_mel.size(2)).to(x_mel.dtype)  # B x T
+    mask = sequence_mask(length, x_mel.size(2)).to(x_mel.dtype)  # B x T
     mask = mask.unsqueeze(1)  # B x 1 x T
 
     output = speaker_encoder(x_mel, mask)
@@ -42,10 +41,7 @@ def test_pitch_encoder(config: Config, dataloader: AudioDataloader) -> None:
     x: torch.Tensor
     x, _ = batch
 
-    f0 = get_yaapt_f0(x.numpy(), config.data.dataset.sampling_rate)
-    ii = f0 != 0
-    f0[ii] = (f0[ii] - f0[ii].mean()) / f0[ii].std()
-    f0 = torch.FloatTensor(f0)  # (B x T/80)
+    f0 = get_normalized_f0(x, config.data.mel_transform.sample_rate)
     output = pitch_encoder.code_extraction(f0)
 
     assert output.shape[0] == config.training.batch_size

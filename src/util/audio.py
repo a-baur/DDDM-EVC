@@ -5,6 +5,7 @@ Utility functions for dealing with audio data.
 import amfm_decompy.basic_tools as basic
 import amfm_decompy.pYAAPT as pYAAPT
 import numpy as np
+import torch
 
 
 def get_yaapt_f0(
@@ -36,3 +37,29 @@ def get_yaapt_f0(
         )
 
     return np.vstack(f0s)
+
+
+def normalize_f0(f0: np.ndarray) -> np.ndarray:
+    """
+    Normalize the fundamental frequency values.
+
+    :param f0: Fundamental frequency values.
+    :return: Normalized fundamental frequency values.
+    """
+    f0 = f0.copy()
+    ii = f0 != 0
+    f0[ii] = (f0[ii] - f0[ii].mean()) / f0[ii].std()
+    return f0
+
+
+def get_normalized_f0(x: torch.Tensor, sr: int = 16000) -> torch.Tensor:
+    """
+    Get the normalized fundamental frequency values.
+
+    :param x: Audio tensor (B x T).
+    :param sr: Sampling rate.
+    :return: Normalized fundamental frequency values.
+    """
+    f0 = get_yaapt_f0(x.numpy(), sr)
+    f0 = normalize_f0(f0)
+    return torch.FloatTensor(f0)
