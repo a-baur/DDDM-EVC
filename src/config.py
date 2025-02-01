@@ -93,13 +93,39 @@ class F0VQConfig:
 class VQVAEConfig:
     f0_encoder: F0VAEConfig
     vq: F0VQConfig
-    f0_decoder: F0VAEConfig
+
+
+@dataclass
+class WavenetDecoderConfig:
+    in_dim: int
+    hidden_dim: int
+    kernel_size: int
+    dilation_rate: int
+    n_layers: int
+    n_mel_channels: int
+    gin_channels: int
+
+
+@dataclass
+class SrcFtrEncoderConfig:
+    speaker_encoder: MetaStyleSpeechConfig
+    pitch_encoder: VQVAEConfig
+    decoder: WavenetDecoderConfig
+
+
+@dataclass
+class DiffusionConfig:
+    dec_dim: int
+    spk_dim: int
+    use_ref_t: bool
+    beta_min: float
+    beta_max: float
 
 
 @dataclass
 class ModelsConfig:
-    speaker_encoder: MetaStyleSpeechConfig
-    pitch_encoder: VQVAEConfig
+    src_ftr_encoder: SrcFtrEncoderConfig
+    src_ftr_decoder: DiffusionConfig
 
 
 @dataclass

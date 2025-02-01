@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-import modules.style_speech.util as util
+import util
 
 
 class MultiHeadAttention(nn.Module):

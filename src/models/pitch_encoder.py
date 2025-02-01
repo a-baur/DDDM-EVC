@@ -12,7 +12,7 @@ class VQVAE(nn.Module):
         super().__init__()
         self.encoder = Encoder(cfg.f0_encoder)
         self.vq = Bottleneck(cfg.vq)
-        self.decoder = Decoder(cfg.f0_decoder)
+        self.decoder = Decoder(cfg.f0_encoder)
 
     def forward(
         self, x: torch.Tensor
