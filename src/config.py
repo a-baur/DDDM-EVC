@@ -107,7 +107,7 @@ class WavenetDecoderConfig:
 
 
 @dataclass
-class SrcFtrEncoderConfig:
+class SourceFilterEncoderConfig:
     speaker_encoder: MetaStyleSpeechConfig
     pitch_encoder: VQVAEConfig
     decoder: WavenetDecoderConfig
@@ -124,7 +124,7 @@ class DiffusionConfig:
 
 @dataclass
 class ModelsConfig:
-    src_ftr_encoder: SrcFtrEncoderConfig
+    src_ftr_encoder: SourceFilterEncoderConfig
     src_ftr_decoder: DiffusionConfig
 
 

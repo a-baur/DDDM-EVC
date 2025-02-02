@@ -2,17 +2,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import SrcFtrEncoderConfig
+from config import SourceFilterEncoderConfig
 from modules.wavenet_decoder import Decoder
 
 
-class SourceFilterEncoder(nn.Module):
-    def __init__(self, cfg: SrcFtrEncoderConfig):
+class WavenetDecoder(nn.Module):
+    def __init__(self, cfg: SourceFilterEncoderConfig):
         super().__init__()
         self.emb_c = nn.Conv1d(1024, cfg.decoder.hidden_dim, 1)
         self.emb_f0 = nn.Embedding(cfg.pitch_encoder.vq.k_bins, cfg.decoder.hidden_dim)
-        self.dec_ftr = Decoder(cfg.decoder)
-        self.dec_src = Decoder(cfg.decoder)
+        self.dec_f = Decoder(cfg.decoder)
+        self.dec_s = Decoder(cfg.decoder)
 
     def forward(
         self,
@@ -46,7 +46,7 @@ class SourceFilterEncoder(nn.Module):
             f0 = torch.cat([f0, f0], dim=0)
             mask = torch.cat([mask, mask], dim=0)
 
-        y_ftr = self.dec_ftr(F.relu(content), mask, g=speaker_enc)
-        y_src = self.dec_src(f0, mask, g=speaker_enc)
+        y_ftr = self.dec_f(F.relu(content), mask, g=speaker_enc)
+        y_src = self.dec_s(f0, mask, g=speaker_enc)
 
         return y_src, y_ftr
