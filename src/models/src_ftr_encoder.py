@@ -37,9 +37,11 @@ class SourceFilterEncoder(nn.Module):
         f0 = F.interpolate(f0, content.shape[-1])  # match the length of content
 
         if mixup:
-            speaker_enc = torch.cat(
-                [speaker_enc, speaker_enc[torch.randperm(speaker_enc.size()[0])]], dim=0
-            )
+            # Randomly shuffle the speaker embeddings
+            random_speaker = speaker_enc[torch.randperm(speaker_enc.size()[0])]
+
+            # Concatenate mixed up batches to the original batch
+            speaker_enc = torch.cat([speaker_enc, random_speaker], dim=0)
             content = torch.cat([content, content], dim=0)
             f0 = torch.cat([f0, f0], dim=0)
             mask = torch.cat([mask, mask], dim=0)
