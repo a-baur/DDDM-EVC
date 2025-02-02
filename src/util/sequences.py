@@ -5,26 +5,33 @@ Utility functions for dealing with sequential data.
 import torch
 
 
-def sequence_mask(length: torch.Tensor, max_length: int = None) -> torch.Tensor:
+def sequence_mask(
+    length: torch.Tensor, max_length: int = None, add_channel_dim: bool = True
+) -> torch.Tensor:
     """
     Create a boolean mask to ignore the padding
     elements in a batch of sequences.
 
     :example:
     >>> length = torch.tensor([3, 2, 1])
-    >>> sequence_mask(length, max_length=3)
+    >>> sequence_mask(length, max_length=3, add_channel_dim=False)
     tensor([[ True,  True,  True],
             [ True,  True, False],
             [ True, False, False]])
 
     :param length: Length of unpadded sequence (B,).
     :param max_length: Maximum length of the sequences.
+    :param add_channel_dim: Whether to add channel dimension. (B, T) -> (B, 1, T).
     :return: Boolean mask (B, T).
     """
     if max_length is None:
         max_length = length.max()
     x = torch.arange(max_length, dtype=length.dtype, device=length.device)
-    return x.unsqueeze(0) < length.unsqueeze(1)
+    mask = x.unsqueeze(0) < length.unsqueeze(1)
+    if add_channel_dim:
+        return mask.unsqueeze(1)
+    else:
+        return mask
 
 
 def temporal_avg_pool(x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
