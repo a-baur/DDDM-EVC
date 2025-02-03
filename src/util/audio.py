@@ -60,6 +60,6 @@ def get_normalized_f0(x: torch.Tensor, sr: int = 16000) -> torch.Tensor:
     :param sr: Sampling rate.
     :return: Normalized fundamental frequency values.
     """
-    f0 = get_yaapt_f0(x.numpy(), sr)
+    f0 = get_yaapt_f0(x.cpu().numpy(), sr)
     f0 = normalize_f0(f0)
-    return torch.FloatTensor(f0)
+    return torch.FloatTensor(f0).to(x.device)

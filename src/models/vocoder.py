@@ -12,12 +12,11 @@ class HifiGAN(nn.Module):
 
     def __init__(
         self,
-        in_dim: int,
         cfg: HifiGANConfig,
     ) -> None:
         super().__init__()
         self.dec = Generator(
-            in_dim,
+            cfg.in_dim,
             cfg.resblock,
             cfg.resblock_kernel_sizes,
             cfg.resblock_dilation_sizes,
