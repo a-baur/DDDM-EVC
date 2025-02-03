@@ -6,6 +6,8 @@ from torch import nn
 from torch.nn import functional as F
 
 import util
+import util.math
+import util.sequences
 
 
 class MultiHeadAttention(nn.Module):
@@ -102,14 +104,16 @@ class MultiHeadAttention(nn.Module):
                 t_s == t_t
             ), "Relative attention is only available for self-attention."
             key_relative_embeddings = self._get_relative_embeddings(self.emb_rel_k, t_s)
-            rel_logits = util.matmul_with_relative_keys(
+            rel_logits = util.math.matmul_with_relative_keys(
                 query / math.sqrt(self.k_channels), key_relative_embeddings
             )
-            scores_local = util.relative_position_to_absolute_position(rel_logits)
+            scores_local = util.sequences.relative_position_to_absolute_position(
+                rel_logits
+            )
             scores = scores + scores_local
         if self.proximal_bias:
             assert t_s == t_t, "Proximal bias is only available for self-attention."
-            scores = scores + util.attention_bias_proximal(t_s).to(
+            scores = scores + util.sequences.attention_bias_proximal(t_s).to(
                 device=scores.device, dtype=scores.dtype
             )
         if mask is not None:
@@ -128,11 +132,13 @@ class MultiHeadAttention(nn.Module):
         p_attn = self.drop(p_attn)
         output = torch.matmul(p_attn, value)
         if self.window_size is not None:
-            relative_weights = util.absolute_position_to_relative_position(p_attn)
+            relative_weights = util.sequences.absolute_position_to_relative_position(
+                p_attn
+            )
             value_relative_embeddings = self._get_relative_embeddings(
                 self.emb_rel_v, t_s
             )
-            output = output + util.matmul_with_relative_values(
+            output = output + util.math.matmul_with_relative_values(
                 relative_weights, value_relative_embeddings
             )
         output = (
@@ -159,7 +165,9 @@ class MultiHeadAttention(nn.Module):
         if pad_length > 0:
             padded_relative_embeddings = F.pad(
                 relative_embeddings,
-                util.convert_pad_shape([[0, 0], [pad_length, pad_length], [0, 0]]),
+                util.sequences.convert_pad_shape(
+                    [[0, 0], [pad_length, pad_length], [0, 0]]
+                ),
             )
         else:
             padded_relative_embeddings = relative_embeddings

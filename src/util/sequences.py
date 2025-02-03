@@ -3,6 +3,7 @@ Utility functions for dealing with sequential data.
 """
 
 import torch
+from torch.nn import functional as F
 
 
 def sequence_mask(
@@ -87,3 +88,67 @@ def random_segment(
         )
 
     return x, audio_size
+
+
+def convert_pad_shape(pad_shape: list[list]) -> list[list]:
+    """
+    Reverses order and flattens the pad_shape
+    for F.pad.
+
+
+    >>> convert_pad_shape([[1, 2], [3, 4]])
+    [3, 4, 1, 2]
+
+    :param pad_shape: Padding per dimension.
+    :return: Flattened and reversed pad_shape for F.pad
+    """
+    _list = pad_shape[::-1]
+    pad_shape = [item for sublist in _list for item in sublist]
+    return pad_shape
+
+
+def relative_position_to_absolute_position(x: torch.Tensor) -> torch.Tensor:
+    """
+    :param x: [b, h, l, 2*l-1]
+    :return: [b, h, l, l]
+    """
+    batch, heads, length, _ = x.size()
+    # Concat columns of pad to shift from relative to absolute indexing.
+    x = F.pad(x, convert_pad_shape([[0, 0], [0, 0], [0, 0], [0, 1]]))
+
+    # Concat extra elements so to add up to shape (len+1, 2*len-1).
+    x_flat = x.view([batch, heads, length * 2 * length])
+    x_flat = F.pad(x_flat, convert_pad_shape([[0, 0], [0, 0], [0, length - 1]]))
+
+    # Reshape and slice out the padded elements.
+    x_final = x_flat.view([batch, heads, length + 1, 2 * length - 1])[
+        :, :, :length, length - 1 :
+    ]
+    return x_final
+
+
+def absolute_position_to_relative_position(x: torch.Tensor) -> torch.Tensor:
+    """
+    :param x: [b, h, l, l]
+    :return: [b, h, l, 2*l-1]
+    """
+    batch, heads, length, _ = x.size()
+    # padd along column
+    x = F.pad(x, convert_pad_shape([[0, 0], [0, 0], [0, 0], [0, length - 1]]))
+    x_flat = x.view([batch, heads, length**2 + length * (length - 1)])
+    # add 0's in the beginning that will skew the elements after reshape
+    x_flat = F.pad(x_flat, convert_pad_shape([[0, 0], [0, 0], [length, 0]]))
+    x_final = x_flat.view([batch, heads, length, 2 * length])[:, :, :, 1:]
+    return x_final
+
+
+def attention_bias_proximal(length: int) -> torch.Tensor:
+    """
+    Bias for self-attention to encourage attention to close positions.
+
+    :param length: Length of the sequence.
+    :return: A Tensor with shape [1, 1, length, length]
+    """
+    r = torch.arange(length, dtype=torch.float32)
+    diff = torch.unsqueeze(r, 0) - torch.unsqueeze(r, 1)
+    return torch.unsqueeze(torch.unsqueeze(-torch.log1p(torch.abs(diff)), 0), 0)

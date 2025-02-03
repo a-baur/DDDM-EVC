@@ -10,9 +10,9 @@ def test_meta_style_speech(cfg: Config, dataloader: AudioDataloader) -> None:
     """Test Meta-StyleSpeech encoder."""
     speaker_encoder = MetaStyleSpeech(cfg.models.src_ftr_encoder.speaker_encoder)
 
-    ckpt_file = get_root_path() / "ckpt" / "speaker_encoder.pth"
+    ckpt_file = get_root_path() / "ckpt" / "metastylespeech.pth"
     speaker_encoder.load_state_dict(
-        torch.load(ckpt_file.as_posix(), map_location="cpu", weights_only=True)
+        torch.load(ckpt_file, map_location="cpu", weights_only=True)
     )
 
     mel_transform = MelSpectrogramFixed(cfg.data.mel_transform)
@@ -21,7 +21,6 @@ def test_meta_style_speech(cfg: Config, dataloader: AudioDataloader) -> None:
 
     x_mel = mel_transform(x)  # B x C x T
     mask = sequence_mask(length, x_mel.size(2)).to(x_mel.dtype)  # B x T
-    mask = mask.unsqueeze(1)  # B x 1 x T
 
     output = speaker_encoder(x_mel, mask)
     assert output.shape[0] == cfg.training.batch_size
@@ -32,9 +31,9 @@ def test_vq_vae(cfg: Config, dataloader: AudioDataloader) -> None:
     """Test VQ-VAE pitch encoder."""
     pitch_encoder = VQVAE(cfg.models.src_ftr_encoder.pitch_encoder)
 
-    ckpt_file = get_root_path() / "ckpt" / "pitch_encoder.pth"
+    ckpt_file = get_root_path() / "ckpt" / "vqvae.pth"
     pitch_encoder.load_state_dict(
-        torch.load(ckpt_file.as_posix(), map_location="cpu", weights_only=True)
+        torch.load(ckpt_file, map_location="cpu", weights_only=True)
     )
 
     x, _ = next(iter(dataloader))

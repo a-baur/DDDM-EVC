@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
+from torch.nn.utils.parametrizations import weight_norm
 
 import util
+import util.math
 from config import WavenetDecoderConfig
 
 
@@ -41,7 +43,7 @@ class WaveNet(torch.nn.Module):
             cond_layer = torch.nn.Conv1d(
                 gin_channels, 2 * hidden_channels * n_layers, 1
             )
-            self.cond_layer = torch.nn.utils.weight_norm(cond_layer, name='weight')
+            self.cond_layer = weight_norm(cond_layer, name='weight')
 
         for i in range(n_layers):
             dilation = dilation_rate**i
@@ -53,7 +55,7 @@ class WaveNet(torch.nn.Module):
                 dilation=dilation,
                 padding=padding,
             )
-            in_layer = torch.nn.utils.weight_norm(in_layer, name='weight')
+            in_layer = weight_norm(in_layer, name='weight')
             self.in_layers.append(in_layer)
 
             # last one is not necessary
@@ -63,7 +65,7 @@ class WaveNet(torch.nn.Module):
                 res_skip_channels = hidden_channels
 
             res_skip_layer = torch.nn.Conv1d(hidden_channels, res_skip_channels, 1)
-            res_skip_layer = torch.nn.utils.weight_norm(res_skip_layer, name='weight')
+            res_skip_layer = weight_norm(res_skip_layer, name='weight')
             self.res_skip_layers.append(res_skip_layer)
 
     def forward(
@@ -91,7 +93,9 @@ class WaveNet(torch.nn.Module):
             else:
                 g_l = torch.zeros_like(x_in)
 
-            acts = util.fused_add_tanh_sigmoid_multiply(x_in, g_l, n_channels_tensor)
+            acts = util.math.fused_add_tanh_sigmoid_multiply(
+                x_in, g_l, n_channels_tensor
+            )
             acts = self.drop(acts)
 
             res_skip_acts = self.res_skip_layers[i](acts)

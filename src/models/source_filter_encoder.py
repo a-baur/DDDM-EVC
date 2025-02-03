@@ -3,39 +3,26 @@ import torch.nn as nn
 
 import util
 from config import SourceFilterEncoderConfig
-from models import VQVAE, MetaStyleSpeech, Wav2Vec2, WavenetDecoder
+from models.content_encoder import Wav2Vec2
+from models.pitch_encoder import VQVAE
+from models.speaker_encoder import MetaStyleSpeech
+from models.wavenet_decoder import WavenetDecoder
 
 
 class SourceFilterEncoder(nn.Module):
-    def __init__(self, cfg: SourceFilterEncoderConfig) -> None:
-        super().__init__()
-        self.content_encoder = Wav2Vec2()
-        self.pitch_encoder = VQVAE(cfg.pitch_encoder)
-        self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
-        self.decoder = WavenetDecoder(cfg)
-
-    def load_parameters(
+    def __init__(
         self,
-        content_encoder_ckpt: str,
-        pitch_encoder_ckpt: str,
-        speaker_encoder_ckpt: str,
-        wavenet_decoder_ckpt: str,
+        cfg: SourceFilterEncoderConfig,
+        content_encoder: Wav2Vec2 = None,
+        pitch_encoder: VQVAE = None,
+        speaker_encoder: MetaStyleSpeech = None,
+        decoder: WavenetDecoder = None,
     ) -> None:
-        """
-        Load pre-trained parameters for the Source-Filter encoder.
-        """
-        self.content_encoder.load_state_dict(
-            torch.load(content_encoder_ckpt, map_location="cpu", weights_only=True)
-        )
-        self.pitch_encoder.load_state_dict(
-            torch.load(pitch_encoder_ckpt, map_location="cpu", weights_only=True)
-        )
-        self.speaker_encoder.load_state_dict(
-            torch.load(speaker_encoder_ckpt, map_location="cpu", weights_only=True)
-        )
-        self.decoder.load_state_dict(
-            torch.load(wavenet_decoder_ckpt, map_location="cpu", weights_only=True)
-        )
+        super().__init__()
+        self.content_encoder = content_encoder or Wav2Vec2()
+        self.pitch_encoder = pitch_encoder or VQVAE(cfg.pitch_encoder)
+        self.speaker_encoder = speaker_encoder or MetaStyleSpeech(cfg.speaker_encoder)
+        self.decoder = decoder or WavenetDecoder(cfg)
 
     def forward(
         self,
