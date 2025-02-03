@@ -152,3 +152,14 @@ def attention_bias_proximal(length: int) -> torch.Tensor:
     r = torch.arange(length, dtype=torch.float32)
     diff = torch.unsqueeze(r, 0) - torch.unsqueeze(r, 1)
     return torch.unsqueeze(torch.unsqueeze(-torch.log1p(torch.abs(diff)), 0), 0)
+
+
+def get_conv_padding(kernel_size: int, dilation: int = 1) -> int:
+    """
+    Calculate padding size for convolutional layers.
+
+    :param kernel_size: Kernel size of the convolutional layer
+    :param dilation: Dilation rate of the convolutional layer
+    :return: Padding size
+    """
+    return int((kernel_size * dilation - dilation) / 2)

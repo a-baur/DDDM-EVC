@@ -107,6 +107,17 @@ class WavenetDecoderConfig:
 
 
 @dataclass
+class HifiGANConfig:
+    in_dim: int
+    resblock: int
+    resblock_kernel_sizes: list[int]
+    resblock_dilation_sizes: list[list[int]]
+    upsample_rates: list[int]
+    upsample_initial_channel: int
+    upsample_kernel_sizes: list[int]
+
+
+@dataclass
 class SourceFilterEncoderConfig:
     speaker_encoder: MetaStyleSpeechConfig
     pitch_encoder: VQVAEConfig
@@ -126,6 +137,7 @@ class DiffusionConfig:
 class ModelsConfig:
     src_ftr_encoder: SourceFilterEncoderConfig
     src_ftr_decoder: DiffusionConfig
+    vocoder: HifiGANConfig
 
 
 @dataclass
