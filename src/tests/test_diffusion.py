@@ -4,20 +4,7 @@ from config import Config
 from data import AudioDataloader
 from models import Diffusion
 from util import get_root_path, load_model, pad_to_length, sequence_mask
-
-
-def get_u_net_compatible_length(length: int, num_downsamplings_in_unet: int = 2) -> int:
-    """
-    Get the nearest length that is compatible with U-Net architecture.
-
-    :param length: Length of the input sequence
-    :param num_downsamplings_in_unet: Number of downsamplings in U-Net
-    :return: Nearest length compatible with U-Net
-    """
-    while True:
-        if length % (2**num_downsamplings_in_unet) == 0:
-            return length
-        length += 1
+from util.sequences import get_u_net_compatible_length
 
 
 def test_diffusion(cfg: Config, dataloader: AudioDataloader) -> None:
@@ -33,7 +20,7 @@ def test_diffusion(cfg: Config, dataloader: AudioDataloader) -> None:
     x_mask = sequence_mask(x_lengths, x_mel.size(2)).to(x_mel.dtype)
 
     # Load diffusion model
-    diffusion = Diffusion(cfg.models.src_ftr_decoder)
+    diffusion = Diffusion(cfg.models.diffusion)
     load_model(diffusion, "diffusion.pth", freeze=True)
 
     src_mean_x, ftr_mean_x = diffusion.compute_diffused_mean(

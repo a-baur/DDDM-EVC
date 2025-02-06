@@ -5,41 +5,40 @@ training:
   segment_size: 35840
 
 models:
-  src_ftr_encoder:
-    speaker_encoder:
-      in_dim: 80
-      hidden_dim: 256
-      out_dim: 256
+  speaker_encoder:
+    in_dim: 80
+    hidden_dim: 256
+    out_dim: 256
 
-    pitch_encoder:
-      f0_encoder:
-        in_dim: 1
-        out_dim: 128
-        hidden_dim: 32
-        levels: 1
-        downs_t: [4]
-        strides_t: [2]
-        resnet1d:
-          depth: 4
-          m_conv: 1.0
-          dilation_growth_rate: 3
+  pitch_encoder:
+    f0_encoder:
+      in_dim: 1
+      out_dim: 128
+      hidden_dim: 32
+      levels: 1
+      downs_t: [4]
+      strides_t: [2]
+      resnet1d:
+        depth: 4
+        m_conv: 1.0
+        dilation_growth_rate: 3
 
-      vq:
-        k_bins: 20
-        emb_dim: 128
-        levels: 1
-        mu: 0.99
+    vq:
+      k_bins: 20
+      emb_dim: 128
+      levels: 1
+      mu: 0.99
 
-    decoder:
-      in_dim: 128
-      hidden_dim: 128
-      kernel_size: 5
-      dilation_rate: 1
-      n_layers: 8
-      n_mel_channels: 80
-      gin_channels: 256
+  decoder:
+    in_dim: 128
+    hidden_dim: 128
+    kernel_size: 5
+    dilation_rate: 1
+    n_layers: 8
+    n_mel_channels: 80
+    gin_channels: 256
 
-  src_ftr_decoder:
+  diffusion:
     in_dim: 80
     dec_dim: 128
     spk_dim: 128

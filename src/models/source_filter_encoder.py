@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 import util
-from config import SourceFilterEncoderConfig
+from config import ModelsConfig
 from models.content_encoder import Wav2Vec2
 from models.pitch_encoder import VQVAE
 from models.speaker_encoder import MetaStyleSpeech
@@ -12,7 +12,7 @@ from models.wavenet_decoder import WavenetDecoder
 class SourceFilterEncoder(nn.Module):
     def __init__(
         self,
-        cfg: SourceFilterEncoderConfig,
+        cfg: ModelsConfig,
         content_encoder: Wav2Vec2 = None,
         pitch_encoder: VQVAE = None,
         speaker_encoder: MetaStyleSpeech = None,

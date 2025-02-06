@@ -169,3 +169,17 @@ def pad_to_length(x: torch.Tensor, length: int) -> torch.Tensor:
     """Pad the input tensor to the given length."""
     pad_amount = length - x.shape[-1]
     return F.pad(x, (0, pad_amount)) if pad_amount > 0 else x
+
+
+def get_u_net_compatible_length(length: int, num_downsamplings_in_unet: int = 2) -> int:
+    """
+    Get the nearest length that is compatible with U-Net architecture.
+
+    :param length: Length of the input sequence
+    :param num_downsamplings_in_unet: Number of downsamplings in U-Net
+    :return: Nearest length compatible with U-Net
+    """
+    while True:
+        if length % (2**num_downsamplings_in_unet) == 0:
+            return length
+        length += 1

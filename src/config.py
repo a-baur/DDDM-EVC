@@ -118,13 +118,6 @@ class HifiGANConfig:
 
 
 @dataclass
-class SourceFilterEncoderConfig:
-    speaker_encoder: MetaStyleSpeechConfig
-    pitch_encoder: VQVAEConfig
-    decoder: WavenetDecoderConfig
-
-
-@dataclass
 class DiffusionConfig:
     in_dim: int
     dec_dim: int
@@ -136,8 +129,10 @@ class DiffusionConfig:
 
 @dataclass
 class ModelsConfig:
-    src_ftr_encoder: SourceFilterEncoderConfig
-    src_ftr_decoder: DiffusionConfig
+    speaker_encoder: MetaStyleSpeechConfig
+    pitch_encoder: VQVAEConfig
+    decoder: WavenetDecoderConfig
+    diffusion: DiffusionConfig
     vocoder: HifiGANConfig
 
 
