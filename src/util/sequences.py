@@ -163,3 +163,9 @@ def get_conv_padding(kernel_size: int, dilation: int = 1) -> int:
     :return: Padding size
     """
     return int((kernel_size * dilation - dilation) / 2)
+
+
+def pad_to_length(x: torch.Tensor, length: int) -> torch.Tensor:
+    """Pad the input tensor to the given length."""
+    pad_amount = length - x.shape[-1]
+    return F.pad(x, (0, pad_amount)) if pad_amount > 0 else x

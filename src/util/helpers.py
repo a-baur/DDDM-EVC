@@ -13,12 +13,16 @@ def get_root_path() -> pathlib.Path:
     return current_dir
 
 
-def load_model(model: torch.nn.Module, ckpt_file: str | pathlib.Path) -> None:
+def load_model(
+    model: torch.nn.Module, ckpt_file: str | pathlib.Path, freeze: bool = False
+) -> None:
     """Load model from checkpoint file."""
     ckpt_dir = util.get_root_path() / "ckpt"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(ckpt_dir / ckpt_file, map_location=device, weights_only=True)
     model.load_state_dict(ckpt)
+    if freeze:
+        model.requires_grad_(False)
     model.eval()
 
 

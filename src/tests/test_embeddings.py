@@ -1,19 +1,13 @@
-import torch
-
 from config import Config
 from data import AudioDataloader, MelSpectrogramFixed
 from models import VQVAE, MetaStyleSpeech, Wav2Vec2
-from util import get_normalized_f0, get_root_path, sequence_mask
+from util import get_normalized_f0, load_model, sequence_mask
 
 
 def test_meta_style_speech(cfg: Config, dataloader: AudioDataloader) -> None:
     """Test Meta-StyleSpeech encoder."""
     speaker_encoder = MetaStyleSpeech(cfg.models.src_ftr_encoder.speaker_encoder)
-
-    ckpt_file = get_root_path() / "ckpt" / "metastylespeech.pth"
-    speaker_encoder.load_state_dict(
-        torch.load(ckpt_file, map_location="cpu", weights_only=True)
-    )
+    load_model(speaker_encoder, "metastylespeech.pth")
 
     mel_transform = MelSpectrogramFixed(cfg.data.mel_transform)
 
@@ -30,11 +24,7 @@ def test_meta_style_speech(cfg: Config, dataloader: AudioDataloader) -> None:
 def test_vq_vae(cfg: Config, dataloader: AudioDataloader) -> None:
     """Test VQ-VAE pitch encoder."""
     pitch_encoder = VQVAE(cfg.models.src_ftr_encoder.pitch_encoder)
-
-    ckpt_file = get_root_path() / "ckpt" / "vqvae.pth"
-    pitch_encoder.load_state_dict(
-        torch.load(ckpt_file, map_location="cpu", weights_only=True)
-    )
+    load_model(pitch_encoder, "vqvae.pth")
 
     x, _ = next(iter(dataloader))
     f0 = get_normalized_f0(x, cfg.data.mel_transform.sample_rate)

@@ -126,6 +126,7 @@ class SourceFilterEncoderConfig:
 
 @dataclass
 class DiffusionConfig:
+    in_dim: int
     dec_dim: int
     spk_dim: int
     use_ref_t: bool

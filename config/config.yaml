@@ -40,6 +40,7 @@ models:
       gin_channels: 256
 
   src_ftr_decoder:
+    in_dim: 80
     dec_dim: 128
     spk_dim: 128
     use_ref_t: False

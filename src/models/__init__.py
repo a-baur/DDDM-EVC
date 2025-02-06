@@ -1,4 +1,5 @@
 from .content_encoder import Hubert, Wav2Vec2
+from .diffusion import Diffusion
 from .pitch_encoder import VQVAE
 from .source_filter_encoder import SourceFilterEncoder
 from .speaker_encoder import MetaStyleSpeech
@@ -13,4 +14,5 @@ __all__ = [
     'WavenetDecoder',
     'SourceFilterEncoder',
     'HifiGAN',
+    'Diffusion',
 ]

@@ -16,7 +16,8 @@ import torch
 from torch import nn
 
 from config import MetaStyleSpeechConfig
-from modules.style_speech import Conv1dGLU, Mish, MultiHeadAttention
+from modules.commons import Mish
+from modules.style_speech import Conv1dGLU, MultiHeadAttention
 from util import temporal_avg_pool
 
 

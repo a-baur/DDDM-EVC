@@ -1,3 +1,5 @@
+import torch
+
 import util
 from config import Config
 from data import AudioDataloader, MelSpectrogramFixed
@@ -47,11 +49,11 @@ def test_from_pretrained(cfg: Config, dataloader: AudioDataloader) -> None:
     mel_transform = MelSpectrogramFixed(cfg.data.mel_transform)
 
     pitch_encoder = VQVAE(cfg.models.src_ftr_encoder.pitch_encoder)
-    load_model(pitch_encoder, "vqvae.pth")
+    load_model(pitch_encoder, "vqvae.pth", freeze=True)
     speaker_encoder = MetaStyleSpeech(cfg.models.src_ftr_encoder.speaker_encoder)
-    load_model(speaker_encoder, "metastylespeech.pth")
+    load_model(speaker_encoder, "metastylespeech.pth", freeze=True)
     decoder = WavenetDecoder(cfg.models.src_ftr_encoder)
-    load_model(decoder, "wavenet_decoder.pth")
+    load_model(decoder, "wavenet_decoder.pth", freeze=True)
 
     src_ftr_encoder = SourceFilterEncoder(
         cfg.models.src_ftr_encoder,
@@ -65,6 +67,19 @@ def test_from_pretrained(cfg: Config, dataloader: AudioDataloader) -> None:
     x_mask = util.sequence_mask(x_length, x_mel.size(2)).to(x_mel.dtype)
 
     src_mel, ftr_mel = src_ftr_encoder(x, x_mel, x_mask)
+
+    # pack samples and save+
+    torch.save(
+        {
+            "x": x,
+            "x_mel": x_mel,
+            "x_length": x_length,
+            "spk_emb": speaker_encoder(x_mel, x_mask),
+            "src_mel": src_mel,
+            "ftr_mel": ftr_mel,
+        },
+        "testdata.pth",
+    )
 
     assert src_mel.shape == x_mel.shape
     assert ftr_mel.shape == x_mel.shape
