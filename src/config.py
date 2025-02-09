@@ -22,7 +22,6 @@ class DatasetConfig:
     path: str
     sampling_rate: int
     segment_size: int
-    segment_seed: int
 
 
 @dataclass

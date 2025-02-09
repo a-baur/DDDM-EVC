@@ -14,11 +14,7 @@ class Diffusion(BaseModule):
     Use the sum of two decoupled score estimators
     to update the input tensor in a diffusion process.
 
-    :param in_dim: Number of features in the input tensor.
-    :param dim_unet: Input dimension of the U-Net model.
-    :param dim_spk: Speaker embedding dimension.
-    :param beta_min: Minimum value of beta.
-    :param beta_max: Maximum value of beta.
+    :param cfg: DiffusionConfig object.
     """
 
     def __init__(self, cfg: DiffusionConfig) -> None:

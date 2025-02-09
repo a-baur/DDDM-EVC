@@ -3,7 +3,7 @@ from .helpers import get_root_path, init_weights, load_model
 from .sequences import (
     get_conv_padding,
     get_u_net_compatible_length,
-    pad_to_length,
+    pad_tensors_to_length,
     random_segment,
     sequence_mask,
     temporal_avg_pool,
@@ -11,7 +11,7 @@ from .sequences import (
 
 __all__ = [
     "get_u_net_compatible_length",
-    "pad_to_length",
+    "pad_tensors_to_length",
     "sequence_mask",
     "random_segment",
     "temporal_avg_pool",

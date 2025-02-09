@@ -1,5 +1,3 @@
-import torch
-
 import util
 from config import Config
 from data import AudioDataloader, MelSpectrogramFixed
@@ -11,12 +9,14 @@ def test_source_filter_encoder(cfg: Config, dataloader: AudioDataloader) -> None
     """Test source-filter encoder."""
     mel_transform = MelSpectrogramFixed(cfg.data.mel_transform)
     src_ftr_encoder = SourceFilterEncoder(cfg.models)
+    speaker_encoder = MetaStyleSpeech(cfg.models.speaker_encoder)
 
     x, x_length = next(iter(dataloader))
     x_mel = mel_transform(x)
     x_mask = util.sequence_mask(x_length, x_mel.size(2)).to(x_mel.dtype)
+    g = speaker_encoder(x_mel, x_mask).unsqueeze(-1)
 
-    src_mel, ftr_mel = src_ftr_encoder(x, x_mel, x_mask)
+    src_mel, ftr_mel = src_ftr_encoder(x, x_mask, g)
 
     assert src_mel.shape == x_mel.shape
     assert ftr_mel.shape == x_mel.shape
@@ -28,6 +28,7 @@ def test_source_filter_voice_conversion(
     """Test source-filter encoder voice conversion."""
     mel_transform = MelSpectrogramFixed(cfg.data.mel_transform)
     src_ftr_encoder = SourceFilterEncoder(cfg.models)
+    speaker_encoder = MetaStyleSpeech(cfg.models.speaker_encoder)
 
     x, x_length = next(iter(dataloader))
     x_mel = mel_transform(x)
@@ -36,8 +37,9 @@ def test_source_filter_voice_conversion(
     y, y_length = next(iter(dataloader))
     y_mel = mel_transform(y)
     y_mask = util.sequence_mask(y_length, y_mel.size(2)).to(y_mel.dtype)
+    g = speaker_encoder(y_mel, y_mask).unsqueeze(-1)
 
-    src_mel, ftr_mel = src_ftr_encoder.voice_conversion(x, x_mask, y_mel, y_mask)
+    src_mel, ftr_mel = src_ftr_encoder(x, x_mask, g)
 
     assert src_mel.shape == x_mel.shape
     assert ftr_mel.shape == x_mel.shape
@@ -58,28 +60,28 @@ def test_from_pretrained(cfg: Config, dataloader: AudioDataloader) -> None:
     src_ftr_encoder = SourceFilterEncoder(
         cfg.models,
         pitch_encoder=pitch_encoder,
-        speaker_encoder=speaker_encoder,
         decoder=decoder,
     )
 
     x, x_length = next(iter(dataloader))
     x_mel = mel_transform(x)
     x_mask = util.sequence_mask(x_length, x_mel.size(2)).to(x_mel.dtype)
+    g = speaker_encoder(x_mel, x_mask).unsqueeze(-1)
 
-    src_mel, ftr_mel = src_ftr_encoder(x, x_mel, x_mask)
+    src_mel, ftr_mel = src_ftr_encoder(x, x_mask, g)
 
-    # pack samples and save+
-    torch.save(
-        {
-            "x": x,
-            "x_mel": x_mel,
-            "x_length": x_length,
-            "spk_emb": speaker_encoder(x_mel, x_mask),
-            "src_mel": src_mel,
-            "ftr_mel": ftr_mel,
-        },
-        "testdata.pth",
-    )
+    # # pack samples and save
+    # torch.save(
+    #     {
+    #         "x": x,
+    #         "x_mel": x_mel,
+    #         "x_length": x_length,
+    #         "spk_emb": speaker_encoder(x_mel, x_mask),
+    #         "src_mel": src_mel,
+    #         "ftr_mel": ftr_mel,
+    #     },
+    #     "testdata.pth",
+    # )
 
     assert src_mel.shape == x_mel.shape
     assert ftr_mel.shape == x_mel.shape

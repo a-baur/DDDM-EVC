@@ -4,27 +4,23 @@ import torch.nn as nn
 import util
 from config import ModelsConfig
 
-from .content_encoder import Wav2Vec2
 from .diffusion import Diffusion
-from .pitch_encoder import VQVAE
+from .source_filter_encoder import SourceFilterEncoder
 from .speaker_encoder import MetaStyleSpeech
-from .wavenet_decoder import WavenetDecoder
 
 
 class DDDM(nn.Module):
     def __init__(self, cfg: ModelsConfig) -> None:
         super().__init__()
-        self.content_encoder = Wav2Vec2()
-        self.pitch_encoder = VQVAE(cfg.pitch_encoder)
-        self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
-        self.decoder = WavenetDecoder(cfg)
+        self.style_encoder = MetaStyleSpeech(cfg.speaker_encoder)
+        self.source_filter_encoder = SourceFilterEncoder(cfg)
         self.diffusion = Diffusion(cfg.diffusion)
 
     def forward(
         self,
         x: torch.Tensor,
         x_mel: torch.Tensor,
-        x_mask: torch.Tensor,
+        x_length: torch.Tensor,
         mixup: bool = False,
         sample_rate: int = 16000,
         return_enc_out: bool = False,
@@ -34,45 +30,29 @@ class DDDM(nn.Module):
 
         :param x: Input waveform
         :param x_mel: Input mel-spectrogram
-        :param x_mask: Mask for the input mel-spectrogram
+        :param x_length: Number of unpadded frames in mel-spectrgram
         :param mixup: Whether to use prior mixup or not
         :param sample_rate: Sampling rate of the input waveform
         :param return_enc_out: Whether to return the encoder output or not
-        :return: Source, and Filter representations
+        :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
         """
-        f0 = util.get_normalized_f0(x, sample_rate)
-
-        x_emb_content = self.content_encoder(x)
-        x_emb_pitch = self.pitch_encoder.code_extraction(f0)
-        x_emb_spk = self.speaker_encoder(x_mel, x_mask).unsqueeze(-1)
-
-        src_mel, ftr_mel = self.decoder(
-            x_emb_spk, x_emb_content, x_emb_pitch, x_mask, mixup=mixup
+        # Encode the input waveform into diffusion priors
+        x_mask = util.sequence_mask(x_length, x_mel.size(2)).to(x_mel.dtype)
+        g = self.style_encoder(x_mel, x_mask)
+        src_mel, ftr_mel = self.source_filter_encoder(
+            x, x_mel, x_mask, mixup, sample_rate
         )
 
-        # Pad the sequences for U-Net compatibility
-        # Move to diffusion model?
-        # -> self.diffusion.prepare_input(x_mel, x_mask, src_mel, ftr_mel)
-        # -> returns src_z, ftr_z, src_mel, ftr_mel, mel_mask
-        x_mel_lengths = torch.LongTensor([x_mel.size(-1)])
-        x_mel_mask = util.sequence_mask(x_mel_lengths, x_mel.size(2)).to(x_mel.dtype)
-
+        # Compute diffused mean
         src_mean_x, ftr_mean_x = self.diffusion.compute_diffused_mean(
             x_mel, x_mask, src_mel, ftr_mel, 1.0
         )
 
-        max_length = int(x_mel_lengths.max())
-        max_length_new = util.get_u_net_compatible_length(max_length)
-
-        src_mean_x = util.pad_to_length(src_mean_x, max_length_new)
-        ftr_mean_x = util.pad_to_length(ftr_mean_x, max_length_new)
-        src_mel = util.pad_to_length(src_mel, max_length_new)
-        ftr_mel = util.pad_to_length(ftr_mel, max_length_new)
-
-        if max_length_new > max_length:
-            x_mel_mask = util.sequence_mask(x_mel_lengths, max_length_new).to(
-                x_mel.dtype
-            )
+        # Pad the sequences for U-Net compatibility
+        max_length_new = util.get_u_net_compatible_length(x_mel.size(-1))
+        src_mean_x, ftr_mean_x, src_mel, ftr_mel, x_mask = util.pad_tensors_to_length(
+            [src_mean_x, ftr_mean_x, src_mel, ftr_mel, x_mask], max_length_new
+        )
 
         # Add noise to diffused mean to create priors for diffusion
         start_n = torch.randn_like(src_mean_x, device=src_mean_x.device)
@@ -81,7 +61,7 @@ class DDDM(nn.Module):
 
         # Diffusion
         y_src, y_ftr = self.diffusion(
-            src_mean_x, ftr_mean_x, x_mel_mask, src_mel, ftr_mel, x_emb_spk, 6, "ml"
+            src_mean_x, ftr_mean_x, x_mask, src_mel, ftr_mel, g, 6, "ml"
         )
         y = (y_src + y_ftr) / 2
 

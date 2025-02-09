@@ -4,7 +4,7 @@ from typing import Literal
 import torch
 import torchaudio
 
-from config import DatasetConfig
+from config import DataConfig
 from util import random_segment
 
 
@@ -27,15 +27,14 @@ class MSPPodcast(torch.utils.data.Dataset):
 
     def __init__(
         self,
-        cfg: DatasetConfig,
+        cfg: DataConfig,
         split: T_SPLITS,
     ) -> None:
-        self.path = Path(cfg.path)
-        self.name = cfg.name
-        self.sampling_rate = cfg.sampling_rate
-        self.segment_size = cfg.segment_size
-        if cfg.segment_seed:
-            self.generator = torch.Generator().manual_seed(cfg.segment_seed)
+        self.path = Path(cfg.dataset.path)
+        self.name = cfg.dataset.name
+        self.sampling_rate = cfg.dataset.sampling_rate
+        self.segment_size = cfg.dataset.segment_size
+        self.hop_length = cfg.mel_transform.hop_length
 
         self.split = split
         self.fnames, self.lengths = self._load_manifest(split)
@@ -45,15 +44,16 @@ class MSPPodcast(torch.utils.data.Dataset):
         Get a sample from the dataset.
 
         :param index: Index of the sample
-        :return: Tuple of audio and length of the audio without padding
+        :return: Tuple of audio and number of frames
         """
         fname = self.fnames[index]
         audio, _ = torchaudio.load(self.path / "Audio" / fname)
         audio = audio.squeeze(0)  # (1, T) -> (T,), mono audio
 
         audio, segment_size = random_segment(audio, segment_size=self.segment_size)
+        n_frames = segment_size // self.hop_length  # number of frames without padding
 
-        return audio, segment_size
+        return audio, n_frames
 
     def __len__(self) -> int:
         return len(self.fnames)

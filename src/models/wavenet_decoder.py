@@ -16,18 +16,18 @@ class WavenetDecoder(nn.Module):
 
     def forward(
         self,
-        speaker_enc: torch.Tensor,
         content_enc: torch.Tensor,
         pitch_enc: torch.Tensor,
+        g: torch.Tensor,
         mask: torch.Tensor,
         mixup: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass of the Source-Filter encoder.
 
-        :param speaker_enc: Speaker encoder output
         :param content_enc: Content encoder output
         :param pitch_enc: Pitch encoder output
+        :param g: Global conditioning tensor
         :param mask: Mask for the input mel-spectrogram
         :param mixup: Whether to use prior mixup or not
         :return: Source, and Filter representations
@@ -38,15 +38,15 @@ class WavenetDecoder(nn.Module):
 
         if mixup:
             # Randomly shuffle the speaker embeddings
-            random_speaker = speaker_enc[torch.randperm(speaker_enc.size()[0])]
+            random_style = g[torch.randperm(g.size()[0])]
 
             # Concatenate mixed up batches to the original batch
-            speaker_enc = torch.cat([speaker_enc, random_speaker], dim=0)
+            g = torch.cat([g, random_style], dim=0)
             content = torch.cat([content, content], dim=0)
             f0 = torch.cat([f0, f0], dim=0)
             mask = torch.cat([mask, mask], dim=0)
 
-        y_ftr = self.dec_ftr(F.relu(content), mask, g=speaker_enc)
-        y_src = self.dec_src(f0, mask, g=speaker_enc)
+        y_ftr = self.dec_ftr(F.relu(content), mask, g=g)
+        y_src = self.dec_src(f0, mask, g=g)
 
         return y_src, y_ftr

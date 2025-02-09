@@ -60,8 +60,7 @@ data:
     name: "MSP-Podcast"
     path: "/home/alex/dev/DDDM-EVC/datasets/msp-podcast/"
     sampling_rate: 16000
-    segment_size: 35840
-    segment_seed: 10
+    segment_size: 38000
 
   dataloader:
     num_workers: 4
