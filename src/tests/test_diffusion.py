@@ -3,7 +3,7 @@ import torch
 from config import Config
 from data import AudioDataloader
 from models import Diffusion
-from util import get_root_path, load_model, pad_to_length, sequence_mask
+from util import get_root_path, load_model, pad_tensors_to_length, sequence_mask
 from util.sequences import get_u_net_compatible_length
 
 
@@ -32,10 +32,9 @@ def test_diffusion(cfg: Config, dataloader: AudioDataloader) -> None:
     max_length_new = get_u_net_compatible_length(max_length)
 
     # Pad the sequences for U-Net compatibility
-    src_mean_x = pad_to_length(src_mean_x, max_length_new)
-    ftr_mean_x = pad_to_length(ftr_mean_x, max_length_new)
-    src_out = pad_to_length(src_out, max_length_new)
-    ftr_out = pad_to_length(ftr_out, max_length_new)
+    src_mean_x, ftr_mean_x, src_out, ftr_out = pad_tensors_to_length(
+        [src_mean_x, ftr_mean_x, src_out, ftr_out], max_length_new
+    )
 
     if max_length_new > max_length:
         x_mask = sequence_mask(x_lengths, max_length_new).to(x_mel.dtype)
