@@ -3,8 +3,10 @@ training:
   learning_rate: 0.001
   epochs: 10
   segment_size: 35840
+  diff_loss_coef: 1.0
+  rec_loss_coef: 1.0
 
-models:
+model:
   speaker_encoder:
     in_dim: 80
     hidden_dim: 256

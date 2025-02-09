@@ -32,7 +32,7 @@ class AudioDataloader(DataLoader):
         )
 
 
-class MelSpectrogramFixed(torch.nn.Module):
+class MelTransform(torch.nn.Module):
     """
     Apply mel transformation to waveform input and add log10 scale.
     """

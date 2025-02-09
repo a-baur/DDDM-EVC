@@ -14,6 +14,8 @@ class TrainingConfig:
     learning_rate: float
     epochs: int
     segment_size: int
+    diff_loss_coef: float
+    rec_loss_coef: float
 
 
 @dataclass
@@ -127,7 +129,7 @@ class DiffusionConfig:
 
 
 @dataclass
-class ModelsConfig:
+class ModelConfig:
     speaker_encoder: MetaStyleSpeechConfig
     pitch_encoder: VQVAEConfig
     decoder: WavenetDecoderConfig
@@ -139,7 +141,7 @@ class ModelsConfig:
 class Config:
     training: TrainingConfig
     data: DataConfig
-    models: ModelsConfig
+    model: ModelConfig
 
     @classmethod
     def from_yaml(cls, name: str) -> "Config":
@@ -155,5 +157,5 @@ class Config:
         return cls(
             training=TrainingConfig(**cfg.training),
             data=DataConfig(**cfg.data),
-            models=ModelsConfig(**cfg.models),
+            model=ModelConfig(**cfg.model),
         )

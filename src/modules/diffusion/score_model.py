@@ -106,7 +106,7 @@ class GradLogPEstimator(BaseModule):
         x = torch.stack([enc_out, x], 1)
         x_mask = x_mask.unsqueeze(1)
 
-        condition = torch.cat([condition, spk], 1)
+        condition = torch.cat([condition, spk.squeeze(-1)], 1)
         condition = self.cond_block(condition).unsqueeze(-1).unsqueeze(-1)
 
         condition = torch.cat(x.shape[2] * [condition], 2)

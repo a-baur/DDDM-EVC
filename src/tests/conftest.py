@@ -21,7 +21,7 @@ def dataloader(cfg: Config) -> AudioDataloader:
             dataset=dataset, cfg=cfg, collate_fn=librispeech_collate_fn
         )
     elif TESTING_DATASET == "msp-podcast":
-        dataset = MSPPodcast(cfg.data.dataset, split="development")
+        dataset = MSPPodcast(cfg.data, split="development")
         return AudioDataloader(dataset=dataset, cfg=cfg)
     else:
         raise ValueError(f"Unknown dataset: {TESTING_DATASET}")

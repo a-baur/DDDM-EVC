@@ -1,4 +1,5 @@
 from .content_encoder import Hubert, Wav2Vec2
+from .dddm import DDDM
 from .diffusion import Diffusion
 from .pitch_encoder import VQVAE
 from .source_filter_encoder import SourceFilterEncoder
@@ -15,4 +16,5 @@ __all__ = [
     'SourceFilterEncoder',
     'HifiGAN',
     'Diffusion',
+    'DDDM',
 ]

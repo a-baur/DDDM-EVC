@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import ModelsConfig
+from config import ModelConfig
 from modules.wavenet_decoder import Decoder
 
 
 class WavenetDecoder(nn.Module):
-    def __init__(self, cfg: ModelsConfig):
+    def __init__(self, cfg: ModelConfig):
         super().__init__()
         self.emb_c = nn.Conv1d(1024, cfg.decoder.hidden_dim, 1)
         self.emb_f0 = nn.Embedding(cfg.pitch_encoder.vq.k_bins, cfg.decoder.hidden_dim)
@@ -20,7 +20,7 @@ class WavenetDecoder(nn.Module):
         pitch_enc: torch.Tensor,
         g: torch.Tensor,
         mask: torch.Tensor,
-        mixup: bool = False,
+        mixup_ratios: torch.Tensor = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass of the Source-Filter encoder.
@@ -29,14 +29,15 @@ class WavenetDecoder(nn.Module):
         :param pitch_enc: Pitch encoder output
         :param g: Global conditioning tensor
         :param mask: Mask for the input mel-spectrogram
-        :param mixup: Whether to use prior mixup or not
+        :param mixup_ratios: Mixup ratios for each sample in the batch (B,)
         :return: Source, and Filter representations
         """
         content = self.emb_c(content_enc)
         f0 = self.emb_f0(pitch_enc).transpose(1, 2)
-        f0 = F.interpolate(f0, content.shape[-1])  # match the length of content
+        f0 = F.interpolate(f0, content.shape[-1])  # match the length of content emb
 
-        if mixup:
+        if mixup_ratios is not None:
+            batch_size = content_enc.size(0)
             # Randomly shuffle the speaker embeddings
             random_style = g[torch.randperm(g.size()[0])]
 
@@ -46,7 +47,22 @@ class WavenetDecoder(nn.Module):
             f0 = torch.cat([f0, f0], dim=0)
             mask = torch.cat([mask, mask], dim=0)
 
-        y_ftr = self.dec_ftr(F.relu(content), mask, g=g)
-        y_src = self.dec_src(f0, mask, g=g)
+            # Decode the source and filter representations
+            y_ftr = self.dec_ftr(F.relu(content), mask, g=g)
+            y_src = self.dec_src(f0, mask, g=g)
+
+            # Mixup the outputs according to the mixup ratio
+            mixup_ratios = mixup_ratios[:, None, None]  # (B) -> (B x 1 x 1)
+            y_src = (
+                mixup_ratios * y_src[:batch_size, :, :]
+                + (1 - mixup_ratios) * y_src[batch_size:, :, :]
+            )
+            y_ftr = (
+                mixup_ratios * y_ftr[:batch_size, :, :]
+                + (1 - mixup_ratios) * y_ftr[batch_size:, :, :]
+            )
+        else:
+            y_ftr = self.dec_ftr(F.relu(content), mask, g=g)
+            y_src = self.dec_src(f0, mask, g=g)
 
         return y_src, y_ftr
