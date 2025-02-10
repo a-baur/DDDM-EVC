@@ -1,7 +1,7 @@
 import util
 from config import Config
 from data import AudioDataloader, MelTransform
-from models import VQVAE, MetaStyleSpeech, SourceFilterEncoder, WavenetDecoder
+from models import MetaStyleSpeech, SourceFilterEncoder, VQVAEEncoder, WavenetDecoder
 from util.helpers import load_model
 
 
@@ -54,7 +54,7 @@ def test_from_pretrained(cfg: Config, dataloader: AudioDataloader) -> None:
 
     mel_transform = MelTransform(cfg.data.mel_transform)
 
-    pitch_encoder = VQVAE(cfg.model.pitch_encoder)
+    pitch_encoder = VQVAEEncoder(cfg.model.pitch_encoder)
     load_model(pitch_encoder, "vqvae.pth", freeze=True)
     speaker_encoder = MetaStyleSpeech(cfg.model.speaker_encoder)
     load_model(speaker_encoder, "metastylespeech.pth", freeze=True)

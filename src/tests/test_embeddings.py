@@ -1,6 +1,6 @@
 from config import Config
 from data import AudioDataloader, MelTransform
-from models import VQVAE, MetaStyleSpeech, Wav2Vec2
+from models import MetaStyleSpeech, VQVAEEncoder, Wav2Vec2
 from util import get_normalized_f0, load_model, sequence_mask
 
 
@@ -23,13 +23,13 @@ def test_meta_style_speech(cfg: Config, dataloader: AudioDataloader) -> None:
 
 def test_vq_vae(cfg: Config, dataloader: AudioDataloader) -> None:
     """Test VQ-VAE pitch encoder."""
-    pitch_encoder = VQVAE(cfg.model.pitch_encoder)
+    pitch_encoder = VQVAEEncoder(cfg.model.pitch_encoder)
     load_model(pitch_encoder, "vqvae.pth")
 
     x, _ = next(iter(dataloader))
     f0 = get_normalized_f0(x, cfg.data.mel_transform.sample_rate)
 
-    output = pitch_encoder.code_extraction(f0)
+    output = pitch_encoder(f0)
     assert output.shape[0] == cfg.training.batch_size
     assert output.min().item() == 0
     assert output.max().item() == cfg.model.pitch_encoder.vq.k_bins - 1
