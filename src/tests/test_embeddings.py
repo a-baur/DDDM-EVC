@@ -1,5 +1,5 @@
 from config import Config
-from data import AudioDataloader, MelTransform
+from data import AudioDataloader
 from models import MetaStyleSpeech, VQVAEEncoder, Wav2Vec2
 from util import get_normalized_f0, load_model, sequence_mask
 
@@ -9,12 +9,8 @@ def test_meta_style_speech(cfg: Config, dataloader: AudioDataloader) -> None:
     speaker_encoder = MetaStyleSpeech(cfg.model.speaker_encoder)
     load_model(speaker_encoder, "metastylespeech.pth")
 
-    mel_transform = MelTransform(cfg.data.mel_transform)
-
-    x, length = next(iter(dataloader))
-
-    x_mel = mel_transform(x)  # B x C x T
-    mask = sequence_mask(length, x_mel.size(2)).to(x_mel.dtype)  # B x T
+    _, x_mel, x_n_frames = next(iter(dataloader))
+    mask = sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)  # B x T
 
     output = speaker_encoder(x_mel, mask)
     assert output.shape[0] == cfg.training.batch_size
@@ -26,7 +22,7 @@ def test_vq_vae(cfg: Config, dataloader: AudioDataloader) -> None:
     pitch_encoder = VQVAEEncoder(cfg.model.pitch_encoder)
     load_model(pitch_encoder, "vqvae.pth")
 
-    x, _ = next(iter(dataloader))
+    x, _, _ = next(iter(dataloader))
     f0 = get_normalized_f0(x, cfg.data.mel_transform.sample_rate)
 
     output = pitch_encoder(f0)
@@ -40,7 +36,7 @@ def test_wav2vec2(cfg: Config, dataloader: AudioDataloader) -> None:
     """Test Wav2Vec2 encoder."""
     wav2vec2 = Wav2Vec2()
 
-    x, _ = next(iter(dataloader))
+    x, _, _ = next(iter(dataloader))
 
     output = wav2vec2(x)
 

@@ -4,6 +4,7 @@ import torch
 import torchaudio
 
 from config import Config
+from data import MelTransform
 from util import get_root_path, random_segment
 
 DATA_CONFIG = Config.from_yaml("config.yaml").data
@@ -11,16 +12,18 @@ DATA_CONFIG = Config.from_yaml("config.yaml").data
 
 def librispeech_collate_fn(
     batch: list[tuple[torch.Tensor, ...]]
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    mel_transform = MelTransform(DATA_CONFIG.mel_transform)
     audio = next(zip(*batch))
     segments = [random_segment(a, DATA_CONFIG.dataset.segment_size) for a in audio]
     audio, length = zip(*segments)
     audio = torch.stack(audio)
     audio = audio.squeeze(1)  # (B, 1, T) -> (B, T), mono audio
-    length = torch.tensor(length)
+    mel = mel_transform(audio)
     # number of frames without padding
+    length = torch.tensor(length)
     length = length // DATA_CONFIG.mel_transform.hop_length
-    return audio, length
+    return audio, mel, length
 
 
 def Librispeech(

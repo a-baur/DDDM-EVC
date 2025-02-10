@@ -36,7 +36,7 @@ class DDDM(nn.Module):
         self,
         x: torch.Tensor,
         x_mel: torch.Tensor,
-        x_frames: torch.Tensor,
+        x_n_frames: torch.Tensor,
         y_mel: torch.Tensor,
         y_length: torch.Tensor,
         return_enc_out: bool = False,
@@ -46,13 +46,13 @@ class DDDM(nn.Module):
 
         :param x: Input waveform
         :param x_mel: Input mel-spectrogram
-        :param x_frames: Number of unpaded frames in the input mel-spectrogram
+        :param x_n_frames: Number of unpaded frames in the input mel-spectrogram
         :param y_mel: Target mel-spectrogram
         :param y_length: Number of unpaded frames in the target mel-spectrogram
         :param return_enc_out: Whether to return the encoder output or not
         :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
         """
-        x_mask = util.sequence_mask(x_frames, x_mel.size(2)).to(x_mel.dtype)
+        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
 
         # Get the global conditioning tensor for the target speaker
         y_mask = util.sequence_mask(y_length, y_mel.size(2)).to(y_mel.dtype)
@@ -64,7 +64,7 @@ class DDDM(nn.Module):
         self,
         x: torch.Tensor,
         x_mel: torch.Tensor,
-        x_frames: torch.Tensor,
+        x_n_frames: torch.Tensor,
         return_enc_out: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
@@ -72,12 +72,12 @@ class DDDM(nn.Module):
 
         :param x: Input waveform
         :param x_mel: Input mel-spectrogram
-        :param x_frames: Number of unpaded frames in the input mel-spectrogram
+        :param x_n_frames: Number of unpaded frames in the input mel-spectrogram
         :param return_enc_out: Whether to return the encoder output or not
         :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
         """
         # Encode the input waveform into diffusion priors
-        x_mask = util.sequence_mask(x_frames, x_mel.size(2)).to(x_mel.dtype)
+        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
         g = self.style_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
         return self._forward(x, x_mel, x_mask, g, return_enc_out)
 
@@ -135,17 +135,17 @@ class DDDM(nn.Module):
         self,
         x: torch.Tensor,
         x_mel: torch.Tensor,
-        x_frames: torch.Tensor,
+        x_n_frames: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the resynthesis loss of the DDDM model.
 
         :param x: Input waveform
         :param x_mel: Input mel-spectrogram
-        :param x_frames: Number of unpaded frames in the input mel-spectrogram
+        :param x_n_frames: Number of unpaded frames in the input mel-spectrogram
         :return: Tuple of the diffusion loss and the reconstruction loss
         """
-        x_mask = util.sequence_mask(x_frames, x_mel.size(2)).to(x_mel.dtype)
+        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
         g = self.style_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
 
         mixup_ratios = torch.randint(0, 2, (x.size(0),)).to(x.device)
