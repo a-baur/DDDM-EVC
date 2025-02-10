@@ -21,7 +21,6 @@ def test_dddm_vc(cfg: Config, dataloader: AudioDataloader) -> None:
     model.load_pretrained(freeze=True)
 
     x, x_mel, x_n_frames = next(iter(dataloader))
-
     _y, _y_mel, _y_frames = next(iter(dataloader))
 
     y_mel, enc_out = model.voice_conversion(
