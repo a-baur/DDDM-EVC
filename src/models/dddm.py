@@ -17,20 +17,32 @@ class DDDM(nn.Module):
         self.source_filter_encoder = SourceFilterEncoder(cfg, sample_rate)
         self.diffusion = Diffusion(cfg.diffusion)
 
-    def load_pretrained(self, freeze: bool = True) -> None:
+    def load_pretrained(self, freeze: bool = True, device: torch.device = None) -> None:
         """Load pre-trained models."""
-        util.load_model(self.style_encoder, "metastylespeech.pth", freeze=freeze)
+        util.load_model(
+            self.style_encoder,
+            "metastylespeech.pth",
+            freeze=freeze,
+            device=device,
+        )
         util.load_model(
             self.source_filter_encoder.pitch_encoder,
             ckpt_file="vqvae.pth",
             freeze=freeze,
+            device=device,
         )
         util.load_model(
             self.source_filter_encoder.decoder,
             ckpt_file="wavenet_decoder.pth",
             freeze=freeze,
+            device=device,
         )
-        util.load_model(self.diffusion, "diffusion.pth", freeze=freeze)
+        util.load_model(
+            self.diffusion,
+            "diffusion.pth",
+            freeze=freeze,
+            device=device,
+        )
 
     def voice_conversion(
         self,

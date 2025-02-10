@@ -1,5 +1,5 @@
 from .audio import get_normalized_f0, get_yaapt_f0
-from .helpers import get_root_path, init_weights, load_model
+from .helpers import get_root_path, init_weights, load_model, move_to_device
 from .sequences import (
     get_conv_padding,
     get_u_net_compatible_length,
@@ -21,4 +21,5 @@ __all__ = [
     "get_normalized_f0",
     "get_root_path",
     "load_model",
+    "move_to_device",
 ]
