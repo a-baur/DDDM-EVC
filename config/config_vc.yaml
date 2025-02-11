@@ -1,0 +1,6 @@
+defaults:
+  - base_vc
+  - data: vc
+  - model: vc
+  - training: vc
+  - _self_

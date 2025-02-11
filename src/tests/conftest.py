@@ -1,20 +1,26 @@
 import pytest
+from hydra import compose, initialize_config_dir
 
-from config import Config
+import config
 from data import AudioDataloader, Librispeech, MSPPodcast, librispeech_collate_fn
 
-CONFIG_NAME = "config.yaml"
+CONFIG_NAME = "vc_config.yaml"
 TESTING_DATASET = "librispeech"
 # TESTING_DATASET = "msp-podcast"
 
 
 @pytest.fixture()  # type: ignore
-def cfg() -> Config:
-    return Config.from_yaml(CONFIG_NAME)
+def cfg() -> config.Config:
+    config.register_configs()
+    with initialize_config_dir(
+        version_base=None, config_dir=config.CONFIG_PATH.as_posix()
+    ):
+        cfg = compose(config_name="config_vc.yaml")
+    return cfg._to_object()  # noqa
 
 
 @pytest.fixture()  # type: ignore
-def dataloader(cfg: Config) -> AudioDataloader:
+def dataloader(cfg: config.Config) -> AudioDataloader:
     if TESTING_DATASET == "librispeech":
         dataset = Librispeech("dev-clean", "LibriSpeech")
         return AudioDataloader(
