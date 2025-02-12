@@ -4,7 +4,7 @@ from typing import Literal
 import torch
 import torchaudio
 
-from config import DataConfig
+import config
 from util import random_segment
 
 
@@ -27,7 +27,7 @@ class MSPPodcast(torch.utils.data.Dataset):
 
     def __init__(
         self,
-        cfg: DataConfig,
+        cfg: config.DataConfig,
         split: T_SPLITS,
     ) -> None:
         self.path = Path(cfg.dataset.path)
@@ -40,7 +40,7 @@ class MSPPodcast(torch.utils.data.Dataset):
         self.split = split
         self.fnames, self.lengths = self._load_manifest(split)
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor, int]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
         """
         Get a sample from the dataset.
 
@@ -51,12 +51,10 @@ class MSPPodcast(torch.utils.data.Dataset):
         audio, _ = torchaudio.load(self.path / "Audio" / fname)
         audio = audio.squeeze(0)  # (1, T) -> (T,), mono audio
 
-        mel = torch.Tensor([])  # Placeholder for mel spectrogram
-
         audio, segment_size = random_segment(audio, segment_size=self.segment_size)
         n_frames = segment_size // self.hop_length  # number of frames without padding
 
-        return audio, mel, n_frames
+        return audio, n_frames
 
     def __len__(self) -> int:
         return len(self.fnames)

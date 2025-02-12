@@ -1,9 +1,13 @@
 from config import Config
+from data import MelTransform
 from data.dataloader import AudioDataloader
 
 
 def test_dataloader(dataloader: AudioDataloader, cfg: Config) -> None:
-    waveforms, mel, lengths = next(iter(dataloader))
+    mel_transform = MelTransform(cfg.data.mel_transform)
+    waveforms, lengths = next(iter(dataloader))
+    mel = mel_transform(waveforms)
+
     assert waveforms is not None
     assert lengths is not None
     assert mel is not None

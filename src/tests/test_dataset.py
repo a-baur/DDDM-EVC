@@ -16,5 +16,5 @@ MSP_PODCAST_AVAILABLE = os.path.exists(
 def test_msp_podcast() -> None:
     cfg = Config.from_yaml("config.yaml")
     dataset = MSPPodcast(cfg.data, split="development")
-    audio, mel, length = dataset[0]
+    audio, length = dataset[0]
     assert audio.shape == (cfg.data.dataset.segment_size,)

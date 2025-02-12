@@ -2,33 +2,26 @@ import pathlib
 
 import torch
 import torchaudio
-from hydra import compose, initialize_config_dir
 
 import config
-from data import MelTransform
 from util import get_root_path, random_segment
 
 
 def librispeech_collate_fn(
     batch: list[tuple[torch.Tensor, ...]]
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     config.register_configs()
-    with initialize_config_dir(
-        version_base=None, config_dir=config.CONFIG_PATH.as_posix()
-    ):
-        cfg = compose(config_name="config_vc.yaml")
+    cfg = config.load_hydra_config("config_vc.yaml")
 
-    mel_transform = MelTransform(cfg.data.mel_transform)
     audio = next(zip(*batch))
     segments = [random_segment(a, cfg.data.dataset.segment_size) for a in audio]
     audio, length = zip(*segments)
     audio = torch.stack(audio)
     audio = audio.squeeze(1)  # (B, 1, T) -> (B, T), mono audio
-    mel = mel_transform(audio)
     # number of frames without padding
     length = torch.tensor(length)
     length = length // cfg.data.mel_transform.hop_length
-    return audio, mel, length
+    return audio, length
 
 
 def Librispeech(
