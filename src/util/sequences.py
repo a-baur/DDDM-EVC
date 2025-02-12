@@ -202,5 +202,11 @@ def pad_audio_for_xlsr(x: torch.Tensor, sampling_rate: int = 16000) -> torch.Ten
     :param sampling_rate: Sampling rate
     :return: Padded audio waveform
     """
-    pad_samples = int(0.005 * sampling_rate)  # 5ms padding
-    return F.pad(x, (pad_samples, pad_samples), "reflect")
+    pad_samples = int(0.005 * sampling_rate)
+    stride_samples = int(0.020 * sampling_rate)
+
+    # pad if less than 5ms after last stride
+    if x.size(-1) % stride_samples <= pad_samples:
+        return F.pad(x, (pad_samples, pad_samples), "reflect")
+    else:
+        return x
