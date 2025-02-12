@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from hydra import compose, initialize_config_dir
 from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 
@@ -168,3 +169,10 @@ def register_configs() -> None:
     cs.store(group="training", name="base_vc", node=TrainingConfig)
     cs.store(group="mode", name="base_vc", node=ModelConfig)
     cs.store(group="data", name="base_vc", node=DataConfig)
+
+
+def load_hydra_config(config_name: str) -> Config:
+    """Instantiate hydra config."""
+    with initialize_config_dir(version_base=None, config_dir=CONFIG_PATH.as_posix()):
+        cfg: Config = OmegaConf.to_object(compose(config_name=config_name))
+    return cfg

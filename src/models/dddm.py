@@ -51,6 +51,7 @@ class DDDM(nn.Module):
         x_n_frames: torch.Tensor,
         y_mel: torch.Tensor,
         y_length: torch.Tensor,
+        n_time_steps: int = 6,
         return_enc_out: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
@@ -61,6 +62,7 @@ class DDDM(nn.Module):
         :param x_n_frames: Number of unpaded frames in the input mel-spectrogram
         :param y_mel: Target mel-spectrogram
         :param y_length: Number of unpaded frames in the target mel-spectrogram
+        :param n_time_steps: Number of diffusion steps
         :param return_enc_out: Whether to return the encoder output or not
         :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
         """
@@ -70,13 +72,14 @@ class DDDM(nn.Module):
         y_mask = util.sequence_mask(y_length, y_mel.size(2)).to(y_mel.dtype)
         g = self.style_encoder(y_mel, y_mask).unsqueeze(-1)  # (B, C, 1)
 
-        return self._forward(x, x_mel, x_mask, g, return_enc_out)
+        return self._forward(x, x_mel, x_mask, g, n_time_steps, return_enc_out)
 
     def forward(
         self,
         x: torch.Tensor,
         x_mel: torch.Tensor,
         x_n_frames: torch.Tensor,
+        n_time_steps: int = 6,
         return_enc_out: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
@@ -85,13 +88,14 @@ class DDDM(nn.Module):
         :param x: Input waveform
         :param x_mel: Input mel-spectrogram
         :param x_n_frames: Number of unpaded frames in the input mel-spectrogram
+        :param n_time_steps: Number of diffusion steps
         :param return_enc_out: Whether to return the encoder output or not
         :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
         """
         # Encode the input waveform into diffusion priors
         x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
         g = self.style_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
-        return self._forward(x, x_mel, x_mask, g, return_enc_out)
+        return self._forward(x, x_mel, x_mask, g, n_time_steps, return_enc_out)
 
     def _forward(
         self,
@@ -99,6 +103,7 @@ class DDDM(nn.Module):
         x_mel: torch.Tensor,
         x_mask: torch.Tensor,
         g: torch.Tensor,
+        n_time_steps: int,
         return_enc_out: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
@@ -108,6 +113,7 @@ class DDDM(nn.Module):
         :param x_mel: Input mel-spectrogram
         :param x_mask: Mask for the input mel-spectrogram
         :param g: Global conditioning tensor
+        :param n_time_steps: Number of diffusion steps
         :param return_enc_out: Whether to return the encoder output or not
         :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
         """
@@ -133,7 +139,7 @@ class DDDM(nn.Module):
 
         # Diffusion
         y_src, y_ftr = self.diffusion(
-            src_mean_x, ftr_mean_x, x_mask, src_mel, ftr_mel, g, 6, "ml"
+            src_mean_x, ftr_mean_x, x_mask, src_mel, ftr_mel, g, n_time_steps, "ml"
         )
         y = (y_src + y_ftr) / 2
         y = y[:, :, : x_mel.size(-1)]  # Remove the padded frames

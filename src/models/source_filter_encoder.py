@@ -41,7 +41,10 @@ class SourceFilterEncoder(nn.Module):
         """
         f0 = util.get_normalized_f0(x, self.sample_rate)
 
-        x_emb_content = self.content_encoder(x)
+        # ensure xlsr embedding and x_mask are aligned
+        x_pad = util.pad_audio_for_xlsr(x)
+
+        x_emb_content = self.content_encoder(x_pad)
         x_emb_pitch = self.pitch_encoder(f0)
 
         src_mel, ftr_mel = self.decoder(

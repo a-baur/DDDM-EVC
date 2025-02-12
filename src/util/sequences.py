@@ -183,3 +183,24 @@ def get_u_net_compatible_length(length: int, num_downsamplings_in_unet: int = 2)
         if length % (2**num_downsamplings_in_unet) == 0:
             return length
         length += 1
+
+
+def pad_audio_for_xlsr(x: torch.Tensor, sampling_rate: int = 16000) -> torch.Tensor:
+    """
+    Pads the input audio to ensure frame alignment between XLS-R embeddings
+    and Mel spectrograms.
+
+    Wav2Vec2/XLS-R uses a 20ms stride and a 25ms window, but it skips the last
+    stride if the last window perfectly contains all samples. In contrast,
+    Mel spectrogram computation always performs another stride if the next window.
+    will still contain some samples.
+
+    Padding by (25ms - 20ms) = 5ms ensures XLS-R performs the last stride,
+    preventing an off-by-one frame mismatch.
+
+    :param x: Input audio waveform
+    :param sampling_rate: Sampling rate
+    :return: Padded audio waveform
+    """
+    pad_samples = int(0.005 * sampling_rate)  # 5ms padding
+    return F.pad(x, (pad_samples, pad_samples), "reflect")

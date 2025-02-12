@@ -1,6 +1,6 @@
 dataset:
   name: "MSP-Podcast"
-  path: "/home/alex/dev/DDDM-EVC/datasets/msp-podcast/"
+  path: "./datasets/msp-podcast/"
   sampling_rate: 16000
   segment_size: 38000
 
@@ -14,7 +14,7 @@ mel_transform:
   sample_rate: 16000
   filter_length: 1280
   win_length: 1280
-  hop_length: 320
+  hop_length: 320  # = 50Hz * 16000 (wav2vec2 framerate)
   n_mel_channels: 80
   f_min: 0
   f_max: 8000

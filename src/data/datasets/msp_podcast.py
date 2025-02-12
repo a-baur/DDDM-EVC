@@ -31,6 +31,7 @@ class MSPPodcast(torch.utils.data.Dataset):
         split: T_SPLITS,
     ) -> None:
         self.path = Path(cfg.dataset.path)
+        self.manifest_dir = self.path / self.MANIFEST_FOLDER
         self.name = cfg.dataset.name
         self.sampling_rate = cfg.dataset.sampling_rate
         self.segment_size = cfg.dataset.segment_size
@@ -67,10 +68,9 @@ class MSPPodcast(torch.utils.data.Dataset):
         :param split: Split name
         :return: Tuple of samples and lengths
         """
-        manifest_dir = self.path / self.MANIFEST_FOLDER
-
         fname = self.MANIFEST_FILES[split]
-        with open(manifest_dir / fname, "r") as f:
+        fpath = (self.manifest_dir / fname).absolute()
+        with open(fpath, "r") as f:
             lines = f.readlines()[1:]  # Skip header
         unpacked_tuples = [line.strip().split("\t") for line in lines]
         fnames = [t[0] for t in unpacked_tuples]

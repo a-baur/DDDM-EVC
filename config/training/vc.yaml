@@ -1,6 +1,6 @@
 batch_size: 32
 learning_rate: 0.001
 epochs: 10
-segment_size: 35840
+segment_size: 38000
 diff_loss_coef: 1.0
 rec_loss_coef: 1.0
