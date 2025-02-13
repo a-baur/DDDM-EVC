@@ -1,4 +1,5 @@
 import pathlib
+from typing import Literal
 
 import torch
 from torch import nn
@@ -19,6 +20,7 @@ def load_model(
     ckpt_file: str | pathlib.Path,
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     freeze: bool = False,
+    mode: Literal["train", "eval"] = "eval",
 ) -> None:
     """Load model from checkpoint file."""
     ckpt_dir = util.get_root_path() / "ckpt"
@@ -26,7 +28,10 @@ def load_model(
     model.load_state_dict(ckpt)
     if freeze:
         model.requires_grad_(False)
-    model.eval()
+    if mode == "eval":
+        model.eval()
+    else:
+        model.train()
 
 
 def init_weights(module: torch.nn.Module, mean: float = 0.0, std: float = 0.01) -> None:

@@ -1,3 +1,5 @@
+from typing import Literal
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,31 +19,34 @@ class DDDM(nn.Module):
         self.source_filter_encoder = SourceFilterEncoder(cfg, sample_rate)
         self.diffusion = Diffusion(cfg.diffusion)
 
-    def load_pretrained(self, freeze: bool = True, device: torch.device = None) -> None:
+    def load_pretrained(
+        self, mode: Literal["eval", "train"] = "eval", device: torch.device = None
+    ) -> None:
         """Load pre-trained models."""
+
         util.load_model(
             self.style_encoder,
             "metastylespeech.pth",
-            freeze=freeze,
             device=device,
+            mode="eval",
         )
         util.load_model(
             self.source_filter_encoder.pitch_encoder,
             ckpt_file="vqvae.pth",
-            freeze=freeze,
             device=device,
+            mode="eval",
         )
         util.load_model(
             self.source_filter_encoder.decoder,
             ckpt_file="wavenet_decoder.pth",
-            freeze=freeze,
             device=device,
+            mode=mode,
         )
         util.load_model(
             self.diffusion,
             "diffusion.pth",
-            freeze=freeze,
             device=device,
+            mode=mode,
         )
 
     def voice_conversion(
@@ -105,7 +110,7 @@ class DDDM(nn.Module):
         g: torch.Tensor,
         n_time_steps: int,
         return_enc_out: bool = False,
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass with the given global conditioning tensor.
 
@@ -115,11 +120,15 @@ class DDDM(nn.Module):
         :param g: Global conditioning tensor
         :param n_time_steps: Number of diffusion steps
         :param return_enc_out: Whether to return the encoder output or not
-        :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
+        :return: Output mel-spectrogram or (y_mel, src_mel, ftr_mel) if return_enc_out
         """
         # Encode the input waveform into diffusion priors
         src_mel, ftr_mel = self.source_filter_encoder(x, x_mask, g)
-        enc_out = src_mel + ftr_mel
+
+        if return_enc_out:
+            _src_mel, _ftr_mel = src_mel.detach().clone(), ftr_mel.detach().clone()
+        else:
+            _src_mel, _ftr_mel = None, None
 
         # Compute diffused mean
         src_mean_x, ftr_mean_x = self.diffusion.compute_diffused_mean(
@@ -145,7 +154,7 @@ class DDDM(nn.Module):
         y = y[:, :, : x_mel.size(-1)]  # Remove the padded frames
 
         if return_enc_out:
-            return y, enc_out
+            return y, _src_mel, _ftr_mel
         else:
             return y
 

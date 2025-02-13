@@ -191,22 +191,24 @@ def pad_audio_for_xlsr(x: torch.Tensor, sampling_rate: int = 16000) -> torch.Ten
     and Mel spectrograms.
 
     Wav2Vec2/XLS-R uses a 20ms stride and a 25ms window, but it skips the last
-    stride if the last window perfectly contains all samples. In contrast,
-    Mel spectrogram computation always performs another stride if the next window.
-    will still contain some samples.
+    stride if the last window contains all remaining samples. In contrast,
+    Mel spectrogram computation performs another stride if the next window.
+    would still contain some samples.
 
-    Padding by (25ms - 20ms) = 5ms ensures XLS-R performs the last stride,
+    Padding ensures XLS-R performs the last stride,
     preventing an off-by-one frame mismatch.
 
     :param x: Input audio waveform
     :param sampling_rate: Sampling rate
     :return: Padded audio waveform
     """
-    pad_samples = int(0.005 * sampling_rate)
+    diff_samples = int(0.005 * sampling_rate)
     stride_samples = int(0.020 * sampling_rate)
 
-    # pad if less than 5ms after last stride
-    if x.size(-1) % stride_samples <= pad_samples:
-        return F.pad(x, (pad_samples, pad_samples), "reflect")
+    # if remaining windows has less than 5ms of samples,
+    # pad so next window will contain at least one new sample.
+    if (rem := x.size(-1) % stride_samples) <= diff_samples:
+        pad = (rem // 2) + 1
+        return F.pad(x, (pad, pad), "reflect")
     else:
         return x

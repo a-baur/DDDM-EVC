@@ -12,18 +12,17 @@ def test_dddm(cfg: Config, dataloader: AudioDataloader) -> None:
 
     mel_transform = MelTransform(cfg.data.mel_transform)
     model = DDDM(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
-    model.load_pretrained(freeze=True)
+    model.load_pretrained(mode="eval")
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
 
-    x, x_mel, x_n_frames, t_mel, t_frames, model = move_to_device(
-        (x, x_mel, x_n_frames, model), device
-    )
+    x, x_mel, x_n_frames, model = move_to_device((x, x_mel, x_n_frames, model), device)
 
-    y_mel, enc_out = model(x, x_mel, x_n_frames, return_enc_out=True)
+    y_mel, src_out, ftr_out = model(x, x_mel, x_n_frames, return_enc_out=True)
     assert y_mel.shape == x_mel.shape
-    assert enc_out.shape == x_mel.shape
+    assert src_out.shape == x_mel.shape
+    assert ftr_out.shape == x_mel.shape
 
 
 def test_dddm_vc(cfg: Config, dataloader: AudioDataloader) -> None:
@@ -32,7 +31,7 @@ def test_dddm_vc(cfg: Config, dataloader: AudioDataloader) -> None:
 
     mel_transform = MelTransform(cfg.data.mel_transform)
     model = DDDM(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
-    model.load_pretrained(freeze=True)
+    model.load_pretrained(mode="eval")
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
@@ -43,11 +42,12 @@ def test_dddm_vc(cfg: Config, dataloader: AudioDataloader) -> None:
         (x, x_mel, x_n_frames, t_mel, t_frames, model), device
     )
 
-    y_mel, enc_out = model.voice_conversion(
+    y_mel, src_out, ftr_out = model.voice_conversion(
         x, x_mel, x_n_frames, t_mel, t_frames, return_enc_out=True
     )
     assert y_mel.shape == x_mel.shape
-    assert enc_out.shape == x_mel.shape
+    assert src_out.shape == x_mel.shape
+    assert ftr_out.shape == x_mel.shape
 
 
 def test_dddm_loss(cfg: Config, dataloader: AudioDataloader) -> None:
@@ -56,14 +56,12 @@ def test_dddm_loss(cfg: Config, dataloader: AudioDataloader) -> None:
 
     mel_transform = MelTransform(cfg.data.mel_transform)
     model = DDDM(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
-    model.load_pretrained(freeze=True)
+    model.load_pretrained(mode="eval")
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
 
-    x, x_mel, x_n_frames, t_mel, t_frames, model = move_to_device(
-        (x, x_mel, x_n_frames, model), device
-    )
+    x, x_mel, x_n_frames, model = move_to_device((x, x_mel, x_n_frames, model), device)
 
     diff_loss, rec_loss = model.compute_loss(x, x_mel, x_n_frames)
     assert diff_loss >= 0
