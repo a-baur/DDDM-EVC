@@ -16,38 +16,34 @@ class DDDM(nn.Module):
     def __init__(self, cfg: ModelConfig, sample_rate: int) -> None:
         super().__init__()
         self.style_encoder = MetaStyleSpeech(cfg.speaker_encoder)
-        self.source_filter_encoder = SourceFilterEncoder(cfg, sample_rate)
+        self.encoder = SourceFilterEncoder(cfg, sample_rate)
         self.diffusion = Diffusion(cfg.diffusion)
 
     def load_pretrained(
-        self, mode: Literal["eval", "train"] = "eval", device: torch.device = None
+        self,
+        mode: Literal["eval", "train"] = "eval",
+        device: torch.device = None,
+        models: tuple[str, ...] = (
+            "style_encoder",
+            "pitch_encoder",
+            "src_ftr_encoder",
+            "src_ftr_decoder",
+        ),
     ) -> None:
         """Load pre-trained models."""
+        model_mapping = {
+            "style_encoder": (self.style_encoder, "metastylespeech.pth"),
+            "pitch_encoder": (self.encoder.pitch_encoder, "vqvae.pth"),
+            "src_ftr_encoder": (self.encoder.decoder, "wavenet_decoder.pth"),
+            "src_ftr_decoder": (self.diffusion, "diffusion.pth"),
+        }
 
-        util.load_model(
-            self.style_encoder,
-            "metastylespeech.pth",
-            device=device,
-            mode="eval",
-        )
-        util.load_model(
-            self.source_filter_encoder.pitch_encoder,
-            ckpt_file="vqvae.pth",
-            device=device,
-            mode="eval",
-        )
-        util.load_model(
-            self.source_filter_encoder.decoder,
-            ckpt_file="wavenet_decoder.pth",
-            device=device,
-            mode=mode,
-        )
-        util.load_model(
-            self.diffusion,
-            "diffusion.pth",
-            device=device,
-            mode=mode,
-        )
+        for model_name in models:
+            if model_name not in model_mapping:
+                raise ValueError(f"Unknown model: {model_name}")
+
+            model_instance, checkpoint_file = model_mapping[model_name]
+            util.load_model(model_instance, checkpoint_file, device=device, mode=mode)
 
     def voice_conversion(
         self,
@@ -123,7 +119,7 @@ class DDDM(nn.Module):
         :return: Output mel-spectrogram or (y_mel, src_mel, ftr_mel) if return_enc_out
         """
         # Encode the input waveform into diffusion priors
-        src_mel, ftr_mel = self.source_filter_encoder(x, x_mask, g)
+        src_mel, ftr_mel = self.encoder(x, x_mask, g)
 
         if return_enc_out:
             _src_mel, _ftr_mel = src_mel.detach().clone(), ftr_mel.detach().clone()
@@ -176,7 +172,7 @@ class DDDM(nn.Module):
         g = self.style_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
 
         mixup_ratios = torch.randint(0, 2, (x.size(0),)).to(x.device)
-        src_mel, ftr_mel = self.source_filter_encoder(x, x_mask, g, mixup_ratios)
+        src_mel, ftr_mel = self.encoder(x, x_mask, g, mixup_ratios)
 
         max_length_new = util.get_u_net_compatible_length(x_mel.size(-1))
         src_mel, ftr_mel, x_mel, x_mask = util.pad_tensors_to_length(

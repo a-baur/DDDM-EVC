@@ -1,6 +1,13 @@
+seed: 42
 batch_size: 32
-learning_rate: 0.001
 epochs: 10
 segment_size: 38000
+learning_rate: 5e-5
+lr_decay: 0.999875
+betas: [0.8, 0.99]
+eps: 1e-9
+use_fp16_scaling: false  # gradient scaling
+#  clip_value: 0.0001  # Gradient clipping bound
 diff_loss_coef: 1.0
 rec_loss_coef: 1.0
+tensorboard_dir: ${hydra:runtime.cwd}/${hydra:run.dir}/tensorboard

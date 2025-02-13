@@ -12,12 +12,19 @@ CONFIG_PATH = Path(__file__).parent.parent / "config"
 
 @dataclass
 class TrainingConfig:
+    seed: int
     batch_size: int
-    learning_rate: float
     epochs: int
     segment_size: int
+    learning_rate: float
+    lr_decay: float
+    betas: tuple[float, float]
+    eps: float
+    use_fp16_scaling: bool
     diff_loss_coef: float
     rec_loss_coef: float
+    tensorboard_dir: str
+    clip_value: Optional[float] = None
 
 
 @dataclass
@@ -33,7 +40,7 @@ class DataLoaderConfig:
     num_workers: int
     distributed: bool
     pin_memory: bool
-    drop_last: Optional[bool]
+    drop_last: Optional[bool] = None
 
 
 @dataclass

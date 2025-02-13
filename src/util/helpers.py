@@ -1,5 +1,5 @@
 import pathlib
-from typing import Literal
+from typing import Iterable, Literal, Optional
 
 import torch
 from torch import nn
@@ -52,3 +52,34 @@ def move_to_device(
     objs: tuple[torch.Tensor | nn.Module, ...], device: torch.device
 ) -> tuple[torch.Tensor | nn.Module, ...]:
     return tuple(o.to(device) for o in objs)
+
+
+def clip_grad_value(
+    parameters: Iterable[torch.Tensor],
+    clip_value: Optional[float],
+    norm_type: float = 2.0,
+) -> float:
+    """
+    Clips the gradient values of the given parameters
+    to a specified range and computes the total norm.
+
+    :param parameters: Iterable of model parameters whose
+        gradients will be clipped.
+    :param clip_value: Maximum absolute value for gradient
+        clipping. If None, no clipping is applied.
+    :param norm_type: Type of norm to compute total gradient
+        norm. Default is 2 (Euclidean norm).
+    :return: The total norm of the gradients before clipping.
+    """
+    if isinstance(parameters, torch.Tensor):
+        parameters = [parameters]
+
+    total_norm = 0
+    for p in parameters:
+        if p.grad is not None:
+            param_norm = p.grad.data.norm(norm_type)
+            total_norm += param_norm.item() ** norm_type
+            if clip_value is not None:
+                p.grad.data.clamp_(min=-clip_value, max=clip_value)
+
+    return total_norm ** (1.0 / norm_type)

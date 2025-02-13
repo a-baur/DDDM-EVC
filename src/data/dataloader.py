@@ -1,8 +1,7 @@
 from typing import Callable
 
 import torch
-from torch.utils.data import DataLoader, Dataset
-from torch.utils.data.distributed import DistributedSampler
+from torch.utils.data import DataLoader, Dataset, Sampler
 from torchaudio.transforms import MelSpectrogram
 
 from config import Config, MelTransformConfig
@@ -13,13 +12,10 @@ class AudioDataloader(DataLoader):
         self,
         dataset: Dataset,
         cfg: Config,
+        sampler: Sampler = None,
+        shuffle: bool = False,
         collate_fn: Callable | None = None,
     ) -> None:
-        if cfg.data.dataloader.distributed:
-            sampler = DistributedSampler(dataset)
-        else:
-            sampler = None
-
         super().__init__(
             dataset,
             batch_size=cfg.training.batch_size,
@@ -27,7 +23,7 @@ class AudioDataloader(DataLoader):
             sampler=sampler,
             pin_memory=cfg.data.dataloader.pin_memory,
             drop_last=cfg.data.dataloader.drop_last,
-            shuffle=(sampler is None),
+            shuffle=shuffle,
             collate_fn=collate_fn,
         )
 
