@@ -28,7 +28,7 @@ def inference(
 
     mel_transform = MelTransform(cfg.data.mel_transform)
     model = DDDM(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
-    model.load_pretrained(freeze=True)
+    model.load_pretrained(freeze=True, device=device)
 
     vocoder = HifiGAN(cfg.model.vocoder)
     util.load_model(vocoder, "hifigan.pth", freeze=True)
