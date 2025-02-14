@@ -151,7 +151,7 @@ class Diffusion(BaseModule):
         ftr_out: torch.Tensor,
         spk: torch.Tensor,
         n_timesteps: int,
-        mode: Literal['pf', 'em', 'ml'],
+        mode: Literal["pf", "em", "ml"],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Reverse diffusion step.
@@ -180,7 +180,7 @@ class Diffusion(BaseModule):
             )
             beta_t = self.get_beta(t)
 
-            if mode == 'ml':
+            if mode == "ml":
                 # Theorem 1: https://arxiv.org/abs/2109.13821
                 kappa = self.get_gamma(0, t - h) * (
                     1.0 - self.get_gamma(t - h, t, p=2.0)
@@ -230,7 +230,7 @@ class Diffusion(BaseModule):
         ftr_out: torch.Tensor,
         spk: torch.Tensor,
         n_timesteps: int,
-        mode: Literal['pf', 'em', 'ml'],
+        mode: Literal["pf", "em", "ml"],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass of the diffusion model.

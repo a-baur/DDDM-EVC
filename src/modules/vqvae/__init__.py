@@ -9,4 +9,4 @@ OpenAI Jukebox: https://github.com/openai/jukebox
 from .jukebox import Decoder, Encoder
 from .vq import Bottleneck
 
-__all__ = ['Encoder', 'Decoder', 'Bottleneck']
+__all__ = ["Encoder", "Decoder", "Bottleneck"]

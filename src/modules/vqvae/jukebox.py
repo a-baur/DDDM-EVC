@@ -234,8 +234,9 @@ class Decoder(nn.Module):
             if isinstance(stride_t, (tuple, list)) and isinstance(
                 down_t, (tuple, list)
             ):
-                emb, T = self.output_emb_width, T * np.prod(
-                    [s**d for s, d in zip(stride_t, down_t)]
+                emb, T = (
+                    self.output_emb_width,
+                    T * np.prod([s**d for s, d in zip(stride_t, down_t)]),
                 )
             else:
                 emb, T = self.output_emb_width, T * (stride_t**down_t)

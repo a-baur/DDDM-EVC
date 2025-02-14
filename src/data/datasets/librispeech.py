@@ -8,7 +8,7 @@ from util import get_root_path, random_segment
 
 
 def librispeech_collate_fn(
-    batch: list[tuple[torch.Tensor, ...]]
+    batch: list[tuple[torch.Tensor, ...]],
 ) -> tuple[torch.Tensor, torch.Tensor]:
     config.register_configs()
     cfg = config.load_hydra_config("config_vc.yaml")

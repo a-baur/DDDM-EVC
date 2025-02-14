@@ -8,89 +8,11 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DistributedSampler
 
 import config
-import util
 from data import AudioDataloader, MelTransform, MSPPodcast
 from models import DDDM
+from util.training import Trainer
 
 config.register_configs()
-
-
-class Trainer:
-    def __init__(
-        self,
-        model: DDDM,
-        mel_transform: MelTransform,
-        optimizer: torch.optim.Optimizer,
-        scheduler: torch.optim.lr_scheduler.LRScheduler,
-        train_dataloader: AudioDataloader,
-        eval_dataloader: AudioDataloader,
-        device: torch.device,
-        scaler: GradScaler,
-        cfg: config.Config,
-        distributed: bool,
-        rank: int,
-    ):
-        self.model = model
-        self.mel_transform = mel_transform
-        self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.train_dataloader = train_dataloader
-        self.eval_dataloader = eval_dataloader
-        self.device = device
-        self.scaler = scaler
-        self.cfg = cfg
-        self.distributed = distributed
-        self.rank = rank
-
-    def train_epoch(self) -> None:
-        """
-
-        :return:
-        """
-        for batch_idx, (x, x_n_frames) in enumerate(self.train_dataloader):
-            self.optimizer.zero_grad()
-
-            x_mel = self.mel_transform(x)
-            diff_loss, rec_loss = self.model.compute_loss(x, x_mel, x_n_frames)
-
-            loss = (
-                diff_loss * self.cfg.training.diff_loss_coef
-                + rec_loss * self.cfg.training.rec_loss_coef
-            )
-
-            if self.cfg.training.use_fp16_scaling:
-                self.scaler.scale(loss).backward()
-                self.scaler.unscale_(self.optimizer)
-                grad_norm = util.clip_grad_value(
-                    self.model.parameters(),
-                    self.cfg.training.clip_value,
-                )
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                loss.backward()
-                grad_norm = util.clip_grad_value(
-                    self.model.parameters(),
-                    self.cfg.training.clip_value,
-                )
-                self.optimizer.step()
-
-            print(grad_norm)  # logging
-            self.scheduler.step()
-
-    def train(self, n_epochs: int) -> None:
-        """
-
-        :param n_epochs:
-        :return:
-        """
-        self.model.train()
-
-        for epoch in range(n_epochs):
-            if self.distributed:
-                self.train_dataloader.sampler.set_epoch(epoch)  # noqa
-
-            self.train_epoch()
 
 
 @hydra.main(
@@ -98,7 +20,7 @@ class Trainer:
     config_path=config.CONFIG_PATH.as_posix(),
     config_name="config_vc",
 )  # type: ignore
-def run(cfg: DictConfig) -> None:
+def main(cfg: DictConfig) -> None:
     cfg: config.Config = OmegaConf.to_object(cfg)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpus = torch.cuda.device_count()
@@ -117,7 +39,7 @@ def setup_trainer(
 
     if distributed:
         dist.init_process_group(
-            backend='nccl', init_method='env://', world_size=n_gpus, rank=rank
+            backend="nccl", init_method="env://", world_size=n_gpus, rank=rank
         )
     if on_cuda:
         torch.cuda.set_device(rank)
@@ -175,4 +97,4 @@ def train(rank: int, device: torch.device, n_gpus: int, cfg: config.Config) -> N
 
 
 if __name__ == "__main__":
-    run()
+    main()

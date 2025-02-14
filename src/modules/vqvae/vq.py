@@ -26,7 +26,7 @@ class BottleneckBlock(nn.Module):
         Register k buffer. k represents the discrete latent space.
         :return:
         """
-        self.register_buffer('k', torch.zeros(self.k_bins, self.emb_width))
+        self.register_buffer("k", torch.zeros(self.k_bins, self.emb_width))
 
     def _tile(self, x: torch.Tensor) -> torch.Tensor:
         """

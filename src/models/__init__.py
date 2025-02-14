@@ -8,13 +8,13 @@ from .vocoder import HifiGAN
 from .wavenet_decoder import WavenetDecoder
 
 __all__ = [
-    'MetaStyleSpeech',
-    'VQVAEEncoder',
-    'Wav2Vec2',
-    'Hubert',
-    'WavenetDecoder',
-    'SourceFilterEncoder',
-    'HifiGAN',
-    'Diffusion',
-    'DDDM',
+    "MetaStyleSpeech",
+    "VQVAEEncoder",
+    "Wav2Vec2",
+    "Hubert",
+    "WavenetDecoder",
+    "SourceFilterEncoder",
+    "HifiGAN",
+    "Diffusion",
+    "DDDM",
 ]
