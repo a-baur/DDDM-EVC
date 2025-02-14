@@ -42,10 +42,10 @@ optional = true
 pytest = "^8.3.4"
 pytest-cov = "^6.0.0"
 
-[tool.poetry.group.notebook]
+[tool.poetry.group.visualize]
 optional = true
 
-[tool.poetry.group.notebook.dependencies]
+[tool.poetry.group.visualize.dependencies]
 jupyter = "^1.1.1"
 matplotlib = "^3.10.0"
 

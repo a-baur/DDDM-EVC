@@ -23,7 +23,11 @@ class TrainingConfig:
     use_fp16_scaling: bool
     diff_loss_coef: float
     rec_loss_coef: float
+    log_interval: int
+    eval_interval: int
+    save_interval: int
     tensorboard_dir: str
+    eval_n_batches: Optional[int] = None
     clip_value: Optional[float] = None
 
 
