@@ -1,3 +1,4 @@
+import os
 import pathlib
 from typing import Iterable, Literal, Optional
 
@@ -83,3 +84,17 @@ def clip_grad_value(
                 p.grad.data.clamp_(min=-clip_value, max=clip_value)
 
     return total_norm ** (1.0 / norm_type)
+
+
+def get_cuda_devices() -> list[str]:
+    """Get list of cuda devices available for training."""
+    cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", None)
+    n_gpus = torch.cuda.device_count()
+    if cuda_visible_devices is not None:
+        gpu_ids = list(map(int, cuda_visible_devices.split(",")))
+    else:
+        gpu_ids = list(range(n_gpus))
+    return [
+        f"{torch.cuda.get_device_name(i)} [gpu:{idx}, cuda:{i}]"
+        for idx, i in zip(gpu_ids, range(n_gpus))
+    ]

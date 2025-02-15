@@ -28,6 +28,14 @@ def main(cfg: DictConfig) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpus = torch.cuda.device_count()
 
+    if n_gpus > 0:
+        devices = util.get_cuda_devices()
+        proceed = input(
+            f"proceed training on the following cuda devices (y/n)? {devices}"
+        )
+        if proceed.lower() == "n":
+            return None
+
     if n_gpus > 1:
         mp.spawn(train, nprocs=n_gpus, args=(device, n_gpus, cfg))
     else:

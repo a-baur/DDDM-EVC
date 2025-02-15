@@ -1,6 +1,7 @@
 from .audio import get_normalized_f0, get_yaapt_f0
 from .helpers import (
     clip_grad_value,
+    get_cuda_devices,
     get_root_path,
     init_weights,
     load_model,
@@ -33,4 +34,5 @@ __all__ = [
     "pad_audio_for_xlsr",
     "clip_grad_value",
     "setup_logging",
+    "get_cuda_devices",
 ]

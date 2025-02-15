@@ -86,7 +86,7 @@ class Trainer:
         self.logger = util.setup_logging(os.path.join(log_dir, "training.log"))
 
         self.logger.info(
-            f"Initialized trainer [CUDA rank: {self.rank} | Distributed: {self.distributed}]"
+            f"Initialized trainer [{device.type}:{self.rank} | distributed: {self.distributed}]"
         )
         self.logger.info(f"Logging to '{log_dir}'")
 
@@ -136,8 +136,10 @@ class Trainer:
         self.model.train()
         self.optimizer.zero_grad()
 
-        x, x_n_frames = batch
-        x, x_n_frames = x.to(self.device), x_n_frames.to(self.device)
+        x, x_n_frames = (
+            batch[0].to(self.device, non_blocking=True),
+            batch[1].to(self.device, non_blocking=True),
+        )
         x_mel = self.mel_transform(x)
         diff_loss, rec_loss = self.model.compute_loss(x, x_mel, x_n_frames)
 
@@ -188,8 +190,10 @@ class Trainer:
 
         batch: tuple[torch.Tensor, torch.Tensor]
         for batch_idx, batch in enumerate(self.eval_dataloader):
-            x, x_n_frames = batch
-            x, x_n_frames = x.to(self.device), x_n_frames.to(self.device)
+            x, x_n_frames = (
+                batch[0].to(self.device, non_blocking=True),
+                batch[1].to(self.device, non_blocking=True),
+            )
             x_mel = self.mel_transform(x)
 
             y_mel, src_mel, ftr_mel = self.model(
@@ -239,8 +243,8 @@ class Trainer:
     ) -> None:
         batch_progress = batch_idx / self.n_batches
         self.logger.info(
-            f"Epoch {epoch}: {batch_progress:4.2%} {batch_idx}/{self.n_batches} "
-            f"[{metrics.loss=:.5f}, {metrics.diff_loss=:.5f}, {metrics.rec_loss=:.5f})]"
+            f"Epoch {epoch}: {batch_progress:7.2%} {batch_idx:4}/{self.n_batches} "
+            f"[{metrics.loss=:.5f}, {metrics.diff_loss=:.5f}, {metrics.rec_loss=:.5f}]"
         )
         if not VISUALIZATION:
             return
