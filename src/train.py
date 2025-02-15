@@ -1,3 +1,5 @@
+import os
+
 import hydra
 import torch
 import torch.distributed as dist
@@ -8,6 +10,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DistributedSampler
 
 import config
+import util
 from data import AudioDataloader, MelTransform, MSPPodcast
 from models import DDDM
 from util.training import Trainer
@@ -25,7 +28,7 @@ def main(cfg: DictConfig) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpus = torch.cuda.device_count()
 
-    if n_gpus > 0:
+    if n_gpus > 1:
         mp.spawn(train, nprocs=n_gpus, args=(device, n_gpus, cfg))
     else:
         train(0, device, n_gpus, cfg)
@@ -44,19 +47,24 @@ def setup_trainer(
     if on_cuda:
         torch.cuda.set_device(rank)
 
-    train_dataset = MSPPodcast(cfg.data, split="train")
+    train_dataset = MSPPodcast(
+        cfg.data, split="development"
+    )  # split="train")  TODO: replace for actual training
     train_sampler = DistributedSampler(train_dataset) if distributed else None
     train_loader = AudioDataloader(train_dataset, cfg=cfg, sampler=train_sampler)
 
-    eval_dataset = MSPPodcast(cfg.data, split="test1")
-    eval_loader = AudioDataloader(eval_dataset, cfg=cfg, shuffle=False)
+    eval_dataset = MSPPodcast(
+        cfg.data, split="development"
+    )  # split="train")  TODO: replace for actual training
+    eval_loader = AudioDataloader(eval_dataset, cfg=cfg, batch_size=1, shuffle=False)
 
     mel_transform = MelTransform(cfg.data.mel_transform)
 
     model = DDDM(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
     model.load_pretrained(
-        models=("speaker_encoder", "pitch_encoder"), mode="eval", device=device
+        models=("style_encoder", "pitch_encoder"), mode="eval", device=device
     )
+    model.to(device)
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -97,4 +105,5 @@ def train(rank: int, device: torch.device, n_gpus: int, cfg: config.Config) -> N
 
 
 if __name__ == "__main__":
+    os.chdir(util.get_root_path())
     main()

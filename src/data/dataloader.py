@@ -14,11 +14,12 @@ class AudioDataloader(DataLoader):
         cfg: Config,
         sampler: Sampler = None,
         shuffle: bool = False,
+        batch_size: int = None,
         collate_fn: Callable | None = None,
     ) -> None:
         super().__init__(
             dataset,
-            batch_size=cfg.training.batch_size,
+            batch_size=batch_size or cfg.training.batch_size,
             num_workers=cfg.data.dataloader.num_workers,
             sampler=sampler,
             pin_memory=cfg.data.dataloader.pin_memory,

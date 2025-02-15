@@ -1,4 +1,3 @@
-import io
 import os
 import warnings
 from dataclasses import dataclass
@@ -8,12 +7,25 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import GradScaler
-from torch.utils.tensorboard import SummaryWriter
 
 import config
 import util
 from data import AudioDataloader, MelTransform
 from models import DDDM, HifiGAN
+
+try:
+    import matplotlib
+    import matplotlib.pylab as plt
+    from torch.utils.tensorboard import SummaryWriter
+
+    matplotlib.use("Agg")
+    VISUALIZATION = True
+except ModuleNotFoundError:
+    warnings.warn(
+        "Visualization packages not available, "
+        "install using 'poetry install --with visualize'"
+    )
+    VISUALIZATION = False
 
 
 @dataclass
@@ -64,10 +76,19 @@ class Trainer:
         self.vocoder = HifiGAN(self.cfg.model.vocoder)
         util.load_model(self.vocoder, "hifigan.pth", device, freeze=True)
 
+        self.model.to(device)
+        self.vocoder.to(device)
+        self.mel_transform.to(device)
+
         log_dir = cfg.training.tensorboard_dir
         self.train_writer = SummaryWriter(os.path.join(log_dir, "train"))
         self.eval_writer = SummaryWriter(os.path.join(log_dir, "eval"))
         self.logger = util.setup_logging(os.path.join(log_dir, "training.log"))
+
+        self.logger.info(
+            f"Initialized trainer [CUDA rank: {self.rank} | Distributed: {self.distributed}]"
+        )
+        self.logger.info(f"Logging to '{log_dir}'")
 
     def train(self, n_epochs: int) -> None:
         """
@@ -75,6 +96,9 @@ class Trainer:
         :param n_epochs:
         :return:
         """
+        self.logger.info(f"Starting training [{n_epochs} epochs]...")
+
+        total_steps = n_epochs * self.n_batches
         batch: tuple[torch.Tensor, torch.Tensor]
         for epoch in range(n_epochs):
             if self.distributed:
@@ -89,17 +113,16 @@ class Trainer:
                 if self.rank != 0:
                     continue
 
-                if global_step % self.cfg.training.log_interval:
+                if global_step % self.cfg.training.log_interval == 0:
                     self._log_train(
                         global_step,
                         epoch,
                         batch_idx,
-                        len(batch),
                         train_metrics,
                     )
 
                 if global_step % self.cfg.training.eval_interval == 0:
-                    global_progress = epoch / n_epochs
+                    global_progress = global_step / total_steps
                     eval_metrics = self.eval()
                     self._log_eval(global_step, global_progress, eval_metrics)
 
@@ -111,10 +134,10 @@ class Trainer:
         :return: training metrics
         """
         self.model.train()
-
-        x, x_n_frames = batch
         self.optimizer.zero_grad()
 
+        x, x_n_frames = batch
+        x, x_n_frames = x.to(self.device), x_n_frames.to(self.device)
         x_mel = self.mel_transform(x)
         diff_loss, rec_loss = self.model.compute_loss(x, x_mel, x_n_frames)
 
@@ -166,6 +189,7 @@ class Trainer:
         batch: tuple[torch.Tensor, torch.Tensor]
         for batch_idx, batch in enumerate(self.eval_dataloader):
             x, x_n_frames = batch
+            x, x_n_frames = x.to(self.device), x_n_frames.to(self.device)
             x_mel = self.mel_transform(x)
 
             y_mel, src_mel, ftr_mel = self.model(
@@ -178,12 +202,6 @@ class Trainer:
 
             if batch_idx < 5:
                 # keep track of first five samples in eval dataset
-                plot_mel = torch.cat([x_mel, y_mel, rec_mel, ftr_mel, src_mel], dim=1)
-                plot_mel = plot_mel.clip(min=-10, max=10)
-                plot_mel = plot_mel.squeeze().cpu().numpy()
-
-                images[f"gen/mel_{batch_idx}"] = _plot_spectrogram_to_numpy(plot_mel)
-
                 y = self.vocoder(y_mel)
                 enc_wv = self.vocoder(rec_mel)
                 src_wv = self.vocoder(src_mel)
@@ -193,6 +211,11 @@ class Trainer:
                 audio[f"gen/audio_enc_{batch_idx}"] = enc_wv.squeeze()
                 audio[f"gen/audio_src_{batch_idx}"] = src_wv.squeeze()
                 audio[f"gen/audio_ftr_{batch_idx}"] = ftr_wv.squeeze()
+
+                images[f"gen/mel_{batch_idx}"] = _plot_spectrogram_to_numpy(
+                    [x_mel, y_mel, rec_mel, ftr_mel, src_mel],
+                    ["x", "dddm", "encoder", "filter", "source"],
+                )
 
             if batch_idx == max_batches:
                 break
@@ -212,10 +235,16 @@ class Trainer:
         global_step: int,
         epoch: int,
         batch_idx: int,
-        batch_len: int,
         metrics: TrainMetrics,
     ) -> None:
-        batch_progress = batch_idx / batch_len
+        batch_progress = batch_idx / self.n_batches
+        self.logger.info(
+            f"Epoch {epoch}: {batch_progress:4.2%} {batch_idx}/{self.n_batches} "
+            f"[{metrics.loss=:.5f}, {metrics.diff_loss=:.5f}, {metrics.rec_loss=:.5f})]"
+        )
+        if not VISUALIZATION:
+            return
+
         losses = {
             "total": metrics.loss,
             "reconstruction": metrics.rec_loss,
@@ -228,17 +257,19 @@ class Trainer:
         )
         self.train_writer.add_scalar("gradient norm", metrics.grad_norm, global_step)
 
-        self.logger.info(
-            f"Epoch {epoch}: {batch_progress:4.0%} {batch_idx}/{batch_len} "
-            f"[{metrics.loss=:.5d}, {metrics.diff_loss=:.5d}, {metrics.rec_loss=:.5d})]"
-        )
-
     def _log_eval(
         self,
         global_step: int,
         global_progress: float,
         metrics: EvalMetrics,
     ) -> None:
+        self.logger.info(
+            f">>> EVAL [Training progress: {global_progress:4.0%} "
+            f"| DDDM L1: {metrics.mel_loss:.5f} , Encoder L1: {metrics.enc_loss:.5f}]"
+        )
+        if not VISUALIZATION:
+            return
+
         losses = {
             "dddm": metrics.mel_loss,
             "source-filter encoder": metrics.enc_loss,
@@ -247,9 +278,9 @@ class Trainer:
         self.eval_writer.add_scalars("loss", losses, global_step)
 
         for tag, image in metrics.images.items():
-            if image:
-                # only if matplolib available
-                self.eval_writer.add_images(tag, image, global_step=global_step)
+            self.eval_writer.add_images(
+                tag, image, global_step=global_step, dataformats="HWC"
+            )
 
         for tag, audio in metrics.audio.items():
             self.eval_writer.add_audio(
@@ -259,40 +290,37 @@ class Trainer:
                 sample_rate=self.cfg.data.dataset.sampling_rate,
             )
 
-        self.logger.info(
-            f"<<< EVAL >>> Training progress: {global_progress:4.0%}  "
-            f"[dddm: {metrics.mel_loss:.5d}, source-filter encoder: {metrics.enc_loss=:.5d}]"
-        )
 
-
-def _plot_spectrogram_to_numpy(mel: np.array) -> Optional[np.array]:
-    try:
-        import matplotlib
-        import matplotlib.pylab as plt
-
-        matplotlib.use("Agg")
-    except ModuleNotFoundError:
-        warnings.warn(
-            "Matplotlib not available, skipping visualization of training process"
-        )
+def _plot_spectrogram_to_numpy(
+    mels: torch.Tensor | list[torch.Tensor],
+    subtitle: list[str],
+) -> Optional[np.array]:
+    if not VISUALIZATION:
         return None
 
-    fig, ax = plt.subplots(figsize=(10, 8))
-    im = ax.imshow(mel, aspect="auto", origin="lower", interpolation="none")
-    plt.colorbar(im, ax=ax)
-    plt.xlabel("Frames")
-    plt.ylabel("Channels")
-    plt.tight_layout()
+    if not isinstance(mels, list):
+        mels = [mels]
+    n_mels = len(mels)
+    fig, axes = plt.subplots(1, n_mels, figsize=(5 * n_mels, 5), layout="compressed")
+    if n_mels == 1:
+        axes = [axes]
+    im = None
+    for i, mel in enumerate(mels):
+        mel = mel.clip(min=-10, max=10).squeeze().detach().cpu().numpy()
+        im = axes[i].imshow(mel, aspect="auto", origin="lower", vmin=-10, vmax=10)
+        axes[i].set_title(subtitle[i])
+        axes[i].set_xlabel("Frames")
+        axes[i].set_ylabel("Channels")
+    plt.colorbar(im, ax=axes)
 
     # Save the figure directly to a buffer
-    buf = io.BytesIO()
-    fig.savefig(buf, format="rgb")  # Saves as raw RGBA image data
-    plt.close(fig)
+    fig.canvas.draw()
+    buf = fig.canvas.renderer.buffer_rgba()  # noqa
 
     # Convert buffer to NumPy array
-    data = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+    data = np.frombuffer(buf.tobytes(), dtype=np.uint8)
     width, height = fig.get_size_inches() * fig.dpi
-    data = data.reshape(int(height), int(width), 3)  # RGB format
+    data = data.reshape(int(height), int(width), 4)  # RGB format
     plt.close()
 
     return data

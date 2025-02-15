@@ -185,5 +185,8 @@ def register_configs() -> None:
 def load_hydra_config(config_name: str) -> Config:
     """Instantiate hydra config."""
     with initialize_config_dir(version_base=None, config_dir=CONFIG_PATH.as_posix()):
-        cfg: Config = OmegaConf.to_object(compose(config_name=config_name))
+        dict_cfg = compose(
+            config_name=config_name, overrides=["training.tensorboard_dir="]
+        )
+        cfg: Config = OmegaConf.to_object(dict_cfg)
     return cfg
