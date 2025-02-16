@@ -30,8 +30,9 @@ def main(cfg: DictConfig) -> None:
 
     if n_gpus > 0:
         devices = util.get_cuda_devices()
+        devices = "\n".join(devices)
         proceed = input(
-            f"proceed training on the following cuda devices (y/n)? {devices}"
+            f"proceed training on the following cuda devices (y/n)?\n{devices}\n"
         )
         if proceed.lower() == "n":
             return None
