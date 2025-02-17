@@ -7,7 +7,6 @@ from .helpers import (
     load_model,
     move_to_device,
 )
-from .logging import setup_logging
 from .sequences import (
     get_conv_padding,
     get_u_net_compatible_length,
@@ -33,6 +32,5 @@ __all__ = [
     "move_to_device",
     "pad_audio_for_xlsr",
     "clip_grad_value",
-    "setup_logging",
     "get_cuda_devices",
 ]

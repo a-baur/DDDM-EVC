@@ -26,7 +26,8 @@ class TrainingConfig:
     log_interval: int
     eval_interval: int
     save_interval: int
-    tensorboard_dir: str
+    output_dir: str
+    checkpoint: Optional[str] = None
     eval_n_batches: Optional[int] = None
     clip_value: Optional[float] = None
 
@@ -186,7 +187,7 @@ def load_hydra_config(config_name: str) -> Config:
     """Instantiate hydra config."""
     with initialize_config_dir(version_base=None, config_dir=CONFIG_PATH.as_posix()):
         dict_cfg = compose(
-            config_name=config_name, overrides=["training.tensorboard_dir="]
+            config_name=config_name, overrides=["training.output_dir='./outputs'"]
         )
         cfg: Config = OmegaConf.to_object(dict_cfg)
     return cfg

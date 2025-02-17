@@ -1,6 +1,6 @@
 seed: 42
 batch_size: 32
-epochs: 2
+epochs: 100
 segment_size: 38000
 learning_rate: 5e-5
 lr_decay: 0.999875
@@ -11,6 +11,6 @@ diff_loss_coef: 1.0
 rec_loss_coef: 1.0
 log_interval: 1
 eval_interval: 10000
-save_interval: 10000
-tensorboard_dir: ${hydra:runtime.cwd}/${hydra:run.dir}/tensorboard
+save_interval: 5
+output_dir: ${hydra:runtime.cwd}/${hydra:run.dir}
 eval_n_batches: 5  # Number of batches to eval during training

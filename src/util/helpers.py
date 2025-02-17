@@ -102,7 +102,7 @@ def get_cuda_devices() -> list[str]:
         mem_free, mem_total = mem_free / 1024**3, mem_total / 1024**3
         mem_usage = mem_total - mem_free
         percent = mem_usage / mem_total
-        info = f"[gpu:{idx}, cuda:{i}] {name} (Utilization: {percent:7.2%} [{mem_usage:4.1f}GB/{mem_total:4.1f}GB])"
+        info = f"{name} [gpu:{idx} | cuda:{i} | utilization: {percent:7.2%} ({mem_usage:4.1f}GB/{mem_total:4.1f}GB)]"
         device_info.append(info)
 
     return device_info

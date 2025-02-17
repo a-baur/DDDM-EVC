@@ -1,6 +1,8 @@
-import os
+import logging
+import re
 import warnings
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -26,6 +28,10 @@ except ModuleNotFoundError:
         "install using 'poetry install --with visualize'"
     )
     VISUALIZATION = False
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 @dataclass
@@ -80,34 +86,51 @@ class Trainer:
         self.vocoder.to(device)
         self.mel_transform.to(device)
 
-        log_dir = cfg.training.tensorboard_dir
-        self.train_writer = SummaryWriter(os.path.join(log_dir, "train"))
-        self.eval_writer = SummaryWriter(os.path.join(log_dir, "eval"))
-        self.logger = util.setup_logging(os.path.join(log_dir, "training.log"))
+        self.out_dir = Path(cfg.training.output_dir)
+        self.train_writer = SummaryWriter(
+            (self.out_dir / "tensorboard" / "train").as_posix()
+        )
+        self.eval_writer = SummaryWriter(
+            (self.out_dir / "tensorboard" / "eval").as_posix()
+        )
 
-        self.logger.info(
+        logger.info(
             f"Initialized trainer [{device.type}:{self.rank} | distributed: {self.distributed}]"
         )
-        self.logger.info(f"Logging to '{log_dir}'")
+        logger.info(f"Logging to '{self.out_dir.as_posix()}'")
 
     def train(self, n_epochs: int) -> None:
         """
+        Start training process
 
-        :param n_epochs:
-        :return:
+        :param n_epochs: Number of epochs to train.
+        :return: None
         """
-        self.logger.info(f"Starting training [{n_epochs} epochs]...")
+        logger.info(f"Starting training [{n_epochs} epochs]...")
 
         total_steps = n_epochs * self.n_batches
+
+        ckpt_path: str | Path | None = self.cfg.training.checkpoint
+        if ckpt_path == "latest":
+            ckpt_path = self._find_latest_checkpoint()
+        if ckpt_path:
+            start_epoch, start_batch = self.load_checkpoint(ckpt_path)
+        else:
+            logger.info("No checkpoint loaded...")
+            start_epoch, start_batch = 0, 0
+
         batch: tuple[torch.Tensor, torch.Tensor]
-        for epoch in range(n_epochs):
+        for epoch in range(start_epoch, n_epochs):
             if self.distributed:
                 self.train_dataloader.sampler.set_epoch(epoch)  # noqa
 
             for batch_idx, batch in enumerate(self.train_dataloader):
+                if batch_idx <= start_batch:
+                    continue  # skip to relevant batch
+
                 global_step = epoch * self.n_batches + batch_idx
 
-                train_metrics = self.train_batch(batch)
+                train_metrics = self._train_batch(batch)
 
                 # log and eval only if main on thread
                 if self.rank != 0:
@@ -126,7 +149,13 @@ class Trainer:
                     eval_metrics = self.eval()
                     self._log_eval(global_step, global_progress, eval_metrics)
 
-    def train_batch(self, batch: tuple[torch.Tensor, torch.Tensor]) -> TrainMetrics:
+                if global_step % self.cfg.training.save_interval == 0:
+                    self.save_checkpoint(epoch, batch_idx)
+
+            # start next epoch with all batches
+            start_batch = 0
+
+    def _train_batch(self, batch: tuple[torch.Tensor, torch.Tensor]) -> TrainMetrics:
         """
         Train single batch of training data.
 
@@ -177,6 +206,11 @@ class Trainer:
 
     @torch.no_grad()  # type: ignore
     def eval(self) -> EvalMetrics:
+        """
+        Evaluate on the evaluation dataset.
+
+        :return: evaluation metrics
+        """
         self.model.eval()
 
         max_batches = self.cfg.training.eval_n_batches
@@ -234,6 +268,45 @@ class Trainer:
             audio=audio,
         )
 
+    def save_checkpoint(self, epoch: int, batch_idx: int) -> None:
+        """
+        Save the current state of training.
+
+        :param epoch: Current epoch
+        :param batch_idx: Index of current batch
+        :return: None
+        """
+        ckpt_path = self.out_dir / "ckpt" / f"ckpt_e{epoch}_b{batch_idx}.pth"
+        ckpt_path.parent.mkdir(exist_ok=True)
+        torch.save(
+            {
+                "epoch": epoch,
+                "iteration": batch_idx,
+                "model": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "scaler": self.scaler.state_dict(),
+                "scheduler": self.scheduler.state_dict(),
+            },
+            ckpt_path,
+        )
+        logger.info(f">>> CHECKPOINT SAVED in {ckpt_path.as_posix()}")
+
+    def load_checkpoint(self, ckpt_path: str | Path) -> tuple[int, int]:
+        """
+        Load checkpoint.
+
+        :param ckpt_path: Path to checkpoint to be loaded.
+        :return: tuple of epoch and batch index
+        """
+        ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
+        self.model.load_state_dict(ckpt["model"])
+        self.optimizer.load_state_dict(ckpt["optimizer"])
+        self.scaler.load_state_dict(ckpt["scaler"])
+        self.scheduler.load_state_dict(ckpt["scheduler"])
+        epoch, batch_idx = ckpt["epoch"], ckpt["iteration"]
+        logger.info(f">>> CHECKPOINT LOADED from {ckpt_path}")
+        return epoch, batch_idx
+
     def _log_train(
         self,
         global_step: int,
@@ -241,8 +314,17 @@ class Trainer:
         batch_idx: int,
         metrics: TrainMetrics,
     ) -> None:
+        """
+        Log training metrics.
+
+        :param global_step: Current global step.
+        :param epoch: Current epoch
+        :param batch_idx: Current index of batch
+        :param metrics: Training metrics
+        :return: None
+        """
         batch_progress = batch_idx / self.n_batches
-        self.logger.info(
+        logger.info(
             f"Epoch {epoch}: {batch_progress:7.2%} {batch_idx:4}/{self.n_batches} "
             f"[{metrics.loss=:.5f}, {metrics.diff_loss=:.5f}, {metrics.rec_loss=:.5f}]"
         )
@@ -267,7 +349,15 @@ class Trainer:
         global_progress: float,
         metrics: EvalMetrics,
     ) -> None:
-        self.logger.info(
+        """
+        Log evaluation results.
+
+        :param global_step: Current global step
+        :param global_progress: Current progress percentage
+        :param metrics: Evaluation metrics
+        :return: None
+        """
+        logger.info(
             f">>> EVAL [Training progress: {global_progress:4.0%} "
             f"| DDDM L1: {metrics.mel_loss:.5f} , Encoder L1: {metrics.enc_loss:.5f}]"
         )
@@ -294,11 +384,53 @@ class Trainer:
                 sample_rate=self.cfg.data.dataset.sampling_rate,
             )
 
+    def _find_latest_checkpoint(self) -> Optional[Path]:
+        """
+        Finds the latest checkpoint file in the output directory.
+
+        :return: Path to last checkpoint. If no checkpoint is found, return None.
+        """
+        output_dir = self.out_dir.parent.parent
+
+        if not output_dir.exists():
+            return None
+
+        date_folders = sorted(output_dir.glob("*"), key=lambda p: p.name)
+        time_folders = map(
+            lambda x: sorted(x.glob("*"), key=lambda p: p.name), date_folders
+        )
+        time_folders = [fn for subdir in time_folders for fn in subdir]
+
+        if len(time_folders) < 2:
+            # no previous output
+            return None
+
+        # find last output with checkpoint
+        latest_time_folder = Path()
+        for i in range(2, len(time_folders) + 1):
+            latest_time_folder = time_folders[-i] / "ckpt"
+            if latest_time_folder.exists():
+                break
+
+        checkpoint_files = sorted(
+            latest_time_folder.glob("ckpt_e*_b*.pth"), key=_extract_epoch_batch
+        )
+        if not checkpoint_files:
+            return None
+        return checkpoint_files[-1]
+
 
 def _plot_spectrogram_to_numpy(
     mels: torch.Tensor | list[torch.Tensor],
     subtitle: list[str],
 ) -> Optional[np.array]:
+    """
+    Plot spectrogram into a numpy array.
+
+    :param mels: List of mel spectrograms.
+    :param subtitle: List of subtitles for each mel spectrogram.
+    :return: Array of plot
+    """
     if not VISUALIZATION:
         return None
 
@@ -328,3 +460,11 @@ def _plot_spectrogram_to_numpy(
     plt.close()
 
     return data
+
+
+def _extract_epoch_batch(path: Path) -> tuple[int, int]:
+    """Extracts epoch and batch index from checkpoint filename."""
+    match = re.search(r"ckpt_e(\d+)_b(\d+)\.pth", path.name)
+    if match:
+        return int(match.group(1)), int(match.group(2))  # (epoch, batch)
+    return 0, 0  # Default if no match
