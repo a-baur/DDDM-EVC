@@ -3,7 +3,7 @@ import torch.nn as nn
 
 import util
 from config import ModelConfig
-from models.content_encoder import Wav2Vec2
+from models.content_encoder import XLSR
 from models.pitch_encoder import VQVAEEncoder
 from models.wavenet_decoder import WavenetDecoder
 
@@ -13,12 +13,12 @@ class SourceFilterEncoder(nn.Module):
         self,
         cfg: ModelConfig,
         sample_rate: int,
-        content_encoder: Wav2Vec2 = None,
+        content_encoder: XLSR = None,
         pitch_encoder: VQVAEEncoder = None,
         decoder: WavenetDecoder = None,
     ) -> None:
         super().__init__()
-        self.content_encoder = content_encoder or Wav2Vec2()
+        self.content_encoder = content_encoder or XLSR()
         self.pitch_encoder = pitch_encoder or VQVAEEncoder(cfg.pitch_encoder)
         self.decoder = decoder or WavenetDecoder(cfg)
         self.sample_rate = sample_rate

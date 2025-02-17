@@ -1,6 +1,8 @@
+import torch
+
 from config import Config
 from data import AudioDataloader, MelTransform
-from models import MetaStyleSpeech, VQVAEEncoder, Wav2Vec2
+from models import XLSR, EmotionModel, MetaStyleSpeech, VQVAEEncoder
 from util import get_normalized_f0, load_model, sequence_mask
 
 
@@ -34,12 +36,30 @@ def test_vq_vae(cfg: Config, dataloader: AudioDataloader) -> None:
     assert not output.is_floating_point()  # Discrete codes
 
 
-def test_wav2vec2(cfg: Config, dataloader: AudioDataloader) -> None:
+def test_xlsr(cfg: Config, dataloader: AudioDataloader) -> None:
     """Test Wav2Vec2 encoder."""
-    wav2vec2 = Wav2Vec2()
+    xlsr = XLSR()
 
     x, _ = next(iter(dataloader))
 
-    output = wav2vec2(x)
+    output = xlsr(x)
 
     assert output.shape[0] == cfg.training.batch_size
+
+
+def test_w2v2_l_robust(cfg: Config, dataloader: AudioDataloader) -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    model = EmotionModel.from_pretrained(EmotionModel.MODEL_NAME)
+    model.to(device)
+
+    x_batch, _ = next(iter(dataloader))
+    x_batch = x_batch.to(device)
+
+    emb_batch, logits_batch = model(x_batch)
+
+    x = x_batch[0]
+    emb, logits = model(x)
+
+    assert emb == emb_batch[0]
+    assert logits == logits_batch[0]

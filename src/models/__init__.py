@@ -1,16 +1,17 @@
-from .content_encoder import Hubert, Wav2Vec2
+from .content_encoder import XLSR, Hubert
 from .dddm import DDDM
 from .diffusion import Diffusion
 from .pitch_encoder import VQVAEEncoder
 from .source_filter_encoder import SourceFilterEncoder
-from .speaker_encoder import MetaStyleSpeech
+from .style_encoder import EmotionModel, MetaStyleSpeech
 from .vocoder import HifiGAN
 from .wavenet_decoder import WavenetDecoder
 
 __all__ = [
     "MetaStyleSpeech",
+    "EmotionModel",
     "VQVAEEncoder",
-    "Wav2Vec2",
+    "XLSR",
     "Hubert",
     "WavenetDecoder",
     "SourceFilterEncoder",

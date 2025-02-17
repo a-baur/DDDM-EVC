@@ -2,7 +2,7 @@ import torch
 import transformers
 
 
-class Wav2Vec2(torch.nn.Module):
+class XLSR(torch.nn.Module):
     """
     Wav2Vec2 model for feature extraction
 

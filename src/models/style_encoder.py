@@ -1,24 +1,64 @@
-"""
-Speaker encoder module, based on the
-Mel-Style Encoder from Meta-StyleSpeech.
-
-Implementation based on
-DDDM-VC: https://github.com/hayeong0/DDDM-VC/blob/7f826a366b2941c7f020de07956bf5161c4979b4/model/styleencoder.py
-StyleSpeech: https://github.com/KevinMIN95/StyleSpeech/blob/f939cf9cb981db7b738fa9c9c9a7fea2dfdd0766/models/StyleSpeech.py#L251
-
-Modifications:
-- moved temporal_avg_pool outside the class
-- added type hints and docstrings
-- renamed to SpeakerEncoder
-"""  # noqa: E501
-
 import torch
 from torch import nn
+from transformers import PretrainedConfig, Wav2Vec2Processor
+from transformers.models.wav2vec2.modeling_wav2vec2 import (
+    Wav2Vec2Model,
+    Wav2Vec2PreTrainedModel,
+)
 
 from config import MetaStyleSpeechConfig
 from modules.commons import Mish
 from modules.style_speech import Conv1dGLU, MultiHeadAttention
+from modules.w2v2_l_robust import RegressionHead
 from util import temporal_avg_pool
+
+
+class EmotionModel(Wav2Vec2PreTrainedModel):
+    r"""Speech emotion classifier."""
+
+    MODEL_NAME = "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
+
+    def __init__(self, config: PretrainedConfig) -> None:
+        super().__init__(config)
+
+        # Load pretrained components
+        self.config = config
+        self.wav2vec2 = Wav2Vec2Model(config)
+        self.classifier = RegressionHead(config)
+        self.init_weights()
+
+        self.processor = Wav2Vec2Processor.from_pretrained(self.MODEL_NAME)
+        self.requires_grad_(False)
+        self.eval()
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        embeddings_only: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass.
+
+        :param x: input tensor
+        :param embeddings_only: If true, only return hidden states.
+        :return: Hidden states and logits
+        """
+        np_batch = [s.cpu().detach().numpy() for s in x.unbind(0)]
+        x_norm: torch.Tensor = self.processor(
+            np_batch,
+            return_tensors="pt",
+            sampling_rate=16000,
+            return_attention_mask=False,
+        )["input_values"].to(x.device)
+
+        hidden_states = self.wav2vec2(x_norm).last_hidden_state
+        hidden_states = torch.mean(hidden_states, dim=1)
+
+        if embeddings_only:
+            return hidden_states
+
+        logits = self.classifier(hidden_states)
+        return hidden_states, logits
 
 
 class MetaStyleSpeech(nn.Module):

@@ -9,7 +9,7 @@ from config import ModelConfig
 
 from .diffusion import Diffusion
 from .source_filter_encoder import SourceFilterEncoder
-from .speaker_encoder import MetaStyleSpeech
+from .style_encoder import MetaStyleSpeech
 
 
 class DDDM(nn.Module):
