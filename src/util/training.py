@@ -358,7 +358,7 @@ class Trainer:
         :return: None
         """
         logger.info(
-            f">>> EVAL [Training progress: {global_progress:4.0%} "
+            f">>> EVAL [Training progress: {global_progress:7.2%} "
             f"| DDDM L1: {metrics.mel_loss:.5f} , Encoder L1: {metrics.enc_loss:.5f}]"
         )
         if not VISUALIZATION:

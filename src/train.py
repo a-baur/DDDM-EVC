@@ -56,15 +56,11 @@ def setup_trainer(
     if on_cuda:
         torch.cuda.set_device(rank)
 
-    train_dataset = MSPPodcast(
-        cfg.data, split="development"
-    )  # split="train")  TODO: replace for actual training
+    train_dataset = MSPPodcast(cfg.data, split="train")
     train_sampler = DistributedSampler(train_dataset) if distributed else None
     train_loader = AudioDataloader(train_dataset, cfg=cfg, sampler=train_sampler)
 
-    eval_dataset = MSPPodcast(
-        cfg.data, split="development"
-    )  # split="train")  TODO: replace for actual training
+    eval_dataset = MSPPodcast(cfg.data, split="test1")
     eval_loader = AudioDataloader(eval_dataset, cfg=cfg, batch_size=1, shuffle=False)
 
     mel_transform = MelTransform(cfg.data.mel_transform)
