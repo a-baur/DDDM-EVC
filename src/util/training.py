@@ -1,5 +1,6 @@
 import logging
 import re
+import sys
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,10 +29,6 @@ except ModuleNotFoundError:
         "install using 'poetry install --with visualize'"
     )
     VISUALIZATION = False
-
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 @dataclass
@@ -81,6 +78,7 @@ class Trainer:
         self.n_batches = len(self.train_dataloader)
         self.vocoder = HifiGAN(self.cfg.model.vocoder)
         util.load_model(self.vocoder, "hifigan.pth", device, freeze=True)
+        self.vocoder.eval()
 
         self.model.to(device)
         self.vocoder.to(device)
@@ -93,11 +91,12 @@ class Trainer:
         self.eval_writer = SummaryWriter(
             (self.out_dir / "tensorboard" / "eval").as_posix()
         )
+        self.logger = _setup_logger(rank)
 
-        logger.info(
+        self.logger.info(
             f"Initialized trainer [{device.type}:{self.rank} | distributed: {self.distributed}]"
         )
-        logger.info(f"Logging to '{self.out_dir.as_posix()}'")
+        self.logger.info(f"Logging to '{self.out_dir.as_posix()}'")
 
     def train(self, n_epochs: int) -> None:
         """
@@ -106,7 +105,7 @@ class Trainer:
         :param n_epochs: Number of epochs to train.
         :return: None
         """
-        logger.info(f"Starting training [{n_epochs} epochs]...")
+        self.logger.info(f"Starting training [{n_epochs} epochs]...")
 
         total_steps = n_epochs * self.n_batches
 
@@ -116,7 +115,7 @@ class Trainer:
         if ckpt_path:
             start_epoch, start_batch = self.load_checkpoint(ckpt_path)
         else:
-            logger.info("No checkpoint loaded...")
+            self.logger.info("No checkpoint loaded...")
             start_epoch, start_batch = 0, 0
 
         batch: tuple[torch.Tensor, torch.Tensor]
@@ -125,32 +124,31 @@ class Trainer:
                 self.train_dataloader.sampler.set_epoch(epoch)  # noqa
 
             for batch_idx, batch in enumerate(self.train_dataloader):
-                if batch_idx <= start_batch:
+                if batch_idx < start_batch:
                     continue  # skip to relevant batch
 
                 global_step = epoch * self.n_batches + batch_idx
 
                 train_metrics = self._train_batch(batch)
 
-                # log and eval only if main on thread
-                if self.rank != 0:
-                    continue
+                # log, eval and save only if main on thread
+                if self.rank == 0 and global_step != 0:
+                    if global_step % self.cfg.training.log_interval == 0:
+                        self._log_train(
+                            global_step,
+                            epoch,
+                            batch_idx,
+                            train_metrics,
+                        )
 
-                if global_step % self.cfg.training.log_interval == 0:
-                    self._log_train(
-                        global_step,
-                        epoch,
-                        batch_idx,
-                        train_metrics,
-                    )
+                    if global_step % self.cfg.training.eval_interval == 0:
+                        global_progress = global_step / total_steps
+                        torch.cuda.empty_cache()
+                        eval_metrics = self.eval()
+                        self._log_eval(global_step, global_progress, eval_metrics)
 
-                if global_step % self.cfg.training.eval_interval == 0:
-                    global_progress = global_step / total_steps
-                    eval_metrics = self.eval()
-                    self._log_eval(global_step, global_progress, eval_metrics)
-
-                if global_step % self.cfg.training.save_interval == 0:
-                    self.save_checkpoint(epoch, batch_idx)
+                    if global_step % self.cfg.training.save_interval == 0:
+                        self.save_checkpoint(epoch, batch_idx)
 
             # start next epoch with all batches
             start_batch = 0
@@ -170,7 +168,11 @@ class Trainer:
             batch[1].to(self.device, non_blocking=True),
         )
         x_mel = self.mel_transform(x)
-        diff_loss, rec_loss = self.model.compute_loss(x, x_mel, x_n_frames)
+
+        if self.distributed:
+            diff_loss, rec_loss = self.model.module.compute_loss(x, x_mel, x_n_frames)
+        else:
+            diff_loss, rec_loss = self.model.compute_loss(x, x_mel, x_n_frames)
 
         loss = (
             diff_loss * self.cfg.training.diff_loss_coef
@@ -289,7 +291,7 @@ class Trainer:
             },
             ckpt_path,
         )
-        logger.info(f">>> CHECKPOINT SAVED in {ckpt_path.as_posix()}")
+        self.logger.info(f">>> CHECKPOINT SAVED in {ckpt_path.as_posix()}")
 
     def load_checkpoint(self, ckpt_path: str | Path) -> tuple[int, int]:
         """
@@ -304,7 +306,7 @@ class Trainer:
         self.scaler.load_state_dict(ckpt["scaler"])
         self.scheduler.load_state_dict(ckpt["scheduler"])
         epoch, batch_idx = ckpt["epoch"], ckpt["iteration"]
-        logger.info(f">>> CHECKPOINT LOADED from {ckpt_path}")
+        self.logger.info(f">>> CHECKPOINT LOADED from {ckpt_path}")
         return epoch, batch_idx
 
     def _log_train(
@@ -324,7 +326,7 @@ class Trainer:
         :return: None
         """
         batch_progress = batch_idx / self.n_batches
-        logger.info(
+        self.logger.info(
             f"Epoch {epoch}: {batch_progress:7.2%} {batch_idx:4}/{self.n_batches} "
             f"[{metrics.loss=:.5f}, {metrics.diff_loss=:.5f}, {metrics.rec_loss=:.5f}]"
         )
@@ -357,7 +359,7 @@ class Trainer:
         :param metrics: Evaluation metrics
         :return: None
         """
-        logger.info(
+        self.logger.info(
             f">>> EVAL [Training progress: {global_progress:7.2%} "
             f"| DDDM L1: {metrics.mel_loss:.5f} , Encoder L1: {metrics.enc_loss:.5f}]"
         )
@@ -468,3 +470,21 @@ def _extract_epoch_batch(path: Path) -> tuple[int, int]:
     if match:
         return int(match.group(1)), int(match.group(2))  # (epoch, batch)
     return 0, 0  # Default if no match
+
+
+def _setup_logger(rank: int) -> logging.Logger:
+    """
+    Sets up a logger that only prints logs for the main process (rank 0).
+    """
+    logger = logging.getLogger(__name__)
+    logger.setLevel(
+        logging.DEBUG if rank == 0 else logging.ERROR
+    )  # Suppress logs on non-rank 0 processes
+
+    if not logger.hasHandlers():
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger

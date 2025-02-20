@@ -50,6 +50,11 @@ def setup_trainer(
     distributed = n_gpus > 1
 
     if distributed:
+        os.environ["MASTER_ADDR"] = "127.0.0.1"
+        os.environ["MASTER_PORT"] = "29500"
+        os.environ["WORLD_SIZE"] = str(n_gpus)
+        os.environ["RANK"] = str(rank)
+
         dist.init_process_group(
             backend="nccl", init_method="env://", world_size=n_gpus, rank=rank
         )
