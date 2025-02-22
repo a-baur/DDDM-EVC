@@ -1,6 +1,6 @@
 import torch
 
-from config import ConfigVC
+from config import ConfigEVC, ConfigVC
 from data import AudioDataloader, MelTransform
 from models import XLSR, MetaStyleSpeech, VQVAEEncoder, W2V2LRobust
 from util import get_normalized_f0, load_model, sequence_mask
@@ -45,10 +45,10 @@ def test_xlsr(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     output = xlsr(x)
 
     assert output.shape[0] == cfg_vc.training.batch_size
-    assert output.shape[1] == 1024
+    assert output.shape[1] == cfg_vc.model.content_encoder.out_dim
 
 
-def test_w2v2_l_robust(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
+def test_w2v2_l_robust(cfg_evc: ConfigEVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
@@ -59,6 +59,6 @@ def test_w2v2_l_robust(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
 
     emb, logits = model(x)
 
-    assert emb.shape[0] == logits.shape[0] == cfg_vc.training.batch_size
-    assert emb.shape[1] == 1024
+    assert emb.shape[0] == logits.shape[0] == cfg_evc.training.batch_size
+    assert emb.shape[1] == cfg_evc.model.style_encoder.emotion_encoder.out_dim
     assert logits.shape[1] == 3

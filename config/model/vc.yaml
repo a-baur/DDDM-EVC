@@ -3,6 +3,9 @@ speaker_encoder:
   hidden_dim: 256
   out_dim: 256
 
+content_encoder:
+  out_dim: 1024
+
 pitch_encoder:
   f0_encoder:
     in_dim: 1

@@ -1,9 +1,16 @@
 style_encoder:
   emotion_emb_dim: 256
+
+  emotion_encoder:
+    out_dim: 1024
+
   speaker_encoder:
     in_dim: 80
     hidden_dim: 256
     out_dim: 256
+
+content_encoder:
+  out_dim: 1024
 
 pitch_encoder:
   f0_encoder:

@@ -56,7 +56,11 @@ def test_from_pretrained(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     load_model(pitch_encoder, "vqvae.pth", freeze=True)
     speaker_encoder = MetaStyleSpeech(cfg_vc.model.speaker_encoder)
     load_model(speaker_encoder, "metastylespeech.pth", freeze=True)
-    decoder = WavenetDecoder(cfg_vc.model.decoder, cfg_vc.model.pitch_encoder.vq.k_bins)
+    decoder = WavenetDecoder(
+        cfg_vc.model.decoder,
+        content_dim=cfg_vc.model.content_encoder.out_dim,
+        f0_dim=cfg_vc.model.pitch_encoder.vq.k_bins,
+    )
     load_model(decoder, "wavenet_decoder.pth", freeze=True)
 
     src_ftr_encoder = SourceFilterEncoder(

@@ -7,9 +7,9 @@ from modules.wavenet_decoder import Decoder
 
 
 class WavenetDecoder(nn.Module):
-    def __init__(self, cfg: WavenetDecoderConfig, f0_dim: int):
+    def __init__(self, cfg: WavenetDecoderConfig, content_dim: int, f0_dim: int):
         super().__init__()
-        self.emb_c = nn.Conv1d(1024, cfg.hidden_dim, 1)
+        self.emb_c = nn.Conv1d(content_dim, cfg.hidden_dim, 1)
         self.emb_f0 = nn.Embedding(f0_dim, cfg.hidden_dim)
         self.dec_ftr = Decoder(cfg)
         self.dec_src = Decoder(cfg)

@@ -97,6 +97,16 @@ class Resnet1DConfig:
 
 
 @dataclass
+class XLSRConfig:
+    out_dim: int
+
+
+@dataclass
+class W2VLRobustConfig:
+    out_dim: int
+
+
+@dataclass
 class F0VAEConfig:
     in_dim: int
     out_dim: int
@@ -157,6 +167,7 @@ class DiffusionConfig:
 @dataclass
 class DDDMVCConfig:
     speaker_encoder: MetaStyleSpeechConfig
+    content_encoder: XLSRConfig
     pitch_encoder: VQVAEConfig
     decoder: WavenetDecoderConfig
     diffusion: DiffusionConfig
@@ -165,13 +176,15 @@ class DDDMVCConfig:
 
 @dataclass
 class StyleEncoderConfig:
-    speaker_encoder: MetaStyleSpeechConfig
     emotion_emb_dim: int
+    speaker_encoder: MetaStyleSpeechConfig
+    emotion_encoder: W2VLRobustConfig
 
 
 @dataclass
 class DDDMEVCConfig:
     style_encoder: StyleEncoderConfig
+    content_encoder: XLSRConfig
     pitch_encoder: VQVAEConfig
     decoder: WavenetDecoderConfig
     diffusion: DiffusionConfig

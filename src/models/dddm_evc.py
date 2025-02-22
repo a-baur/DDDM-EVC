@@ -23,7 +23,7 @@ class DDDMEVC(nn.Module):
         spk_dim = cfg.style_encoder.speaker_encoder.out_dim
         emo_dim = cfg.style_encoder.emotion_emb_dim
         cond_total = spk_dim + emo_dim
-        self.emotion_emb = nn.Linear(1024, emo_dim)
+        self.emotion_emb = nn.Linear(cfg.style_encoder.emotion_encoder.out_dim, emo_dim)
         self.cond_acts = nn.Sequential(
             nn.Linear(cond_total, cond_total // 2),
             nn.ReLU(),

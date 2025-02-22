@@ -21,7 +21,9 @@ class SourceFilterEncoder(nn.Module):
         self.content_encoder = content_encoder or XLSR()
         self.pitch_encoder = pitch_encoder or VQVAEEncoder(cfg.pitch_encoder)
         self.decoder = decoder or WavenetDecoder(
-            cfg.decoder, cfg.pitch_encoder.vq.k_bins
+            cfg.decoder,
+            content_dim=cfg.content_encoder.out_dim,
+            f0_dim=cfg.pitch_encoder.vq.k_bins,
         )
         self.sample_rate = sample_rate
 
