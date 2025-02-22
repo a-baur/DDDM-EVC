@@ -7,7 +7,7 @@ import torchaudio
 import config
 import util
 from data import MelTransform
-from models import DDDMVC, HifiGAN
+from models import DDDM, HifiGAN
 
 config.register_configs()
 
@@ -27,9 +27,7 @@ def inference(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg.data.mel_transform)
-    model = DDDMVC(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
-    model.load_pretrained(mode="eval", device=device)
-
+    model = DDDM.from_config(cfg, pretrained=True)
     vocoder = HifiGAN(cfg.model.vocoder)
     util.load_model(vocoder, "hifigan.pth", freeze=True)
 
@@ -42,12 +40,14 @@ def inference(
     t_mel = mel_transform(t)
     t_n_frames = torch.Tensor([t_mel.size(-1)])
 
-    x, x_mel, x_n_frames, t_mel, t_n_frames, model, vocoder = util.move_to_device(
-        (x, x_mel, x_n_frames, t_mel, t_n_frames, model, vocoder), device
+    x, x_mel, x_n_frames, t, t_mel, t_n_frames, model, vocoder = util.move_to_device(
+        (x, x_mel, x_n_frames, t, t_mel, t_n_frames, model, vocoder), device
     )
 
     print("Generating...")
-    y_mel = model.voice_conversion(x, x_mel, x_n_frames, t_mel, t_n_frames, n_timesteps)
+    y_mel = model.voice_conversion(
+        x, x_mel, x_n_frames, t, t_mel, t_n_frames, n_timesteps
+    )
 
     print("Vocoding...")
     y = vocoder(y_mel)

@@ -1,7 +1,8 @@
 import util
 from config import ConfigVC
 from data import AudioDataloader, MelTransform
-from models import MetaStyleSpeech, SourceFilterEncoder, VQVAEEncoder, WavenetDecoder
+from models import MetaStyleSpeech, SourceFilterEncoder, VQVAEEncoder
+from modules.wavenet_decoder.modules import WavenetDecoder
 from util.helpers import load_model
 
 
@@ -64,11 +65,10 @@ def test_from_pretrained(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     load_model(decoder, "wavenet_decoder.pth", freeze=True)
 
     src_ftr_encoder = SourceFilterEncoder(
-        cfg_vc.model,
-        sample_rate=cfg_vc.data.dataset.sampling_rate,
-        pitch_encoder=pitch_encoder,
-        decoder=decoder,
+        cfg_vc.model, sample_rate=cfg_vc.data.dataset.sampling_rate
     )
+    src_ftr_encoder.pitch_encoder = pitch_encoder
+    src_ftr_encoder.decoder = decoder
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transfom(x)

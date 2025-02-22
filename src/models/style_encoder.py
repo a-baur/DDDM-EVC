@@ -1,24 +1,60 @@
 import torch
 from torch import nn
-from transformers import PretrainedConfig, Wav2Vec2Processor
+from transformers import Wav2Vec2Config, Wav2Vec2Processor
 from transformers.models.wav2vec2.modeling_wav2vec2 import (
     Wav2Vec2Model,
     Wav2Vec2PreTrainedModel,
 )
 
-from config import MetaStyleSpeechConfig
+from config import MetaStyleSpeechConfig, StyleEncoderConfig
 from modules.commons import Mish
 from modules.style_speech import Conv1dGLU, MultiHeadAttention
 from modules.w2v2_l_robust import RegressionHead
 from util import temporal_avg_pool
 
 
+class StyleEncoder(nn.Module):
+    def __init__(self, cfg: StyleEncoderConfig):
+        super().__init__()
+        self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
+        self.emotion_encoder = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
+
+        spk_dim = cfg.speaker_encoder.out_dim
+        emo_dim = cfg.emotion_emb_dim
+        cond_total = spk_dim + emo_dim
+        self.emotion_emb = nn.Linear(cfg.emotion_encoder.out_dim, emo_dim)
+        self.cond_acts = nn.Sequential(
+            nn.Linear(cond_total, cond_total // 2),
+            nn.ReLU(),
+            nn.Linear(cond_total // 2, cond_total),
+            nn.Sigmoid(),
+        )
+
+    def forward(
+        self, x: torch.Tensor, x_mel: torch.Tensor, x_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Encode condition tensor.
+
+        :param x: Input waveform
+        :param x_mel: Mel-spectrogram of input
+        :param x_mask: Padding mask of input
+        :return: Condition tensor
+        """
+        emo = self.emotion_encoder(x, embeddings_only=True)
+        emo = self.emotion_emb(emo)
+        spk = self.speaker_encoder(x, x_mel, x_mask)
+        cond = torch.cat([spk, emo], dim=1)
+        cond *= self.cond_acts(cond)
+        return cond
+
+
 class W2V2LRobust(Wav2Vec2PreTrainedModel):
     """Speech emotion classifier."""
 
-    MODEL_NAME = "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
+    MODEL_NAME: str = "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
 
-    def __init__(self, config: PretrainedConfig) -> None:
+    def __init__(self, config: Wav2Vec2Config) -> None:
         super().__init__(config)
 
         # Load pretrained components
@@ -127,20 +163,22 @@ class MetaStyleSpeech(nn.Module):
         self.atten_drop = nn.Dropout(self.dropout)
         self.fc = nn.Conv1d(self.hidden_dim, self.out_dim, 1)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        x = self.spectral(x) * mask
-        x = self.temporal(x) * mask
+    def forward(
+        self, _: torch.Tensor, x_mel: torch.Tensor, x_mask: torch.Tensor
+    ) -> torch.Tensor:
+        x_mel = self.spectral(x_mel) * x_mask
+        x_mel = self.temporal(x_mel) * x_mask
 
         # Self-attention mask to prevent
         # attending to padding tokens.
         # mask = (B, 1, T)
         # attn_mask = (B, 1, 1, T) * (B, 1, T, 1) -> (B, 1, T, T)
-        attn_mask = mask.unsqueeze(2) * mask.unsqueeze(-1)
-        y = self.slf_attn(x, x, attn_mask=attn_mask)
-        x = x + self.atten_drop(y)
+        attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
+        y = self.slf_attn(x_mel, x_mel, attn_mask=attn_mask)
+        x_mel = x_mel + self.atten_drop(y)
 
-        x = self.fc(x)
+        x_mel = self.fc(x_mel)
 
-        w = temporal_avg_pool(x, mask=mask)
+        w = temporal_avg_pool(x_mel, mask=x_mask)
 
         return w

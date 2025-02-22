@@ -1,5 +1,5 @@
-from .modules import Decoder
+from .modules import WavenetDecoder
 
 __all__ = [
-    "Decoder",
+    "WavenetDecoder",
 ]

@@ -155,7 +155,9 @@ class BottleneckBlock(nn.Module):
             # Normalise
             x = x1 + x2
         else:
-            assert False, f"Expected {x.shape[-1]} to be (1 or 2) * {self.emb_width}"
+            raise ValueError(
+                f"Expected {x.shape[-1]} to be (1 or 2) * {self.emb_width}"
+            )
         return x, prenorm
 
     @staticmethod

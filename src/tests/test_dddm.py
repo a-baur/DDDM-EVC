@@ -2,9 +2,7 @@ import torch
 
 from config import ConfigEVC, ConfigVC
 from data import AudioDataloader, MelTransform
-from models import DDDMVC
-from models.dddm_evc import DDDMEVC
-from util import sequence_mask
+from models import DDDM
 from util.helpers import move_to_device
 
 
@@ -13,8 +11,7 @@ def test_dddm(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg_vc.data.mel_transform)
-    model = DDDMVC(cfg_vc.model, sample_rate=cfg_vc.data.dataset.sampling_rate)
-    model.load_pretrained(mode="eval")
+    model = DDDM.from_config(cfg_vc, pretrained=True)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
@@ -32,20 +29,19 @@ def test_dddm_vc(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg_vc.data.mel_transform)
-    model = DDDMVC(cfg_vc.model, sample_rate=cfg_vc.data.dataset.sampling_rate)
-    model.load_pretrained(mode="eval")
+    model = DDDM.from_config(cfg_vc, pretrained=True)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
     t, t_frames = next(iter(dataloader))
     t_mel = mel_transform(t)
 
-    x, x_mel, x_n_frames, t_mel, t_frames, model = move_to_device(
-        (x, x_mel, x_n_frames, t_mel, t_frames, model), device
+    x, x_mel, x_n_frames, t, t_mel, t_frames, model = move_to_device(
+        (x, x_mel, x_n_frames, t, t_mel, t_frames, model), device
     )
 
     y_mel, src_out, ftr_out = model.voice_conversion(
-        x, x_mel, x_n_frames, t_mel, t_frames, return_enc_out=True
+        x, x_mel, x_n_frames, t, t_mel, t_frames, return_enc_out=True
     )
     assert y_mel.shape == x_mel.shape
     assert src_out.shape == x_mel.shape
@@ -57,8 +53,7 @@ def test_dddm_loss(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg_vc.data.mel_transform)
-    model = DDDMVC(cfg_vc.model, sample_rate=cfg_vc.data.dataset.sampling_rate)
-    model.load_pretrained(mode="eval")
+    model = DDDM.from_config(cfg_vc, pretrained=True)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
@@ -70,34 +65,12 @@ def test_dddm_loss(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     assert rec_loss >= 0
 
 
-def test_dddm_evc_cond(cfg_evc: ConfigEVC, dataloader: AudioDataloader) -> None:
-    """Test DDDM model condition layer"""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    mel_transform = MelTransform(cfg_evc.data.mel_transform)
-    model = DDDMEVC(cfg_evc.model, sample_rate=cfg_evc.data.dataset.sampling_rate)
-
-    x, x_n_frames = next(iter(dataloader))
-    x_mel = mel_transform(x)
-    x_mask = sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)  # B x T
-
-    x, x_mel, x_mask, model = move_to_device((x, x_mel, x_mask, model), device)
-
-    cond = model._cond_encode(x, x_mel, x_mask)
-    cond_dim = (
-        cfg_evc.model.style_encoder.emotion_emb_dim
-        + cfg_evc.model.style_encoder.emotion_emb_dim
-    )
-    assert cond.shape == (cfg_evc.training.batch_size, cond_dim)
-
-
 def test_dddm_evc(cfg_evc: ConfigEVC, dataloader: AudioDataloader) -> None:
     """Test DDDM model condition layer"""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg_evc.data.mel_transform)
-    model = DDDMEVC(cfg_evc.model, sample_rate=cfg_evc.data.dataset.sampling_rate)
-    model.load_pretrained(mode="eval", models=("speaker_encoder", "pitch_encoder"))
+    model = DDDM.from_config(cfg_evc, pretrained=False)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)

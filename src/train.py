@@ -12,7 +12,7 @@ from torch.utils.data import DistributedSampler
 import config
 import util
 from data import AudioDataloader, MelTransform, MSPPodcast
-from models import DDDMVC
+from models import DDDM
 from util.training import Trainer
 
 config.register_configs()
@@ -77,10 +77,7 @@ def setup_trainer(
 
     mel_transform = MelTransform(cfg.data.mel_transform)
 
-    model = DDDMVC(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
-    model.load_pretrained(
-        models=("style_encoder", "pitch_encoder"), mode="eval", device=device
-    )
+    model = DDDM.from_config(cfg, pretrained=False)
     model.to(device)
 
     optimizer = torch.optim.AdamW(

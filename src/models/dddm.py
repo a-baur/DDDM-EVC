@@ -1,57 +1,46 @@
-from typing import Literal
+from enum import Enum
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 import util
-from config import DDDMVCConfig
+from config import ConfigEVC, ConfigVC
+from models.diffusion import Diffusion
+from models.source_filter_encoder import SourceFilterEncoder
+from models.style_encoder import MetaStyleSpeech, StyleEncoder
 
-from .diffusion import Diffusion
-from .source_filter_encoder import SourceFilterEncoder
-from .style_encoder import MetaStyleSpeech
+
+class Pretrained(Enum):
+    METASTYLE_SPEECH = "metastylespeech.pth"
+    VQVAE = "vqvae.pth"
+    VC_WAVENET = "vc/wavenet_decoder.pth"
+    VC_DIFFUSION = "vc/diffusion.pth"
+    EVC_WAVENET = "evc/wavenet_decoder.pth"
+    EVC_DIFFUSION = "evc/diffusion.pth"
 
 
-class DDDMVC(nn.Module):
-    """Decoupled Denoising Diffusion model for voice conversion"""
+class DDDM(nn.Module):
+    """Decoupled Denoising Diffusion model for emotional voice conversion"""
 
-    def __init__(self, cfg: DDDMVCConfig, sample_rate: int) -> None:
-        super().__init__()
-        self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
-        self.encoder = SourceFilterEncoder(cfg, sample_rate)
-        self.diffusion = Diffusion(cfg.diffusion)
-
-    def load_pretrained(
+    def __init__(
         self,
-        mode: Literal["eval", "train"] = "eval",
-        device: torch.device = None,
-        models: tuple[str, ...] = (
-            "style_encoder",
-            "pitch_encoder",
-            "src_ftr_encoder",
-            "src_ftr_decoder",
-        ),
+        style_encoder: StyleEncoder | MetaStyleSpeech,
+        src_ftr_encoder: SourceFilterEncoder,
+        diffusion: Diffusion,
     ) -> None:
-        """Load pre-trained models."""
-        model_mapping = {
-            "style_encoder": (self.speaker_encoder, "metastylespeech.pth"),
-            "pitch_encoder": (self.encoder.pitch_encoder, "vqvae.pth"),
-            "src_ftr_encoder": (self.encoder.decoder, "wavenet_decoder.pth"),
-            "src_ftr_decoder": (self.diffusion, "diffusion.pth"),
-        }
+        super().__init__()
 
-        for model_name in models:
-            if model_name not in model_mapping:
-                raise ValueError(f"Unknown model: {model_name}")
-
-            model_instance, checkpoint_file = model_mapping[model_name]
-            util.load_model(model_instance, checkpoint_file, device=device, mode=mode)
+        self.style_encoder = style_encoder
+        self.encoder = src_ftr_encoder
+        self.diffusion = diffusion
 
     def voice_conversion(
         self,
         x: torch.Tensor,
         x_mel: torch.Tensor,
         x_n_frames: torch.Tensor,
+        y: torch.Tensor,
         y_mel: torch.Tensor,
         y_n_frames: torch.Tensor,
         n_time_steps: int = 6,
@@ -63,6 +52,7 @@ class DDDMVC(nn.Module):
         :param x: Input waveform
         :param x_mel: Input mel-spectrogram
         :param x_n_frames: Number of unpaded frames in the input mel-spectrogram
+        :param y: Target waveform
         :param y_mel: Target mel-spectrogram
         :param y_n_frames: Number of unpaded frames in the target mel-spectrogram
         :param n_time_steps: Number of diffusion steps
@@ -73,7 +63,7 @@ class DDDMVC(nn.Module):
 
         # Get the global conditioning tensor for the target speaker
         y_mask = util.sequence_mask(y_n_frames, y_mel.size(2)).to(y_mel.dtype)
-        g = self.speaker_encoder(y_mel, y_mask).unsqueeze(-1)  # (B, C, 1)
+        g = self.style_encoder(y, y_mel, y_mask).unsqueeze(-1)  # (B, C, 1)
 
         return self._forward(x, x_mel, x_mask, g, n_time_steps, return_enc_out)
 
@@ -97,8 +87,37 @@ class DDDMVC(nn.Module):
         """
         # Encode the input waveform into diffusion priors
         x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
-        g = self.speaker_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
+        g = self.style_encoder(x, x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
         return self._forward(x, x_mel, x_mask, g, n_time_steps, return_enc_out)
+
+    def compute_loss(
+        self,
+        x: torch.Tensor,
+        x_mel: torch.Tensor,
+        x_n_frames: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute the resynthesis loss of the DDDM model.
+
+        :param x: Input waveform
+        :param x_mel: Input mel-spectrogram
+        :param x_n_frames: Number of unpaded frames in the input mel-spectrogram
+        :return: Tuple of the diffusion loss and the reconstruction loss
+        """
+        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
+        g = self.style_encoder(x, x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
+
+        mixup_ratios = torch.randint(0, 2, (x.size(0),)).to(x.device)
+        src_mel, ftr_mel = self.encoder(x, x_mask, g, mixup_ratios)
+
+        max_length_new = util.get_u_net_compatible_length(x_mel.size(-1))
+        src_mel, ftr_mel, x_mel, x_mask = util.pad_tensors_to_length(
+            [src_mel, ftr_mel, x_mel, x_mask], max_length_new
+        )
+
+        diff_loss = self.diffusion.compute_loss(x_mel, x_mask, src_mel, ftr_mel, g)
+        rec_loss = F.l1_loss(x_mel, src_mel + ftr_mel)
+        return diff_loss, rec_loss
 
     def _forward(
         self,
@@ -156,31 +175,40 @@ class DDDMVC(nn.Module):
         else:
             return y
 
-    def compute_loss(
-        self,
-        x: torch.Tensor,
-        x_mel: torch.Tensor,
-        x_n_frames: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Compute the resynthesis loss of the DDDM model.
-
-        :param x: Input waveform
-        :param x_mel: Input mel-spectrogram
-        :param x_n_frames: Number of unpaded frames in the input mel-spectrogram
-        :return: Tuple of the diffusion loss and the reconstruction loss
-        """
-        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
-        g = self.speaker_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
-
-        mixup_ratios = torch.randint(0, 2, (x.size(0),)).to(x.device)
-        src_mel, ftr_mel = self.encoder(x, x_mask, g, mixup_ratios)
-
-        max_length_new = util.get_u_net_compatible_length(x_mel.size(-1))
-        src_mel, ftr_mel, x_mel, x_mask = util.pad_tensors_to_length(
-            [src_mel, ftr_mel, x_mel, x_mask], max_length_new
+    @classmethod
+    def from_config(cls, cfg: ConfigVC | ConfigEVC, pretrained: bool = False) -> "DDDM":
+        src_ftr_encoder = SourceFilterEncoder(cfg.model, cfg.data.dataset.sampling_rate)
+        util.load_model(
+            src_ftr_encoder.pitch_encoder, Pretrained.VQVAE.value, freeze=True
         )
+        diffusion = Diffusion(cfg.model.diffusion)
 
-        diff_loss = self.diffusion.compute_loss(x_mel, x_mask, src_mel, ftr_mel, g)
-        rec_loss = F.l1_loss(x_mel, src_mel + ftr_mel)
-        return diff_loss, rec_loss
+        if isinstance(cfg, ConfigVC):
+            style_encoder = MetaStyleSpeech(cfg.model.speaker_encoder)
+            util.load_model(
+                style_encoder, Pretrained.METASTYLE_SPEECH.value, freeze=True
+            )
+
+            if pretrained:
+                util.load_model(
+                    src_ftr_encoder.decoder, Pretrained.VC_WAVENET.value, freeze=True
+                )
+                util.load_model(diffusion, Pretrained.VC_DIFFUSION.value, freeze=True)
+
+        elif isinstance(cfg, ConfigEVC):
+            style_encoder = StyleEncoder(cfg.model.style_encoder)
+            util.load_model(
+                style_encoder.speaker_encoder,
+                Pretrained.METASTYLE_SPEECH.value,
+                freeze=True,
+            )
+            if pretrained:
+                util.load_model(
+                    src_ftr_encoder.decoder, Pretrained.EVC_WAVENET.value, freeze=True
+                )
+                util.load_model(diffusion, Pretrained.EVC_DIFFUSION.value, freeze=True)
+
+        else:
+            raise ValueError(f"Unknown config type: {type(cfg).__name__}")
+
+        return cls(style_encoder, src_ftr_encoder, diffusion)
