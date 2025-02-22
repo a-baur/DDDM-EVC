@@ -51,8 +51,7 @@ def test_xlsr(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
 def test_w2v2_l_robust(cfg_evc: ConfigEVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
-    model.to(device)
+    model = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME).to(device)
 
     x, _ = next(iter(dataloader))
     x = x.to(device)
@@ -67,17 +66,19 @@ def test_w2v2_l_robust(cfg_evc: ConfigEVC, dataloader: AudioDataloader) -> None:
 def test_style_encoder(cfg_evc: ConfigEVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    mel_transform = MelTransform(cfg_evc.data.mel_transform)
-    model = StyleEncoder(cfg_evc.model.style_encoder)
-    model.to(device)
+    mel_transform = MelTransform(cfg_evc.data.mel_transform).to(device)
+    model = StyleEncoder(cfg_evc.model.style_encoder).to(device)
 
     x, x_n_frames = next(iter(dataloader))
     x = x.to(device)
+    x_n_frames = x_n_frames.to(device)
     x_mel = mel_transform(x)
     x_mask = sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)  # B x T
 
-    emb, logits = model(x, x_mel, x_mask)
+    emb = model(x, x_mel, x_mask)
 
-    assert emb.shape[0] == logits.shape[0] == cfg_evc.training.batch_size
-    assert emb.shape[1] == cfg_evc.model.style_encoder.emotion_encoder.out_dim
-    assert logits.shape[1] == 3
+    cond_dim = (
+        cfg_evc.model.style_encoder.emotion_emb_dim
+        + cfg_evc.model.style_encoder.speaker_encoder.out_dim
+    )
+    assert emb.shape == (cfg_evc.training.batch_size, cond_dim)

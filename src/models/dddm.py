@@ -16,6 +16,7 @@ class Pretrained(Enum):
     VQVAE = "vqvae.pth"
     VC_WAVENET = "vc/wavenet_decoder.pth"
     VC_DIFFUSION = "vc/diffusion.pth"
+    EVC_STYLEENCODER = "evc/style_encoder.pth"
     EVC_WAVENET = "evc/wavenet_decoder.pth"
     EVC_DIFFUSION = "evc/diffusion.pth"
 
@@ -177,38 +178,49 @@ class DDDM(nn.Module):
 
     @classmethod
     def from_config(cls, cfg: ConfigVC | ConfigEVC, pretrained: bool = False) -> "DDDM":
+        """
+        Initialize DDDM model from configuration file.
+
+        Always uses pretrained speaker and emotion model.
+
+        :param cfg: ConfigVC or ConfigEVC
+        :param pretrained: If true, load pretrained models
+        :return: DDDM model
+        """
         src_ftr_encoder = SourceFilterEncoder(cfg.model, cfg.data.dataset.sampling_rate)
-        util.load_model(
-            src_ftr_encoder.pitch_encoder, Pretrained.VQVAE.value, freeze=True
-        )
+        util.load_model(src_ftr_encoder.pitch_encoder, Pretrained.VQVAE.value)
         diffusion = Diffusion(cfg.model.diffusion)
 
         if isinstance(cfg, ConfigVC):
             style_encoder = MetaStyleSpeech(cfg.model.speaker_encoder)
-            util.load_model(
-                style_encoder, Pretrained.METASTYLE_SPEECH.value, freeze=True
-            )
+            util.load_model(style_encoder, Pretrained.METASTYLE_SPEECH.value)
+
+            style_encoder.requires_grad_(False)
 
             if pretrained:
-                util.load_model(
-                    src_ftr_encoder.decoder, Pretrained.VC_WAVENET.value, freeze=True
-                )
-                util.load_model(diffusion, Pretrained.VC_DIFFUSION.value, freeze=True)
+                util.load_model(src_ftr_encoder.decoder, Pretrained.VC_WAVENET.value)
+                util.load_model(diffusion, Pretrained.VC_DIFFUSION.value)
 
         elif isinstance(cfg, ConfigEVC):
             style_encoder = StyleEncoder(cfg.model.style_encoder)
             util.load_model(
-                style_encoder.speaker_encoder,
-                Pretrained.METASTYLE_SPEECH.value,
-                freeze=True,
+                style_encoder.speaker_encoder, Pretrained.METASTYLE_SPEECH.value
             )
+
+            style_encoder.emotion_encoder.requires_grad_(False)
+            style_encoder.speaker_encoder.requires_grad_(False)
+
             if pretrained:
-                util.load_model(
-                    src_ftr_encoder.decoder, Pretrained.EVC_WAVENET.value, freeze=True
-                )
-                util.load_model(diffusion, Pretrained.EVC_DIFFUSION.value, freeze=True)
+                util.load_model(src_ftr_encoder.decoder, Pretrained.EVC_WAVENET.value)
+                util.load_model(diffusion, Pretrained.EVC_DIFFUSION.value)
+                util.load_model(style_encoder, Pretrained.EVC_STYLEENCODER.value)
 
         else:
             raise ValueError(f"Unknown config type: {type(cfg).__name__}")
+
+        if pretrained:
+            src_ftr_encoder.requires_grad_(False)
+            diffusion.requires_grad_(False)
+            style_encoder.requires_grad_(False)
 
         return cls(style_encoder, src_ftr_encoder, diffusion)
