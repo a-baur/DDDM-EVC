@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Type, TypeVar
 
 from hydra import compose, initialize_config_dir
 from hydra.core.config_store import ConfigStore
@@ -9,7 +9,12 @@ from omegaconf import OmegaConf
 # Path to the config directory
 CONFIG_PATH = Path(__file__).parent.parent / "config"
 
+T = TypeVar("T")
 
+
+# ---------------------
+# Training Configuration
+# ---------------------
 @dataclass
 class TrainingConfig:
     seed: int
@@ -32,6 +37,9 @@ class TrainingConfig:
     clip_value: Optional[float] = None
 
 
+# ---------------------
+# Dataset and DataLoader Configuration
+# ---------------------
 @dataclass
 class DatasetConfig:
     name: str
@@ -66,6 +74,9 @@ class DataConfig:
     mel_transform: MelTransformConfig
 
 
+# ---------------------
+# Model Configurations
+# ---------------------
 @dataclass
 class MetaStyleSpeechConfig:
     in_dim: int
@@ -136,14 +147,15 @@ class HifiGANConfig:
 class DiffusionConfig:
     in_dim: int
     dec_dim: int
-    spk_dim: int
+    cond_dim: int
     use_ref_t: bool
     beta_min: float
     beta_max: float
+    gin_channels: int
 
 
 @dataclass
-class ModelConfig:
+class DDDMVCConfig:
     speaker_encoder: MetaStyleSpeechConfig
     pitch_encoder: VQVAEConfig
     decoder: WavenetDecoderConfig
@@ -152,42 +164,93 @@ class ModelConfig:
 
 
 @dataclass
-class Config:
+class StyleEncoderConfig:
+    speaker_encoder: MetaStyleSpeechConfig
+    emotion_emb_dim: int
+
+
+@dataclass
+class DDDMEVCConfig:
+    style_encoder: StyleEncoderConfig
+    pitch_encoder: VQVAEConfig
+    decoder: WavenetDecoderConfig
+    diffusion: DiffusionConfig
+    vocoder: HifiGANConfig
+
+
+# ---------------------
+# Configuration Wrappers
+# ---------------------
+@dataclass
+class ConfigVC:
     training: TrainingConfig
     data: DataConfig
-    model: ModelConfig
+    model: DDDMVCConfig
 
     @classmethod
-    def from_yaml(cls, name: str) -> "Config":
-        """
-        Load a Config object from a YAML file
-        with type validation.
-
-        :param name: Name of the YAML file
-        :return: Config object
-        """
-        cfg = OmegaConf.structured(Config)
+    def from_yaml(cls, name: str) -> "ConfigVC":
+        """Load a ConfigVC object from a YAML file with type validation."""
+        cfg = OmegaConf.structured(ConfigVC)
         cfg.merge_with(OmegaConf.load(CONFIG_PATH / name))
         return cls(
             training=TrainingConfig(**cfg.training),
             data=DataConfig(**cfg.data),
-            model=ModelConfig(**cfg.model),
+            model=DDDMVCConfig(**cfg.model),
         )
 
 
+@dataclass
+class ConfigEVC:
+    training: TrainingConfig
+    data: DataConfig
+    model: DDDMEVCConfig
+
+    @classmethod
+    def from_yaml(cls, name: str) -> "ConfigEVC":
+        """Load a ConfigEVC object from a YAML file with type validation."""
+        cfg = OmegaConf.structured(ConfigEVC)
+        cfg.merge_with(OmegaConf.load(CONFIG_PATH / name))
+        return cls(
+            training=TrainingConfig(**cfg.training),
+            data=DataConfig(**cfg.data),
+            model=DDDMEVCConfig(**cfg.model),
+        )
+
+
+# ---------------------
+# Hydra Configuration Registration
+# ---------------------
 def register_configs() -> None:
+    """Register all configurations with Hydra's ConfigStore."""
     cs = ConfigStore.instance()
-    cs.store(name="base_vc", node=Config)
+
+    cs.store(name="base_vc", node=ConfigVC)
     cs.store(group="training", name="base_vc", node=TrainingConfig)
-    cs.store(group="mode", name="base_vc", node=ModelConfig)
+    cs.store(group="model", name="base_vc", node=DDDMVCConfig)
     cs.store(group="data", name="base_vc", node=DataConfig)
 
+    cs.store(name="base_evc", node=ConfigEVC)
+    cs.store(group="training", name="base_evc", node=TrainingConfig)
+    cs.store(group="model", name="base_evc", node=DDDMEVCConfig)
+    cs.store(group="data", name="base_evc", node=DataConfig)
 
-def load_hydra_config(config_name: str) -> Config:
-    """Instantiate hydra config."""
+
+# ---------------------
+# Generalized Hydra Configuration Loader
+# ---------------------
+def load_hydra_config(config_name: str, _: Type[T]) -> T:
+    """Load and instantiate Hydra configuration."""
     with initialize_config_dir(version_base=None, config_dir=CONFIG_PATH.as_posix()):
         dict_cfg = compose(
             config_name=config_name, overrides=["training.output_dir='./outputs'"]
         )
-        cfg: Config = OmegaConf.to_object(dict_cfg)
-    return cfg
+        return OmegaConf.to_object(dict_cfg)  # Convert to Python object
+
+
+# Convenience wrappers for specific configs
+def load_hydra_config_vc(config_name: str) -> ConfigVC:
+    return load_hydra_config(config_name, ConfigVC)
+
+
+def load_hydra_config_evc(config_name: str) -> ConfigEVC:
+    return load_hydra_config(config_name, ConfigEVC)

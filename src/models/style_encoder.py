@@ -13,8 +13,8 @@ from modules.w2v2_l_robust import RegressionHead
 from util import temporal_avg_pool
 
 
-class EmotionModel(Wav2Vec2PreTrainedModel):
-    r"""Speech emotion classifier."""
+class W2V2LRobust(Wav2Vec2PreTrainedModel):
+    """Speech emotion classifier."""
 
     MODEL_NAME = "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
 
@@ -51,7 +51,8 @@ class EmotionModel(Wav2Vec2PreTrainedModel):
             return_attention_mask=False,
         )["input_values"].to(x.device)
 
-        hidden_states = self.wav2vec2(x_norm).last_hidden_state
+        outputs = self.wav2vec2(x_norm)
+        hidden_states = outputs[0]
         hidden_states = torch.mean(hidden_states, dim=1)
 
         if embeddings_only:

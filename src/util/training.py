@@ -14,7 +14,7 @@ from torch import GradScaler
 import config
 import util
 from data import AudioDataloader, MelTransform
-from models import DDDM, HifiGAN
+from models import DDDMVC, HifiGAN
 
 try:
     import matplotlib
@@ -51,7 +51,7 @@ class EvalMetrics:
 class Trainer:
     def __init__(
         self,
-        model: DDDM,
+        model: DDDMVC,
         mel_transform: MelTransform,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler.LRScheduler,
@@ -59,7 +59,7 @@ class Trainer:
         eval_dataloader: AudioDataloader,
         device: torch.device,
         scaler: GradScaler,
-        cfg: config.Config,
+        cfg: config.ConfigVC,
         distributed: bool,
         rank: int,
     ):

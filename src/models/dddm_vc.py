@@ -5,17 +5,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import util
-from config import ModelConfig
+from config import DDDMVCConfig
 
 from .diffusion import Diffusion
 from .source_filter_encoder import SourceFilterEncoder
 from .style_encoder import MetaStyleSpeech
 
 
-class DDDM(nn.Module):
-    def __init__(self, cfg: ModelConfig, sample_rate: int) -> None:
+class DDDMVC(nn.Module):
+    """Decoupled Denoising Diffusion model for voice conversion"""
+
+    def __init__(self, cfg: DDDMVCConfig, sample_rate: int) -> None:
         super().__init__()
-        self.style_encoder = MetaStyleSpeech(cfg.speaker_encoder)
+        self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
         self.encoder = SourceFilterEncoder(cfg, sample_rate)
         self.diffusion = Diffusion(cfg.diffusion)
 
@@ -32,7 +34,7 @@ class DDDM(nn.Module):
     ) -> None:
         """Load pre-trained models."""
         model_mapping = {
-            "style_encoder": (self.style_encoder, "metastylespeech.pth"),
+            "style_encoder": (self.speaker_encoder, "metastylespeech.pth"),
             "pitch_encoder": (self.encoder.pitch_encoder, "vqvae.pth"),
             "src_ftr_encoder": (self.encoder.decoder, "wavenet_decoder.pth"),
             "src_ftr_decoder": (self.diffusion, "diffusion.pth"),
@@ -71,7 +73,7 @@ class DDDM(nn.Module):
 
         # Get the global conditioning tensor for the target speaker
         y_mask = util.sequence_mask(y_n_frames, y_mel.size(2)).to(y_mel.dtype)
-        g = self.style_encoder(y_mel, y_mask).unsqueeze(-1)  # (B, C, 1)
+        g = self.speaker_encoder(y_mel, y_mask).unsqueeze(-1)  # (B, C, 1)
 
         return self._forward(x, x_mel, x_mask, g, n_time_steps, return_enc_out)
 
@@ -95,7 +97,7 @@ class DDDM(nn.Module):
         """
         # Encode the input waveform into diffusion priors
         x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
-        g = self.style_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
+        g = self.speaker_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
         return self._forward(x, x_mel, x_mask, g, n_time_steps, return_enc_out)
 
     def _forward(
@@ -169,7 +171,7 @@ class DDDM(nn.Module):
         :return: Tuple of the diffusion loss and the reconstruction loss
         """
         x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
-        g = self.style_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
+        g = self.speaker_encoder(x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
 
         mixup_ratios = torch.randint(0, 2, (x.size(0),)).to(x.device)
         src_mel, ftr_mel = self.encoder(x, x_mask, g, mixup_ratios)

@@ -7,7 +7,7 @@ import torchaudio
 import config
 import util
 from data import MelTransform
-from models import DDDM, HifiGAN
+from models import DDDMVC, HifiGAN
 
 config.register_configs()
 
@@ -23,11 +23,11 @@ def inference(
     outpath = Path(output_path)
     outpath.parent.mkdir(parents=True, exist_ok=True)
 
-    cfg = config.load_hydra_config(config_name)
+    cfg = config.load_hydra_config_vc(config_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg.data.mel_transform)
-    model = DDDM(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
+    model = DDDMVC(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
     model.load_pretrained(mode="eval", device=device)
 
     vocoder = HifiGAN(cfg.model.vocoder)

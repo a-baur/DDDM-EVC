@@ -20,11 +20,16 @@ class GradLogPEstimator(BaseModule):
 
     :param dim_base: Base dimension.
     :param dim_cond: Condition dimension.
+    :param gin_channels: Dimension of global conditioning tensor.
     :param dim_mults: Multipliers for downsampling and upsampling.
     """
 
     def __init__(
-        self, dim_base: int, dim_cond: int, dim_mults: tuple[int, ...] = (1, 2, 4)
+        self,
+        dim_base: int,
+        dim_cond: int,
+        gin_channels: int,
+        dim_mults: tuple[int, ...] = (1, 2, 4),
     ) -> None:
         super(GradLogPEstimator, self).__init__()
 
@@ -37,7 +42,7 @@ class GradLogPEstimator(BaseModule):
             Mish(),
             torch.nn.Linear(dim_base * 4, dim_base),
         )
-        cond_total = dim_base + 256
+        cond_total = dim_base + gin_channels
         self.cond_block = torch.nn.Sequential(
             torch.nn.Linear(cond_total, 4 * dim_cond),
             Mish(),
@@ -87,7 +92,7 @@ class GradLogPEstimator(BaseModule):
         x: torch.Tensor,
         x_mask: torch.Tensor,
         enc_out: torch.Tensor,
-        spk: torch.Tensor,
+        g: torch.Tensor,
         t: float | torch.Tensor,
     ) -> torch.Tensor:
         """
@@ -96,7 +101,7 @@ class GradLogPEstimator(BaseModule):
         :param x: Input tensor.
         :param x_mask: Mask for the input tensor.
         :param enc_out:
-        :param spk:
+        :param g:
         :param t:
         :return:
         """
@@ -106,7 +111,7 @@ class GradLogPEstimator(BaseModule):
         x = torch.stack([enc_out, x], 1)
         x_mask = x_mask.unsqueeze(1)
 
-        condition = torch.cat([condition, spk.squeeze(-1)], 1)
+        condition = torch.cat([condition, g.squeeze(-1)], 1)
         condition = self.cond_block(condition).unsqueeze(-1).unsqueeze(-1)
 
         condition = torch.cat(x.shape[2] * [condition], 2)

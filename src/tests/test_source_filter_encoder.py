@@ -1,17 +1,17 @@
 import util
-from config import Config
+from config import ConfigVC
 from data import AudioDataloader, MelTransform
 from models import MetaStyleSpeech, SourceFilterEncoder, VQVAEEncoder, WavenetDecoder
 from util.helpers import load_model
 
 
-def test_source_filter_encoder(cfg: Config, dataloader: AudioDataloader) -> None:
+def test_source_filter_encoder(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     """Test source-filter encoder."""
-    mel_transfom = MelTransform(cfg.data.mel_transform)
+    mel_transfom = MelTransform(cfg_vc.data.mel_transform)
     src_ftr_encoder = SourceFilterEncoder(
-        cfg.model, sample_rate=cfg.data.dataset.sampling_rate
+        cfg_vc.model, sample_rate=cfg_vc.data.dataset.sampling_rate
     )
-    speaker_encoder = MetaStyleSpeech(cfg.model.speaker_encoder)
+    speaker_encoder = MetaStyleSpeech(cfg_vc.model.speaker_encoder)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transfom(x)
@@ -25,14 +25,14 @@ def test_source_filter_encoder(cfg: Config, dataloader: AudioDataloader) -> None
 
 
 def test_source_filter_voice_conversion(
-    cfg: Config, dataloader: AudioDataloader
+    cfg_vc: ConfigVC, dataloader: AudioDataloader
 ) -> None:
     """Test source-filter encoder voice conversion."""
-    mel_transfom = MelTransform(cfg.data.mel_transform)
+    mel_transfom = MelTransform(cfg_vc.data.mel_transform)
     src_ftr_encoder = SourceFilterEncoder(
-        cfg.model, sample_rate=cfg.data.dataset.sampling_rate
+        cfg_vc.model, sample_rate=cfg_vc.data.dataset.sampling_rate
     )
-    speaker_encoder = MetaStyleSpeech(cfg.model.speaker_encoder)
+    speaker_encoder = MetaStyleSpeech(cfg_vc.model.speaker_encoder)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transfom(x)
@@ -49,19 +49,19 @@ def test_source_filter_voice_conversion(
     assert ftr_mel.shape == x_mel.shape
 
 
-def test_from_pretrained(cfg: Config, dataloader: AudioDataloader) -> None:
+def test_from_pretrained(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     """Test source-filter encoder."""
-    mel_transfom = MelTransform(cfg.data.mel_transform)
-    pitch_encoder = VQVAEEncoder(cfg.model.pitch_encoder)
+    mel_transfom = MelTransform(cfg_vc.data.mel_transform)
+    pitch_encoder = VQVAEEncoder(cfg_vc.model.pitch_encoder)
     load_model(pitch_encoder, "vqvae.pth", freeze=True)
-    speaker_encoder = MetaStyleSpeech(cfg.model.speaker_encoder)
+    speaker_encoder = MetaStyleSpeech(cfg_vc.model.speaker_encoder)
     load_model(speaker_encoder, "metastylespeech.pth", freeze=True)
-    decoder = WavenetDecoder(cfg.model)
+    decoder = WavenetDecoder(cfg_vc.model.decoder, cfg_vc.model.pitch_encoder.vq.k_bins)
     load_model(decoder, "wavenet_decoder.pth", freeze=True)
 
     src_ftr_encoder = SourceFilterEncoder(
-        cfg.model,
-        sample_rate=cfg.data.dataset.sampling_rate,
+        cfg_vc.model,
+        sample_rate=cfg_vc.data.dataset.sampling_rate,
         pitch_encoder=pitch_encoder,
         decoder=decoder,
     )

@@ -2,17 +2,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import ModelConfig
+from config import WavenetDecoderConfig
 from modules.wavenet_decoder import Decoder
 
 
 class WavenetDecoder(nn.Module):
-    def __init__(self, cfg: ModelConfig):
+    def __init__(self, cfg: WavenetDecoderConfig, f0_dim: int):
         super().__init__()
-        self.emb_c = nn.Conv1d(1024, cfg.decoder.hidden_dim, 1)
-        self.emb_f0 = nn.Embedding(cfg.pitch_encoder.vq.k_bins, cfg.decoder.hidden_dim)
-        self.dec_ftr = Decoder(cfg.decoder)
-        self.dec_src = Decoder(cfg.decoder)
+        self.emb_c = nn.Conv1d(1024, cfg.hidden_dim, 1)
+        self.emb_f0 = nn.Embedding(f0_dim, cfg.hidden_dim)
+        self.dec_ftr = Decoder(cfg)
+        self.dec_src = Decoder(cfg)
 
     def forward(
         self,

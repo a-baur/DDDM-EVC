@@ -1,0 +1,6 @@
+defaults:
+  - base_evc
+  - data: base
+  - model: evc
+  - training: base
+  - _self_

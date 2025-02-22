@@ -12,7 +12,7 @@ from torch.utils.data import DistributedSampler
 import config
 import util
 from data import AudioDataloader, MelTransform, MSPPodcast
-from models import DDDM
+from models import DDDMVC
 from util.training import Trainer
 
 config.register_configs()
@@ -24,7 +24,7 @@ config.register_configs()
     config_name="config_vc",
 )  # type: ignore
 def main(cfg: DictConfig) -> None:
-    cfg: config.Config = OmegaConf.to_object(cfg)
+    cfg: config.ConfigVC = OmegaConf.to_object(cfg)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpus = torch.cuda.device_count()
 
@@ -44,7 +44,7 @@ def main(cfg: DictConfig) -> None:
 
 
 def setup_trainer(
-    rank: int, device: torch.device, n_gpus: int, cfg: config.Config
+    rank: int, device: torch.device, n_gpus: int, cfg: config.ConfigVC
 ) -> Trainer:
     on_cuda = n_gpus > 0
     distributed = n_gpus > 1
@@ -63,14 +63,21 @@ def setup_trainer(
 
     train_dataset = MSPPodcast(cfg.data, split="train")
     train_sampler = DistributedSampler(train_dataset) if distributed else None
-    train_loader = AudioDataloader(train_dataset, cfg=cfg, sampler=train_sampler)
+    train_loader = AudioDataloader(
+        train_dataset,
+        cfg=cfg.data.dataloader,
+        batch_size=cfg.training.batch_size,
+        sampler=train_sampler,
+    )
 
     eval_dataset = MSPPodcast(cfg.data, split="test1")
-    eval_loader = AudioDataloader(eval_dataset, cfg=cfg, batch_size=1, shuffle=False)
+    eval_loader = AudioDataloader(
+        eval_dataset, cfg=cfg.data.dataloader, batch_size=1, shuffle=False
+    )
 
     mel_transform = MelTransform(cfg.data.mel_transform)
 
-    model = DDDM(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
+    model = DDDMVC(cfg.model, sample_rate=cfg.data.dataset.sampling_rate)
     model.load_pretrained(
         models=("style_encoder", "pitch_encoder"), mode="eval", device=device
     )
@@ -108,7 +115,7 @@ def setup_trainer(
     )
 
 
-def train(rank: int, device: torch.device, n_gpus: int, cfg: config.Config) -> None:
+def train(rank: int, device: torch.device, n_gpus: int, cfg: config.ConfigVC) -> None:
     torch.manual_seed(cfg.training.seed)
     trainer = setup_trainer(rank, device, n_gpus, cfg)
     trainer.train(cfg.training.epochs)

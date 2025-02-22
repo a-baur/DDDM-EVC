@@ -11,7 +11,7 @@ def librispeech_collate_fn(
     batch: list[tuple[torch.Tensor, ...]],
 ) -> tuple[torch.Tensor, torch.Tensor]:
     config.register_configs()
-    cfg = config.load_hydra_config("config_vc.yaml")
+    cfg = config.load_hydra_config_vc("config_vc.yaml")
 
     audio = next(zip(*batch))
     segments = [random_segment(a, cfg.data.dataset.segment_size) for a in audio]

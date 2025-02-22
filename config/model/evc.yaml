@@ -1,7 +1,9 @@
-speaker_encoder:
-  in_dim: 80
-  hidden_dim: 256
-  out_dim: 256
+style_encoder:
+  emotion_emb_dim: 256
+  speaker_encoder:
+    in_dim: 80
+    hidden_dim: 256
+    out_dim: 256
 
 pitch_encoder:
   f0_encoder:
@@ -29,7 +31,7 @@ decoder:
   dilation_rate: 1
   n_layers: 8
   n_mel_channels: 80
-  gin_channels: 256
+  gin_channels: 512
 
 diffusion:
   in_dim: 80
@@ -38,7 +40,7 @@ diffusion:
   use_ref_t: False
   beta_min: 0.05
   beta_max: 20.0
-  gin_channels: 256
+  gin_channels: 512
 
 vocoder:
   in_dim: 80

@@ -4,26 +4,26 @@ import torch
 from torch.utils.data import DataLoader, Dataset, Sampler
 from torchaudio.transforms import MelSpectrogram
 
-from config import Config, MelTransformConfig
+from config import DataLoaderConfig, MelTransformConfig
 
 
 class AudioDataloader(DataLoader):
     def __init__(
         self,
         dataset: Dataset,
-        cfg: Config,
+        cfg: DataLoaderConfig,
+        batch_size: int,
         sampler: Sampler = None,
         shuffle: bool = False,
-        batch_size: int = None,
         collate_fn: Callable | None = None,
     ) -> None:
         super().__init__(
             dataset,
-            batch_size=batch_size or cfg.training.batch_size,
-            num_workers=cfg.data.dataloader.num_workers,
+            batch_size=batch_size,
+            num_workers=cfg.num_workers,
             sampler=sampler,
-            pin_memory=cfg.data.dataloader.pin_memory,
-            drop_last=cfg.data.dataloader.drop_last,
+            pin_memory=cfg.pin_memory,
+            drop_last=cfg.drop_last,
             shuffle=shuffle,
             collate_fn=collate_fn,
         )

@@ -22,12 +22,16 @@ class Diffusion(BaseModule):
 
         self.n_feats = cfg.in_dim
         self.dim_unet = cfg.dec_dim
-        self.dim_spk = cfg.spk_dim
+        self.dim_cond = cfg.cond_dim
         self.beta_min = cfg.beta_min
         self.beta_max = cfg.beta_max
 
-        self.estimator_src = GradLogPEstimator(cfg.dec_dim, cfg.spk_dim)
-        self.estimator_ftr = GradLogPEstimator(cfg.dec_dim, cfg.spk_dim)
+        self.estimator_src = GradLogPEstimator(
+            cfg.dec_dim, cfg.cond_dim, cfg.gin_channels
+        )
+        self.estimator_ftr = GradLogPEstimator(
+            cfg.dec_dim, cfg.cond_dim, cfg.gin_channels
+        )
 
     def get_beta(self, t: float | torch.Tensor) -> float | torch.Tensor:
         """
@@ -149,7 +153,7 @@ class Diffusion(BaseModule):
         mask: torch.Tensor,
         src_out: torch.Tensor,
         ftr_out: torch.Tensor,
-        spk: torch.Tensor,
+        g: torch.Tensor,
         n_timesteps: int,
         mode: Literal["pf", "em", "ml"],
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -165,7 +169,7 @@ class Diffusion(BaseModule):
         :param mask: Mask for the input tensor.
         :param src_out: Source output of Source-Filter encoder.
         :param ftr_out: Filter output of Source-Filter encoder.
-        :param spk: Speaker embedding.
+        :param g: Global conditioning tensor.
         :param n_timesteps: Number of diffusion steps.
         :param mode: Inference mode (pf, em, ml).
         :return: Updated source and filter tensors.
@@ -202,8 +206,8 @@ class Diffusion(BaseModule):
 
             estimated_score = (
                 (
-                    self.estimator_src(xt_src, mask, src_out, spk, time)
-                    + self.estimator_ftr(xt_ftr, mask, ftr_out, spk, time)
+                    self.estimator_src(xt_src, mask, src_out, g, time)
+                    + self.estimator_ftr(xt_ftr, mask, ftr_out, g, time)
                 )
                 * (1.0 + kappa)
                 * (beta_t * h)
@@ -228,7 +232,7 @@ class Diffusion(BaseModule):
         mask: torch.Tensor,
         src_out: torch.Tensor,
         ftr_out: torch.Tensor,
-        spk: torch.Tensor,
+        g: torch.Tensor,
         n_timesteps: int,
         mode: Literal["pf", "em", "ml"],
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -240,13 +244,13 @@ class Diffusion(BaseModule):
         :param mask: Mask for the input tensor.
         :param src_out: Source output of Source-Filter encoder.
         :param ftr_out: Filter output of Source-Filter encoder.
-        :param spk: Speaker embedding.
+        :param g: Global conditioning tensor.
         :param n_timesteps: Number of diffusion steps.
         :param mode: Inference mode (pf, em, ml).
         :return: Updated source and filter tensors.
         """
         return self.reverse_diffusion(
-            z_src, z_ftr, mask, src_out, ftr_out, spk, n_timesteps, mode
+            z_src, z_ftr, mask, src_out, ftr_out, g, n_timesteps, mode
         )
 
     def loss_t(
@@ -255,7 +259,7 @@ class Diffusion(BaseModule):
         mask: torch.Tensor,
         src_out: torch.Tensor,
         ftr_out: torch.Tensor,
-        spk: torch.Tensor,
+        g: torch.Tensor,
         t: float | torch.Tensor,
     ) -> torch.Tensor:
         """
@@ -265,14 +269,14 @@ class Diffusion(BaseModule):
         :param mask: Mask for the input tensor.
         :param src_out: Source output of Source-Filter encoder.
         :param ftr_out: Filter output of Source-Filter encoder.
-        :param spk: Speaker embedding.
+        :param g: Global conditioning tensor.
         :param t: Time step.
         :return: Loss value.
         """
         xt_src, xt_ftr, z = self.forward_diffusion(x0, mask, src_out, ftr_out, t)
 
-        z_estimation = self.estimator_src(xt_src, mask, src_out, spk, t)
-        z_estimation += self.estimator_ftr(xt_ftr, mask, ftr_out, spk, t)
+        z_estimation = self.estimator_src(xt_src, mask, src_out, g, t)
+        z_estimation += self.estimator_ftr(xt_ftr, mask, ftr_out, g, t)
 
         z_estimation *= torch.sqrt(1.0 - self.get_gamma(0, t, p=2.0, use_torch=True))
         loss = torch.sum((z_estimation + z) ** 2) / (torch.sum(mask) * self.n_feats)
@@ -285,7 +289,7 @@ class Diffusion(BaseModule):
         mask: torch.Tensor,
         src_out: torch.Tensor,
         ftr_out: torch.Tensor,
-        spk: torch.Tensor,
+        g: torch.Tensor,
         offset: float = 1e-5,
     ) -> torch.Tensor:
         """
@@ -295,7 +299,7 @@ class Diffusion(BaseModule):
         :param mask: Mask for the input tensor.
         :param src_out: Source output of Source-Filter encoder.
         :param ftr_out: Filter output of Source-Filter encoder.
-        :param spk: Speaker embedding.
+        :param g: Global conditioning tensor.
         :param offset: Offset value to avoid numerical instability.
         :return: Loss value.
         """
@@ -303,4 +307,4 @@ class Diffusion(BaseModule):
         t = torch.rand(b, dtype=x0.dtype, device=x0.device, requires_grad=False)
         t = torch.clamp(t, offset, 1.0 - offset)
 
-        return self.loss_t(x0, mask, src_out, ftr_out, spk, t)
+        return self.loss_t(x0, mask, src_out, ftr_out, g, t)
