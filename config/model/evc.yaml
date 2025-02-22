@@ -36,7 +36,7 @@ decoder:
 diffusion:
   in_dim: 80
   dec_dim: 128
-  spk_dim: 128
+  cond_dim: 128
   use_ref_t: False
   beta_min: 0.05
   beta_max: 20.0

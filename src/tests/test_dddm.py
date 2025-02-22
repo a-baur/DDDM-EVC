@@ -76,7 +76,6 @@ def test_dddm_evc_cond(cfg_evc: ConfigEVC, dataloader: AudioDataloader) -> None:
 
     mel_transform = MelTransform(cfg_evc.data.mel_transform)
     model = DDDMEVC(cfg_evc.model, sample_rate=cfg_evc.data.dataset.sampling_rate)
-    model.load_pretrained(mode="eval")
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
