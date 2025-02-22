@@ -135,10 +135,10 @@ class VQVAEConfig:
 class WavenetDecoderConfig:
     in_dim: int
     hidden_dim: int
+    out_dim: int
     kernel_size: int
     dilation_rate: int
     n_layers: int
-    n_mel_channels: int
     gin_channels: int
 
 

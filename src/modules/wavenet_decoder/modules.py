@@ -134,7 +134,7 @@ class Decoder(nn.Module):
             cfg.n_layers,
             gin_channels=cfg.gin_channels,
         )
-        self.proj = nn.Conv1d(cfg.hidden_dim, cfg.n_mel_channels, 1)
+        self.proj = nn.Conv1d(cfg.hidden_dim, cfg.out_dim, 1)
 
     def forward(
         self, x: torch.Tensor, x_mask: torch.Tensor, g: torch.Tensor = None

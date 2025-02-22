@@ -28,10 +28,10 @@ pitch_encoder:
 decoder:
   in_dim: 128
   hidden_dim: 128
+  out_dim: 80
   kernel_size: 5
   dilation_rate: 1
   n_layers: 8
-  n_mel_channels: 80
   gin_channels: 256
 
 diffusion:
