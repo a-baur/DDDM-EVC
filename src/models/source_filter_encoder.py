@@ -1,41 +1,24 @@
-from typing import Protocol, runtime_checkable
-
 import torch
 from torch import nn as nn
 
 import util
-from config import DDDMEVCConfig, DDDMVCConfig
-from models.content_encoder import XLSR
+from models.content_encoder import XLSR, Hubert
 from models.pitch_encoder import VQVAEEncoder
 from modules.wavenet_decoder import WavenetDecoder
 
 
-@runtime_checkable
-class SourceFilterEncoderProtocol(Protocol):
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_mask: torch.Tensor,
-        g: torch.Tensor,
-        mixup_ratios: torch.Tensor = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Gives source-filter priors given waveform,
-        mask, global conditioning tensor and mixup ratios.
-        """
-        ...
-
-
 class SourceFilterEncoder(nn.Module):
-    def __init__(self, cfg: DDDMVCConfig | DDDMEVCConfig, sample_rate: int) -> None:
+    def __init__(
+        self,
+        content_encoder: XLSR | Hubert,
+        pitch_encoder: VQVAEEncoder,
+        decoder: WavenetDecoder,
+        sample_rate: int,
+    ) -> None:
         super().__init__()
-        self.content_encoder = XLSR()
-        self.pitch_encoder = VQVAEEncoder(cfg.pitch_encoder)
-        self.decoder = WavenetDecoder(
-            cfg.decoder,
-            content_dim=cfg.content_encoder.out_dim,
-            f0_dim=cfg.pitch_encoder.vq.k_bins,
-        )
+        self.content_encoder = content_encoder
+        self.pitch_encoder = pitch_encoder
+        self.decoder = decoder
         self.sample_rate = sample_rate
 
     def forward(

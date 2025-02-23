@@ -165,20 +165,20 @@ class DiffusionConfig:
 
 
 @dataclass
-class DDDMVCConfig:
+class StyleEncoderConfig:
+    emotion_emb_dim: int
     speaker_encoder: MetaStyleSpeechConfig
+    emotion_encoder: W2VLRobustConfig
+
+
+@dataclass
+class DDDMVCConfig:
+    style_encoder: MetaStyleSpeechConfig
     content_encoder: XLSRConfig
     pitch_encoder: VQVAEConfig
     decoder: WavenetDecoderConfig
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
-
-
-@dataclass
-class StyleEncoderConfig:
-    emotion_emb_dim: int
-    speaker_encoder: MetaStyleSpeechConfig
-    emotion_encoder: W2VLRobustConfig
 
 
 @dataclass

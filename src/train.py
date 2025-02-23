@@ -12,7 +12,7 @@ from torch.utils.data import DistributedSampler
 import config
 import util
 from data import AudioDataloader, MelTransform, MSPPodcast
-from models import DDDM
+from models import dddm_from_config
 from util.training import Trainer
 
 config.register_configs()
@@ -23,8 +23,8 @@ config.register_configs()
     config_path=config.CONFIG_PATH.as_posix(),
     config_name="config_vc",
 )  # type: ignore
-def main(cfg: DictConfig) -> None:
-    cfg: config.ConfigVC = OmegaConf.to_object(cfg)
+def main(dict_cfg: DictConfig) -> None:
+    cfg: config.ConfigVC | config.ConfigEVC = OmegaConf.to_object(dict_cfg)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpus = torch.cuda.device_count()
 
@@ -44,7 +44,10 @@ def main(cfg: DictConfig) -> None:
 
 
 def setup_trainer(
-    rank: int, device: torch.device, n_gpus: int, cfg: config.ConfigVC
+    rank: int,
+    device: torch.device,
+    n_gpus: int,
+    cfg: config.ConfigVC | config.ConfigEVC,
 ) -> Trainer:
     on_cuda = n_gpus > 0
     distributed = n_gpus > 1
@@ -77,7 +80,7 @@ def setup_trainer(
 
     mel_transform = MelTransform(cfg.data.mel_transform)
 
-    model = DDDM.from_config(cfg, pretrained=False)
+    model = dddm_from_config(cfg.model, pretrained=False)
     model.to(device)
 
     optimizer = torch.optim.AdamW(
@@ -112,7 +115,12 @@ def setup_trainer(
     )
 
 
-def train(rank: int, device: torch.device, n_gpus: int, cfg: config.ConfigVC) -> None:
+def train(
+    rank: int,
+    device: torch.device,
+    n_gpus: int,
+    cfg: config.ConfigVC | config.ConfigEVC,
+) -> None:
     torch.manual_seed(cfg.training.seed)
     trainer = setup_trainer(rank, device, n_gpus, cfg)
     trainer.train(cfg.training.epochs)

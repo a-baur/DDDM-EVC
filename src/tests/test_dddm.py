@@ -2,7 +2,7 @@ import torch
 
 from config import ConfigEVC, ConfigVC
 from data import AudioDataloader, MelTransform
-from models import DDDM
+from models import dddm_from_config
 from util.helpers import move_to_device
 
 
@@ -11,7 +11,7 @@ def test_dddm(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg_vc.data.mel_transform)
-    model = DDDM.from_config(cfg_vc, pretrained=True)
+    model = dddm_from_config(cfg_vc.model, pretrained=False)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
@@ -29,7 +29,7 @@ def test_dddm_vc(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg_vc.data.mel_transform)
-    model = DDDM.from_config(cfg_vc, pretrained=True)
+    model = dddm_from_config(cfg_vc.model, pretrained=True)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
@@ -53,7 +53,7 @@ def test_dddm_loss(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg_vc.data.mel_transform)
-    model = DDDM.from_config(cfg_vc, pretrained=True)
+    model = dddm_from_config(cfg_vc.model, pretrained=True)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)
@@ -70,7 +70,7 @@ def test_dddm_evc(cfg_evc: ConfigEVC, dataloader: AudioDataloader) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg_evc.data.mel_transform)
-    model = DDDM.from_config(cfg_evc, pretrained=False)
+    model = dddm_from_config(cfg_evc.model, pretrained=False)
 
     x, x_n_frames = next(iter(dataloader))
     x_mel = mel_transform(x)

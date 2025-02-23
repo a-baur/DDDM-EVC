@@ -59,7 +59,7 @@ class Trainer:
         eval_dataloader: AudioDataloader,
         device: torch.device,
         scaler: GradScaler,
-        cfg: config.ConfigVC,
+        cfg: config.ConfigVC | config.ConfigEVC,
         distributed: bool,
         rank: int,
     ):

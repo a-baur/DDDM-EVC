@@ -9,7 +9,7 @@ from util import get_normalized_f0, load_model, sequence_mask
 def test_meta_style_speech(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:
     """Test Meta-StyleSpeech encoder."""
     mel_transform = MelTransform(cfg_vc.data.mel_transform)
-    speaker_encoder = MetaStyleSpeech(cfg_vc.model.speaker_encoder)
+    speaker_encoder = MetaStyleSpeech(cfg_vc.model.style_encoder)
     load_model(speaker_encoder, "metastylespeech.pth")
 
     x, x_n_frames = next(iter(dataloader))
@@ -18,7 +18,7 @@ def test_meta_style_speech(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> Non
 
     output = speaker_encoder(x, x_mel, x_mask)
     assert output.shape[0] == cfg_vc.training.batch_size
-    assert output.shape[1] == cfg_vc.model.speaker_encoder.out_dim
+    assert output.shape[1] == cfg_vc.model.style_encoder.out_dim
 
 
 def test_vq_vae(cfg_vc: ConfigVC, dataloader: AudioDataloader) -> None:

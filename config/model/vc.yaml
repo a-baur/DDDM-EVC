@@ -1,4 +1,4 @@
-speaker_encoder:
+style_encoder:
   in_dim: 80
   hidden_dim: 256
   out_dim: 256

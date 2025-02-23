@@ -7,7 +7,7 @@ import torchaudio
 import config
 import util
 from data import MelTransform
-from models import DDDM, HifiGAN
+from models import HifiGAN, dddm_from_config
 
 config.register_configs()
 
@@ -27,7 +27,7 @@ def inference(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg.data.mel_transform)
-    model = DDDM.from_config(cfg, pretrained=True)
+    model = dddm_from_config(cfg.model, pretrained=True)
     vocoder = HifiGAN(cfg.model.vocoder)
     util.load_model(vocoder, "hifigan.pth", freeze=True)
 
