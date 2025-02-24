@@ -1,0 +1,5 @@
+defaults:
+  - data: base
+  - model: evc_xlsr
+  - training: base
+  - _self_

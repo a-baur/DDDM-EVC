@@ -76,7 +76,7 @@ options:
                         Default: ./sample/
   -c CONFIG, --config CONFIG
                         Name of config to use
-                        Default: config_vc.yaml
+                        Default: dddm_vc_xlsr.yaml
   -n N_TIMESTEPS, --n_timesteps N_TIMESTEPS
                         Number of diffusion timesteps
                         Default: 6

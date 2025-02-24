@@ -9,8 +9,6 @@ import util
 from data import MelTransform
 from models import HifiGAN, dddm_from_config
 
-config.register_configs()
-
 
 def inference(
     source_path: str,
@@ -23,7 +21,7 @@ def inference(
     outpath = Path(output_path)
     outpath.parent.mkdir(parents=True, exist_ok=True)
 
-    cfg = config.load_hydra_config_vc(config_name)
+    cfg = config.load_hydra_config(config_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     mel_transform = MelTransform(cfg.data.mel_transform)
@@ -84,7 +82,7 @@ if __name__ == "__main__":
         "-c",
         "--config",
         type=str,
-        default="config_vc.yaml",
+        default="dddm_vc_xlsr",
         help="Name of config to use",
     )
     parser.add_argument(

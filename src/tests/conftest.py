@@ -1,4 +1,5 @@
 import pytest
+from omegaconf import DictConfig
 
 import config
 from data import AudioDataloader, Librispeech, MSPPodcast, librispeech_collate_fn
@@ -12,34 +13,27 @@ def change_to_root_dir(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(get_root_path())
 
 
-@pytest.fixture()  # type: ignore
-def cfg_vc() -> config.ConfigVC:
-    config.register_configs()
-    return config.load_hydra_config_vc("config_vc.yaml")
+@pytest.fixture  # type: ignore
+def model_config(config_name: str) -> DictConfig:
+    return config.load_hydra_config(config_name)
 
 
-@pytest.fixture()  # type: ignore
-def cfg_evc() -> config.ConfigEVC:
-    config.register_configs()
-    return config.load_hydra_config_evc("config_evc.yaml")
-
-
-@pytest.fixture()  # type: ignore
-def dataloader(cfg_vc: config.ConfigVC) -> AudioDataloader:
+@pytest.fixture  # type: ignore
+def dataloader(model_config: DictConfig) -> AudioDataloader:
     if TESTING_DATASET == "librispeech":
         dataset = Librispeech("dev-clean", "LibriSpeech")
         return AudioDataloader(
             dataset=dataset,
-            cfg=cfg_vc.data.dataloader,
-            batch_size=cfg_vc.training.batch_size,
+            cfg=model_config.data.dataloader,
+            batch_size=model_config.training.batch_size,
             collate_fn=librispeech_collate_fn,
         )
     elif TESTING_DATASET == "msp-podcast":
-        dataset = MSPPodcast(cfg_vc.data, split="development")
+        dataset = MSPPodcast(model_config.data, split="development")
         return AudioDataloader(
             dataset=dataset,
-            cfg=cfg_vc.data.dataloader,
-            batch_size=cfg_vc.training.batch_size,
+            cfg=model_config.data.dataloader,
+            batch_size=model_config.training.batch_size,
             collate_fn=librispeech_collate_fn,
         )
     else:

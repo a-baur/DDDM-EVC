@@ -4,7 +4,7 @@ import hydra
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 from torch import GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DistributedSampler
@@ -15,16 +15,13 @@ from data import AudioDataloader, MelTransform, MSPPodcast
 from models import dddm_from_config
 from util.training import Trainer
 
-config.register_configs()
-
 
 @hydra.main(
     version_base=None,
     config_path=config.CONFIG_PATH.as_posix(),
-    config_name="config_vc",
+    config_name="dddm_vc_xlsr",
 )  # type: ignore
-def main(dict_cfg: DictConfig) -> None:
-    cfg: config.ConfigVC | config.ConfigEVC = OmegaConf.to_object(dict_cfg)
+def main(cfg: DictConfig) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpus = torch.cuda.device_count()
 
@@ -47,7 +44,7 @@ def setup_trainer(
     rank: int,
     device: torch.device,
     n_gpus: int,
-    cfg: config.ConfigVC | config.ConfigEVC,
+    cfg: DictConfig,
 ) -> Trainer:
     on_cuda = n_gpus > 0
     distributed = n_gpus > 1
@@ -119,7 +116,7 @@ def train(
     rank: int,
     device: torch.device,
     n_gpus: int,
-    cfg: config.ConfigVC | config.ConfigEVC,
+    cfg: DictConfig,
 ) -> None:
     torch.manual_seed(cfg.training.seed)
     trainer = setup_trainer(rank, device, n_gpus, cfg)

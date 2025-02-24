@@ -1,14 +1,17 @@
 import os
 
 import pytest
+from omegaconf import DictConfig
 
-from config import ConfigVC
 from data.datasets import MSPPodcast
 
 
-def test_msp_podcast(cfg_vc: ConfigVC) -> None:
-    if not os.path.exists(cfg_vc.data.dataset.path):
+@pytest.mark.parametrize(
+    "config_name", ["dddm_vc_xlsr", "dddm_evc_xlsr", "dddm_evc_hu"]
+)
+def test_msp_podcast(model_config: DictConfig) -> None:
+    if not os.path.exists(model_config.data.dataset.path):
         pytest.skip()
-    dataset = MSPPodcast(cfg_vc.data, split="development")
+    dataset = MSPPodcast(model_config.data, split="development")
     audio, length = dataset[0]
-    assert audio.shape == (cfg_vc.data.dataset.segment_size,)
+    assert audio.shape == (model_config.data.dataset.segment_size,)

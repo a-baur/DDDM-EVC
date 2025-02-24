@@ -9,9 +9,9 @@ from typing import Optional
 import numpy as np
 import torch
 import torch.nn.functional as F
+from omegaconf import DictConfig
 from torch import GradScaler
 
-import config
 import util
 from data import AudioDataloader, MelTransform
 from models import DDDM, HifiGAN
@@ -59,7 +59,7 @@ class Trainer:
         eval_dataloader: AudioDataloader,
         device: torch.device,
         scaler: GradScaler,
-        cfg: config.ConfigVC | config.ConfigEVC,
+        cfg: DictConfig,
         distributed: bool,
         rank: int,
     ):

@@ -1,7 +1,16 @@
+defaults:
+  - base_evc_hu
+
 style_encoder:
-  in_dim: 80
-  hidden_dim: 256
-  out_dim: 256
+  emotion_emb_dim: 256
+
+  emotion_encoder:
+    out_dim: 1024
+
+  speaker_encoder:
+    in_dim: 80
+    hidden_dim: 256
+    out_dim: 256
 
 content_encoder:
   out_dim: 1024
@@ -32,7 +41,7 @@ decoder:
   kernel_size: 5
   dilation_rate: 1
   n_layers: 8
-  gin_channels: 256
+  gin_channels: 512
 
 diffusion:
   in_dim: 80
@@ -41,7 +50,7 @@ diffusion:
   use_ref_t: False
   beta_min: 0.05
   beta_max: 20.0
-  gin_channels: 256
+  gin_channels: 512
 
 vocoder:
   in_dim: 80

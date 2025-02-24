@@ -1,3 +1,6 @@
+defaults:
+  - base_training
+
 seed: 42
 batch_size: 32
 epochs: 100

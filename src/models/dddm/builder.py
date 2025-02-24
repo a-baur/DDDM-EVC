@@ -1,9 +1,11 @@
 import typing
 from enum import Enum
 
+from omegaconf import OmegaConf
+
 import util
-from config import DDDMEVCConfig, DDDMVCConfig
-from models.content_encoder import XLSR
+from config import DDDM_EVC_HUBERT_Config, DDDM_EVC_XLSR_Config, DDDM_VC_XLSR_Config
+from models.content_encoder import XLSR, Hubert
 from models.diffusion import Diffusion
 from models.pitch_encoder import VQVAEEncoder
 from models.source_filter_encoder import SourceFilterEncoder
@@ -24,12 +26,15 @@ class Pretrained(Enum):
 
 
 MODEL_BLUEPRINT = {
-    DDDMVCConfig: {
-        "style_encoder": MetaStyleSpeech,
-        "encoder.content_encoder": XLSR,
-        "encoder.pitch_encoder": VQVAEEncoder,
-        "encoder.decoder": WavenetDecoder,
-        "diffusion": Diffusion,
+    DDDM_VC_XLSR_Config: {
+        "components": {
+            "style_encoder": MetaStyleSpeech,
+            "encoder": SourceFilterEncoder,
+            "encoder.content_encoder": XLSR,
+            "encoder.pitch_encoder": VQVAEEncoder,
+            "encoder.decoder": WavenetDecoder,
+            "diffusion": Diffusion,
+        },
         "pretrained": {
             "encoder.pitch_encoder": Pretrained.VQVAE,
             "encoder.decoder": Pretrained.VC_WAVENET,
@@ -38,12 +43,34 @@ MODEL_BLUEPRINT = {
         },
         "freeze": ["style_encoder", "encoder.content_encoder"],
     },
-    DDDMEVCConfig: {
-        "style_encoder": StyleEncoder,
-        "encoder.content_encoder": XLSR,
-        "encoder.pitch_encoder": VQVAEEncoder,
-        "encoder.decoder": WavenetDecoder,
-        "diffusion": Diffusion,
+    DDDM_EVC_XLSR_Config: {
+        "components": {
+            "style_encoder": StyleEncoder,
+            "encoder": SourceFilterEncoder,
+            "encoder.content_encoder": XLSR,
+            "encoder.pitch_encoder": VQVAEEncoder,
+            "encoder.decoder": WavenetDecoder,
+            "diffusion": Diffusion,
+        },
+        "pretrained": {
+            "encoder.pitch_encoder": Pretrained.VQVAE,
+            "style_encoder.speaker_encoder": Pretrained.METASTYLE_SPEECH,
+        },
+        "freeze": [
+            "style_encoder.speaker_encoder",
+            "style_encoder.emotion_encoder",
+            "encoder.content_encoder",
+        ],
+    },
+    DDDM_EVC_HUBERT_Config: {
+        "components": {
+            "style_encoder": StyleEncoder,
+            "encoder": SourceFilterEncoder,
+            "encoder.content_encoder": Hubert,
+            "encoder.pitch_encoder": VQVAEEncoder,
+            "encoder.decoder": WavenetDecoder,
+            "diffusion": Diffusion,
+        },
         "pretrained": {
             "encoder.pitch_encoder": Pretrained.VQVAE,
             "style_encoder.speaker_encoder": Pretrained.METASTYLE_SPEECH,
@@ -75,7 +102,7 @@ MODEL_BLUEPRINT = {
 
 @typing.no_type_check
 def dddm_from_config(
-    cfg: DDDMVCConfig | DDDMEVCConfig,
+    cfg: DDDM_VC_XLSR_Config | DDDM_EVC_XLSR_Config | DDDM_EVC_HUBERT_Config,
     sample_rate: int = 16000,
     pretrained: bool = False,
 ) -> DDDM:
@@ -87,25 +114,26 @@ def dddm_from_config(
     :param pretrained: If true, load pretrained models
     :return: DDDM model
     """
-    cfg_type = type(cfg)
+    cfg_type = type(OmegaConf.to_object(cfg))
     if cfg_type not in MODEL_BLUEPRINT:
         raise ValueError(f"Unknown config type: {cfg_type.__name__}")
 
     blueprint = MODEL_BLUEPRINT[cfg_type]
 
     # Initialize components dynamically
-    content_encoder = blueprint["encoder.content_encoder"]()
-    pitch_encoder = blueprint["encoder.pitch_encoder"](cfg.pitch_encoder)
-    decoder = blueprint["encoder.decoder"](
+    components = blueprint["components"]
+    content_encoder = components["encoder.content_encoder"]()
+    pitch_encoder = components["encoder.pitch_encoder"](cfg.pitch_encoder)
+    decoder = components["encoder.decoder"](
         cfg.decoder,
         content_dim=cfg.content_encoder.out_dim,
         f0_dim=cfg.pitch_encoder.vq.k_bins,
     )
-    diffusion = blueprint["diffusion"](cfg.diffusion)
-    style_encoder = blueprint["style_encoder"](cfg.style_encoder)
+    diffusion = components["diffusion"](cfg.diffusion)
+    style_encoder = components["style_encoder"](cfg.style_encoder)
 
     # Build model
-    src_ftr_encoder = SourceFilterEncoder(
+    src_ftr_encoder = components["encoder"](
         content_encoder, pitch_encoder, decoder, sample_rate=sample_rate
     )
     model = DDDM(style_encoder, src_ftr_encoder, diffusion)

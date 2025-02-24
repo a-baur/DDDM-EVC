@@ -1,3 +1,6 @@
+defaults:
+  - base_data
+
 dataset:
   name: "MSP-Podcast"
   path: "./datasets/msp-podcast/"

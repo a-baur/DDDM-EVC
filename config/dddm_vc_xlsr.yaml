@@ -1,6 +1,5 @@
 defaults:
-  - base_vc
   - data: base
-  - model: vc
+  - model: vc_xlsr
   - training: base
   - _self_

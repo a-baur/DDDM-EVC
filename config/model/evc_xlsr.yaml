@@ -1,3 +1,6 @@
+defaults:
+  - base_evc_xlsr
+
 style_encoder:
   emotion_emb_dim: 256
 
