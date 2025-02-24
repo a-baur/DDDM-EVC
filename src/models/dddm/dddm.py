@@ -47,10 +47,10 @@ class DDDM(nn.Module):
         :param return_enc_out: Whether to return the encoder output or not
         :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
         """
-        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
+        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype).detach()
 
         # Get the global conditioning tensor for the target speaker
-        y_mask = util.sequence_mask(y_n_frames, y_mel.size(2)).to(y_mel.dtype)
+        y_mask = util.sequence_mask(y_n_frames, y_mel.size(2)).to(y_mel.dtype).detach()
         g = self.style_encoder(y, y_mel, y_mask).unsqueeze(-1)  # (B, C, 1)
 
         return self._forward(x, x_mel, x_mask, g, n_time_steps, return_enc_out)
@@ -74,7 +74,7 @@ class DDDM(nn.Module):
         :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
         """
         # Encode the input waveform into diffusion priors
-        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
+        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype).detach()
         g = self.style_encoder(x, x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
         return self._forward(x, x_mel, x_mask, g, n_time_steps, return_enc_out)
 
@@ -92,10 +92,10 @@ class DDDM(nn.Module):
         :param x_n_frames: Number of unpaded frames in the input mel-spectrogram
         :return: Tuple of the diffusion loss and the reconstruction loss
         """
-        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype)
+        x_mask = util.sequence_mask(x_n_frames, x_mel.size(2)).to(x_mel.dtype).detach()
         g = self.style_encoder(x, x_mel, x_mask).unsqueeze(-1)  # (B, C, 1)
 
-        mixup_ratios = torch.randint(0, 2, (x.size(0),)).to(x.device)
+        mixup_ratios = torch.randint(0, 2, (x.size(0),)).to(x.device).detach()
         src_mel, ftr_mel = self.encoder(x, x_mask, g, mixup_ratios)
 
         max_length_new = util.get_u_net_compatible_length(x_mel.size(-1))

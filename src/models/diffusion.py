@@ -4,10 +4,10 @@ from typing import Literal
 import torch
 
 from config import DiffusionConfig
-from modules.diffusion import BaseModule, GradLogPEstimator
+from modules.diffusion import GradLogPEstimator
 
 
-class Diffusion(BaseModule):
+class Diffusion(torch.nn.Module):
     """
     Decoupled Diffusion model.
 

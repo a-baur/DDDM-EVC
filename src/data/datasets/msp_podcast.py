@@ -5,6 +5,7 @@ import torch
 import torchaudio
 
 import config
+import util
 from util import random_segment
 
 
@@ -31,6 +32,8 @@ class MSPPodcast(torch.utils.data.Dataset):
         split: T_SPLITS,
     ) -> None:
         self.path = Path(cfg.dataset.path)
+        if not self.path.is_absolute():
+            self.path = Path(util.get_root_path()) / self.path
         self.manifest_dir = self.path / self.MANIFEST_FOLDER
         self.name = cfg.dataset.name
         self.sampling_rate = cfg.dataset.sampling_rate

@@ -5,10 +5,8 @@ from einops import rearrange
 
 from modules.commons import Mish
 
-from .base import BaseModule
 
-
-class Upsample(BaseModule):
+class Upsample(torch.nn.Module):
     def __init__(self, dim: int) -> None:
         super(Upsample, self).__init__()
         self.conv = torch.nn.ConvTranspose2d(dim, dim, 4, 2, 1)
@@ -17,7 +15,7 @@ class Upsample(BaseModule):
         return self.conv(x)
 
 
-class Downsample(BaseModule):
+class Downsample(torch.nn.Module):
     def __init__(self, dim: int) -> None:
         super(Downsample, self).__init__()
         self.conv = torch.nn.Conv2d(dim, dim, 3, 2, 1)
@@ -26,8 +24,8 @@ class Downsample(BaseModule):
         return self.conv(x)
 
 
-class Rezero(BaseModule):
-    def __init__(self, fn: BaseModule):
+class Rezero(torch.nn.Module):
+    def __init__(self, fn: torch.nn.Module):
         super(Rezero, self).__init__()
         self.fn = fn
         self.g = torch.nn.Parameter(torch.zeros(1))
@@ -36,7 +34,7 @@ class Rezero(BaseModule):
         return self.fn(x) * self.g
 
 
-class Block(BaseModule):
+class Block(torch.nn.Module):
     def __init__(self, dim: int, dim_out: int, groups: int = 8) -> None:
         super().__init__()
         self.block = torch.nn.Sequential(
@@ -46,11 +44,12 @@ class Block(BaseModule):
         )
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        mask = mask.to(dtype=x.dtype)
         output = self.block(x * mask)
         return output * mask
 
 
-class ResnetBlock(BaseModule):
+class ResnetBlock(torch.nn.Module):
     def __init__(
         self, dim: int, dim_out: int, time_emb_dim: int, groups: int = 8
     ) -> None:
@@ -74,9 +73,9 @@ class ResnetBlock(BaseModule):
         return output
 
 
-class LinearAttention(BaseModule):
+class LinearAttention(torch.nn.Module):
     def __init__(self, dim: int, heads: int = 4, dim_head: int = 32) -> None:
-        super(LinearAttention, self).__init__()
+        super().__init__()
         self.heads = heads
         hidden_dim = dim_head * heads
         self.to_qkv = torch.nn.Conv2d(dim, hidden_dim * 3, 1, bias=False)
@@ -89,16 +88,18 @@ class LinearAttention(BaseModule):
             qkv, "b (qkv heads c) h w -> qkv b heads c (h w)", heads=self.heads, qkv=3
         )
         k = k.softmax(dim=-1)
-        context = torch.einsum("bhdn,bhen->bhde", k, v)
-        out = torch.einsum("bhde,bhdn->bhen", context, q)
+        context = torch.matmul(k, v.transpose(-1, -2))
+        out = torch.matmul(context.transpose(-1, -2), q)
+        # context = torch.einsum("bhdn,bhen->bhde", k, v)
+        # out = torch.einsum("bhde,bhdn->bhen", context, q)
         out = rearrange(
             out, "b heads c (h w) -> b (heads c) h w", heads=self.heads, h=h, w=w
         )
         return self.to_out(out)
 
 
-class Residual(BaseModule):
-    def __init__(self, fn: BaseModule) -> None:
+class Residual(torch.nn.Module):
+    def __init__(self, fn: torch.nn.Module) -> None:
         super(Residual, self).__init__()
         self.fn = fn
 
@@ -107,7 +108,7 @@ class Residual(BaseModule):
         return output
 
 
-class SinusoidalPosEmb(BaseModule):
+class SinusoidalPosEmb(torch.nn.Module):
     def __init__(self, dim: int) -> None:
         super(SinusoidalPosEmb, self).__init__()
         self.dim = dim
@@ -122,7 +123,7 @@ class SinusoidalPosEmb(BaseModule):
         return emb
 
 
-class RefBlock(BaseModule):
+class RefBlock(torch.nn.Module):
     def __init__(self, out_dim: int, time_emb_dim: int) -> None:
         super(RefBlock, self).__init__()
         base_dim = out_dim // 4

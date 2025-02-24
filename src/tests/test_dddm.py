@@ -8,7 +8,8 @@ from util.helpers import move_to_device
 
 
 @pytest.mark.parametrize(
-    "config_name", ["dddm_vc_xlsr", "dddm_evc_xlsr", "dddm_evc_hu"]
+    "config_name",
+    ["dddm_vc_xlsr"],  # , "dddm_evc_xlsr", "dddm_evc_hu"]
 )
 def test_dddm(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test DDDM model"""

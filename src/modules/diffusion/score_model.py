@@ -1,6 +1,5 @@
 import torch
 
-from .base import BaseModule
 from .modules import (
     Block,
     Downsample,
@@ -14,7 +13,7 @@ from .modules import (
 )
 
 
-class GradLogPEstimator(BaseModule):
+class GradLogPEstimator(torch.nn.Module):
     """
     Score model for the diffusion model.
 
@@ -114,8 +113,7 @@ class GradLogPEstimator(BaseModule):
         condition = torch.cat([condition, g.squeeze(-1)], 1)
         condition = self.cond_block(condition).unsqueeze(-1).unsqueeze(-1)
 
-        condition = torch.cat(x.shape[2] * [condition], 2)
-        condition = torch.cat(x.shape[3] * [condition], 3)
+        condition = condition.expand(-1, -1, x.shape[2], x.shape[3])
         x = torch.cat([x, condition], 1)
 
         hiddens = []
@@ -128,7 +126,7 @@ class GradLogPEstimator(BaseModule):
             x = attn(x)
             hiddens.append(x)
             x = downsample(x * mask_down)
-            masks.append(mask_down[:, :, :, ::2])
+            masks.append(mask_down.narrow(3, 0, mask_down.shape[3] // 2))
 
         masks = masks[:-1]
         mask_mid = masks[-1]

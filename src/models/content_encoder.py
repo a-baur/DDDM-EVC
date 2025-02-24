@@ -11,7 +11,7 @@ class XLSR(torch.nn.Module):
 
     def __init__(self, layer: int = 12) -> None:
         super().__init__()
-        self.wav2vec2 = transformers.Wav2Vec2ForPreTraining.from_pretrained(
+        self.wav2vec2 = transformers.Wav2Vec2Model.from_pretrained(
             "facebook/wav2vec2-xls-r-300m"
         )
         for param in self.wav2vec2.parameters():
@@ -30,7 +30,7 @@ class XLSR(torch.nn.Module):
 class Hubert(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.hubert = transformers.HubertPreTrainedModel.from_pretrained(
+        self.hubert = transformers.HubertModel.from_pretrained(
             "facebook/hubert-large-ls960-ft"
         )
         for param in self.hubert.parameters():
@@ -40,4 +40,6 @@ class Hubert(torch.nn.Module):
 
     @torch.no_grad()  # type: ignore
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.hubert(x)
+        outputs = self.hubert(x)
+        y = outputs.last_hidden_state
+        return y.permute((0, 2, 1))

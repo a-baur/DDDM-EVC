@@ -19,23 +19,17 @@ def matmul_with_relative_keys(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return torch.matmul(x, y.unsqueeze(0).transpose(-2, -1))
 
 
-@torch.jit.script  # type: ignore
+@torch.jit.script
 def fused_add_tanh_sigmoid_multiply(
-    input_a: torch.Tensor,
-    input_b: torch.Tensor,
-    n_channels: torch.Tensor,
+    input_a: torch.Tensor, input_b: torch.Tensor, n_channels: int
 ) -> torch.Tensor:
-    """
-    Fused operation of adding, tanh, sigmoid and element-wise multiplication.
-
-    :param input_a: Input tensor A
-    :param input_b: Input tensor B
-    :param n_channels: Number of channels
-    :return: Output tensor
-    """
-    n_channels_int = n_channels[0]
     in_act = input_a + input_b
-    t_act = torch.tanh(in_act[:, :n_channels_int, :])
-    s_act = torch.sigmoid(in_act[:, n_channels_int:, :])
-    acts = t_act * s_act
-    return acts
+
+    # Parallel execution using jit.fork
+    future_tanh = torch.jit.fork(torch.tanh, in_act[:, :n_channels, :])
+    future_sigmoid = torch.jit.fork(torch.sigmoid, in_act[:, n_channels:, :])
+
+    t_act = torch.jit.wait(future_tanh)
+    s_act = torch.jit.wait(future_sigmoid)
+
+    return t_act * s_act
