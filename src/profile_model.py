@@ -1,19 +1,21 @@
 import torch
+from torch.profiler import ProfilerActivity, profile
 
 from config import load_hydra_config
 from data import AudioDataloader, MelTransform, MSPPodcast
-from models import dddm_from_config
+from models import DDDM, dddm_from_config
 
-torch.backends.cuda.matmul.allow_tf32 = True
+# The flags below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+# torch.backends.cuda.matmul.allow_tf32 = True
+# torch.backends.cudnn.allow_tf32 = True
 
-# The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
-torch.backends.cudnn.allow_tf32 = True
+# torch.autograd.set_detect_anomaly(True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 config = load_hydra_config("dddm_vc_xlsr")
 mel_transform = MelTransform(config.data.mel_transform).to(device)
 model = dddm_from_config(config.model, pretrained=False).to(device)
-model = torch.compile(model)
+model: DDDM = torch.compile(model, backend="inductor")
 
 dataset = MSPPodcast(config.data, split="development")
 dl = AudioDataloader(
@@ -31,10 +33,10 @@ if __name__ == "__main__":
     # summary(model, input_data=(x, x_mel, x_n_frames))
     start = torch.cuda.Event(enable_timing=True)
     end = torch.cuda.Event(enable_timing=True)
-    with torch.autograd.profiler.profile(
-        profile_memory=True,
+    with profile(
+        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
         record_shapes=True,
-        use_device="cuda",
+        profile_memory=True,
         with_stack=True,
         with_modules=True,
         with_flops=True,

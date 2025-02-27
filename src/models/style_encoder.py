@@ -45,7 +45,7 @@ class StyleEncoder(nn.Module):
         emo = self.emotion_emb(emo)
         spk = self.speaker_encoder(x, x_mel, x_mask)
         cond = torch.cat([spk, emo], dim=1)
-        cond *= self.cond_acts(cond)
+        cond = cond * self.cond_acts(cond)
         return cond
 
 

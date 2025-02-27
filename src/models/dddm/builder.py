@@ -37,11 +37,11 @@ MODEL_BLUEPRINT = {
         },
         "pretrained": {
             "encoder.pitch_encoder": Pretrained.VQVAE,
-            "encoder.decoder": Pretrained.VC_WAVENET,
             "style_encoder": Pretrained.METASTYLE_SPEECH,
-            "diffusion": Pretrained.VC_DIFFUSION,
+            # "encoder.decoder": Pretrained.VC_WAVENET,
+            # "diffusion": Pretrained.VC_DIFFUSION,
         },
-        "freeze": ["style_encoder", "encoder.content_encoder"],
+        "freeze": ["style_encoder", "encoder.content_encoder", "encoder.pitch_encoder"],
     },
     DDDM_EVC_XLSR_Config: {
         "components": {
@@ -60,6 +60,7 @@ MODEL_BLUEPRINT = {
             "style_encoder.speaker_encoder",
             "style_encoder.emotion_encoder",
             "encoder.content_encoder",
+            "encoder.pitch_encoder",
         ],
     },
     DDDM_EVC_HUBERT_Config: {
@@ -139,8 +140,8 @@ def dddm_from_config(
     model = DDDM(style_encoder, src_ftr_encoder, diffusion)
 
     # Load pretrained models if requested
-    _load_pretrained_models(blueprint["pretrained"], model)
     if pretrained:
+        _load_pretrained_models(blueprint["pretrained"], model)
         _freeze_models(blueprint.get("freeze", []), model)
 
     return model

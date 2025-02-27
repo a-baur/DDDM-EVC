@@ -77,7 +77,7 @@ def setup_trainer(
 
     mel_transform = MelTransform(cfg.data.mel_transform)
 
-    model = dddm_from_config(cfg.model, pretrained=False)
+    model = dddm_from_config(cfg.model, pretrained=True)
     model.to(device)
 
     optimizer = torch.optim.AdamW(
