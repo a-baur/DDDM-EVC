@@ -1,7 +1,10 @@
-from .builder import dddm_from_config
+from .builder import models_from_config
 from .dddm import DDDM
+from .input import DDDMBatchInput, DDDMPreprocessor
 
 __all__ = [
     "DDDM",
-    "dddm_from_config",
+    "DDDMPreprocessor",
+    "DDDMBatchInput",
+    "models_from_config",
 ]

@@ -1,5 +1,5 @@
 from .content_encoder import XLSR, Hubert
-from .dddm import DDDM, dddm_from_config
+from .dddm import DDDM, DDDMBatchInput, DDDMPreprocessor, models_from_config
 from .diffusion import Diffusion
 from .pitch_encoder import VQVAEEncoder
 from .source_filter_encoder import SourceFilterEncoder
@@ -17,5 +17,7 @@ __all__ = [
     "HifiGAN",
     "Diffusion",
     "DDDM",
-    "dddm_from_config",
+    "DDDMPreprocessor",
+    "DDDMBatchInput",
+    "models_from_config",
 ]

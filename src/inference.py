@@ -6,8 +6,7 @@ import torchaudio
 
 import config
 import util
-from data import MelTransform
-from models import HifiGAN, dddm_from_config
+from models import HifiGAN, models_from_config
 
 
 def inference(
@@ -24,28 +23,29 @@ def inference(
     cfg = config.load_hydra_config(config_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    mel_transform = MelTransform(cfg.data.mel_transform)
-    model = dddm_from_config(cfg.model, pretrained=True)
+    src_audio, src_sr = torchaudio.load(source_path)
+    tgt_audio, tgt_sr = torchaudio.load(target_path)
+    assert src_sr == tgt_sr, "Source and target audio must have the same sampling rate"
+
+    model, preprocessor, style_encoder = models_from_config(
+        cfg, sample_rate=src_sr, device=device
+    )
+
     vocoder = HifiGAN(cfg.model.vocoder)
     util.load_model(vocoder, "hifigan.pth", freeze=True)
 
-    print("Pre-processing input...")
-    x, _ = torchaudio.load(source_path)
-    x_mel = mel_transform(x)
-    x_n_frames = torch.Tensor([x_mel.size(-1)])
-
-    t, _ = torchaudio.load(target_path)
-    t_mel = mel_transform(t)
-    t_n_frames = torch.Tensor([t_mel.size(-1)])
-
-    x, x_mel, x_n_frames, t, t_mel, t_n_frames, model, vocoder = util.move_to_device(
-        (x, x_mel, x_n_frames, t, t_mel, t_n_frames, model, vocoder), device
+    src_audio, tgt_audio, vocoder = util.move_to_device(
+        (src_audio, tgt_audio, vocoder),
+        device,
     )
+
+    print("Pre-processing input...")
+    x = preprocessor(src_audio)
+    t = preprocessor(tgt_audio)
 
     print("Generating...")
-    y_mel = model.voice_conversion(
-        x, x_mel, x_n_frames, t, t_mel, t_n_frames, n_timesteps
-    )
+    g = style_encoder(t).unsqueeze(-1)
+    y_mel = model(x, g, n_timesteps)
 
     print("Vocoding...")
     y = vocoder(y_mel)

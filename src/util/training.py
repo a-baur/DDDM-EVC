@@ -13,8 +13,9 @@ from omegaconf import DictConfig
 from torch import GradScaler
 
 import util
-from data import AudioDataloader, MelTransform
+from data import AudioDataloader
 from models import DDDM, HifiGAN
+from models.dddm.input import DDDMPreprocessor
 
 try:
     import matplotlib
@@ -52,7 +53,8 @@ class Trainer:
     def __init__(
         self,
         model: DDDM,
-        mel_transform: MelTransform,
+        preprocessor: DDDMPreprocessor,
+        style_encoder: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler.LRScheduler,
         train_dataloader: AudioDataloader,
@@ -64,7 +66,8 @@ class Trainer:
         rank: int,
     ):
         self.model = model
-        self.mel_transform = mel_transform
+        self.preprocessor = preprocessor
+        self.style_encoder = style_encoder
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.train_dataloader = train_dataloader
@@ -80,9 +83,10 @@ class Trainer:
         util.load_model(self.vocoder, "hifigan.pth", device, freeze=True)
         self.vocoder.eval()
 
+        self.preprocessor.to(device)
+        self.style_encoder.to(device)
         self.model.to(device)
         self.vocoder.to(device)
-        self.mel_transform.to(device)
 
         self.out_dir = Path(cfg.training.output_dir)
         self.train_writer = SummaryWriter(
@@ -163,16 +167,17 @@ class Trainer:
         self.model.train()
         self.optimizer.zero_grad()
 
-        x, x_n_frames = (
+        audio, n_frames = (
             batch[0].to(self.device, non_blocking=True),
             batch[1].to(self.device, non_blocking=True),
         )
-        x_mel = self.mel_transform(x)
+        x = self.preprocessor(audio, n_frames)
+        g = self.style_encoder(x).unsqueeze(-1)
 
         if self.distributed:
-            diff_loss, rec_loss = self.model.module.compute_loss(x, x_mel, x_n_frames)
+            diff_loss, rec_loss = self.model.module.compute_loss(x)
         else:
-            diff_loss, rec_loss = self.model.compute_loss(x, x_mel, x_n_frames)
+            diff_loss, rec_loss = self.model.compute_loss(x, g)
 
         loss = (
             diff_loss * self.cfg.training.diff_loss_coef
@@ -221,24 +226,25 @@ class Trainer:
 
         mel_loss = 0.0
         enc_loss = 0.0
-        images = dict()
-        audio = dict()
+        smpl_img = dict()
+        smpl_audio = dict()
 
         batch: tuple[torch.Tensor, torch.Tensor]
         for batch_idx, batch in enumerate(self.eval_dataloader):
-            x, x_n_frames = (
+            audio, n_frames = (
                 batch[0].to(self.device, non_blocking=True),
                 batch[1].to(self.device, non_blocking=True),
             )
-            x_mel = self.mel_transform(x)
+            x = self.preprocessor(audio, n_frames)
+            g = self.style_encoder(x).unsqueeze(-1)
 
             y_mel, src_mel, ftr_mel = self.model(
-                x, x_mel, x_n_frames, n_time_steps=6, return_enc_out=True
+                x, g, n_time_steps=6, return_enc_out=True
             )
             rec_mel = src_mel + ftr_mel
 
-            mel_loss += F.l1_loss(x_mel, y_mel).item()
-            enc_loss += F.l1_loss(x_mel, rec_mel).item()
+            mel_loss += F.l1_loss(x.mel, y_mel).item()
+            enc_loss += F.l1_loss(x.mel, rec_mel).item()
 
             if batch_idx < 5:
                 # keep track of first five samples in eval dataset
@@ -247,13 +253,13 @@ class Trainer:
                 src_wv = self.vocoder(src_mel)
                 ftr_wv = self.vocoder(ftr_mel)
 
-                audio[f"gen/audio_{batch_idx}"] = y.squeeze()
-                audio[f"gen/audio_enc_{batch_idx}"] = enc_wv.squeeze()
-                audio[f"gen/audio_src_{batch_idx}"] = src_wv.squeeze()
-                audio[f"gen/audio_ftr_{batch_idx}"] = ftr_wv.squeeze()
+                smpl_audio[f"gen/audio_{batch_idx}"] = y.squeeze()
+                smpl_audio[f"gen/audio_enc_{batch_idx}"] = enc_wv.squeeze()
+                smpl_audio[f"gen/audio_src_{batch_idx}"] = src_wv.squeeze()
+                smpl_audio[f"gen/audio_ftr_{batch_idx}"] = ftr_wv.squeeze()
 
-                images[f"gen/mel_{batch_idx}"] = _plot_spectrogram_to_numpy(
-                    [x_mel, y_mel, rec_mel, ftr_mel, src_mel],
+                smpl_img[f"gen/mel_{batch_idx}"] = _plot_spectrogram_to_numpy(
+                    [x.mel, y_mel, rec_mel, ftr_mel, src_mel],
                     ["x", "dddm", "encoder", "filter", "source"],
                 )
 
@@ -266,8 +272,8 @@ class Trainer:
         return EvalMetrics(
             mel_loss=mel_loss,
             enc_loss=enc_loss,
-            images=images,
-            audio=audio,
+            images=smpl_img,
+            audio=smpl_audio,
         )
 
     def save_checkpoint(self, epoch: int, batch_idx: int) -> None:

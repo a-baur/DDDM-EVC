@@ -1,8 +1,10 @@
 import pytest
+import torch
 from omegaconf import DictConfig
 
 import config
 from data import AudioDataloader, Librispeech, MSPPodcast, librispeech_collate_fn
+from models import models_from_config
 from util import get_root_path
 
 TESTING_DATASET = "msp-podcast"  # "librispeech"
@@ -16,6 +18,21 @@ def change_to_root_dir(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture  # type: ignore
 def model_config(config_name: str) -> DictConfig:
     return config.load_hydra_config(config_name)
+
+
+@pytest.fixture  # type: ignore
+def device() -> torch.device:
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+@pytest.fixture  # type: ignore
+def dddm_input(
+    model_config: DictConfig, dataloader: AudioDataloader, device: torch.device
+) -> tuple[torch.Tensor, torch.Tensor]:
+    _, preprocessor, _ = models_from_config(model_config, device)
+    x, x_n_frames = next(iter(dataloader))
+    x = preprocessor(x)
+    return x
 
 
 @pytest.fixture  # type: ignore

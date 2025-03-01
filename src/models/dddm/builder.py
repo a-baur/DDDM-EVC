@@ -1,169 +1,133 @@
 import typing
-from enum import Enum
 
-from omegaconf import OmegaConf
+import torch
+from omegaconf import DictConfig, OmegaConf
 
 import util
 from config import DDDM_EVC_HUBERT_Config, DDDM_EVC_XLSR_Config, DDDM_VC_XLSR_Config
+from data import MelTransform
 from models.content_encoder import XLSR, Hubert
 from models.diffusion import Diffusion
 from models.pitch_encoder import VQVAEEncoder
-from models.source_filter_encoder import SourceFilterEncoder
 from models.style_encoder import MetaStyleSpeech, StyleEncoder
 from modules.wavenet_decoder import WavenetDecoder
 
 from .dddm import DDDM
-
-
-class Pretrained(Enum):
-    METASTYLE_SPEECH = "metastylespeech.pth"
-    VQVAE = "vqvae.pth"
-    VC_WAVENET = "vc/wavenet_decoder.pth"
-    VC_DIFFUSION = "vc/diffusion.pth"
-    EVC_STYLEENCODER = "evc/style_encoder.pth"
-    EVC_WAVENET = "evc/wavenet_decoder.pth"
-    EVC_DIFFUSION = "evc/diffusion.pth"
-
+from .input import DDDMPreprocessor
 
 MODEL_BLUEPRINT = {
     DDDM_VC_XLSR_Config: {
-        "components": {
-            "style_encoder": MetaStyleSpeech,
-            "encoder": SourceFilterEncoder,
-            "encoder.content_encoder": XLSR,
-            "encoder.pitch_encoder": VQVAEEncoder,
-            "encoder.decoder": WavenetDecoder,
-            "diffusion": Diffusion,
-        },
-        "pretrained": {
-            "encoder.pitch_encoder": Pretrained.VQVAE,
-            "style_encoder": Pretrained.METASTYLE_SPEECH,
-            # "encoder.decoder": Pretrained.VC_WAVENET,
-            # "diffusion": Pretrained.VC_DIFFUSION,
-        },
-        "freeze": ["style_encoder", "encoder.content_encoder", "encoder.pitch_encoder"],
+        "style_encoder": MetaStyleSpeech,
+        "content_encoder": XLSR,
+        "pitch_encoder": VQVAEEncoder,
+        "decoder": WavenetDecoder,
+        "diffusion": Diffusion,
     },
     DDDM_EVC_XLSR_Config: {
-        "components": {
-            "style_encoder": StyleEncoder,
-            "encoder": SourceFilterEncoder,
-            "encoder.content_encoder": XLSR,
-            "encoder.pitch_encoder": VQVAEEncoder,
-            "encoder.decoder": WavenetDecoder,
-            "diffusion": Diffusion,
-        },
-        "pretrained": {
-            "encoder.pitch_encoder": Pretrained.VQVAE,
-            "style_encoder.speaker_encoder": Pretrained.METASTYLE_SPEECH,
-        },
-        "freeze": [
-            "style_encoder.speaker_encoder",
-            "style_encoder.emotion_encoder",
-            "encoder.content_encoder",
-            "encoder.pitch_encoder",
-        ],
+        "style_encoder": StyleEncoder,
+        "content_encoder": XLSR,
+        "pitch_encoder": VQVAEEncoder,
+        "decoder": WavenetDecoder,
+        "diffusion": Diffusion,
     },
     DDDM_EVC_HUBERT_Config: {
-        "components": {
-            "style_encoder": StyleEncoder,
-            "encoder": SourceFilterEncoder,
-            "encoder.content_encoder": Hubert,
-            "encoder.pitch_encoder": VQVAEEncoder,
-            "encoder.decoder": WavenetDecoder,
-            "diffusion": Diffusion,
-        },
-        "pretrained": {
-            "encoder.pitch_encoder": Pretrained.VQVAE,
-            "style_encoder.speaker_encoder": Pretrained.METASTYLE_SPEECH,
-        },
-        "freeze": [
-            "style_encoder.speaker_encoder",
-            "style_encoder.emotion_encoder",
-            "encoder.content_encoder",
-        ],
+        "style_encoder": StyleEncoder,
+        "content_encoder": Hubert,
+        "pitch_encoder": VQVAEEncoder,
+        "decoder": WavenetDecoder,
+        "diffusion": Diffusion,
     },
-    # D4MEVCConfig: {
-    #     "style_encoder": StyleEncoder,
-    #     "encoder.content_encoder": XLSR,
-    #     "encoder.pitch_encoder": VQVAEEncoder,
-    #     "encoder.decoder": WavenetDecoder,
-    #     "diffusion": Diffusion,
-    #     "pretrained": {
-    #         "encoder.pitch_encoder": Pretrained.VQVAE,
-    #         "style_encoder.speaker_encoder": Pretrained.METASTYLE_SPEECH,
-    #     },
-    #     "freeze": [
-    #         "style_encoder.speaker_encoder",
-    #         "style_encoder.emotion_encoder",
-    #         "encoder.content_encoder",
-    #     ],
-    # },
+}
+
+MODEL_PATHS = {
+    DDDM_VC_XLSR_Config: {
+        MetaStyleSpeech: "metastylespeech.pth",
+        VQVAEEncoder: "vqvae.pth",
+        WavenetDecoder: "vc/wavenet_decoder.pth",
+        Diffusion: "vc/diffusion.pth",
+    },
+    DDDM_EVC_XLSR_Config: {
+        MetaStyleSpeech: "metastylespeech.pth",
+        VQVAEEncoder: "vqvae.pth",
+    },
+    DDDM_EVC_HUBERT_Config: {
+        MetaStyleSpeech: "metastylespeech.pth",
+        VQVAEEncoder: "vqvae.pth",
+    },
 }
 
 
 @typing.no_type_check
-def dddm_from_config(
-    cfg: DDDM_VC_XLSR_Config | DDDM_EVC_XLSR_Config | DDDM_EVC_HUBERT_Config,
-    sample_rate: int = 16000,
-    pretrained: bool = False,
-) -> DDDM:
+def models_from_config(
+    cfg: DictConfig, device: torch.device = torch.device("cpu"), sample_rate: int = None
+) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder | MetaStyleSpeech]:
     """
     Builds DDDM model from configuration.
 
     :param cfg: ConfigVC or ConfigEVC
+    :param device: Device to move model to
     :param sample_rate: Sample rate of data
-    :param pretrained: If true, load pretrained models
     :return: DDDM model
     """
-    cfg_type = type(OmegaConf.to_object(cfg))
+    if sample_rate is None:
+        sample_rate = cfg.data.dataset.sampling_rate
+
+    cfg_type = type(OmegaConf.to_object(cfg.model))
     if cfg_type not in MODEL_BLUEPRINT:
         raise ValueError(f"Unknown config type: {cfg_type.__name__}")
 
-    blueprint = MODEL_BLUEPRINT[cfg_type]
+    # Retrieve model components and paths
+    components = MODEL_BLUEPRINT[cfg_type]
+    paths = MODEL_PATHS.get(cfg_type, {})
 
-    # Initialize components dynamically
-    components = blueprint["components"]
-    content_encoder = components["encoder.content_encoder"]()
-    pitch_encoder = components["encoder.pitch_encoder"](cfg.pitch_encoder)
-    decoder = components["encoder.decoder"](
-        cfg.decoder,
-        content_dim=cfg.content_encoder.out_dim,
-        f0_dim=cfg.pitch_encoder.vq.k_bins,
-    )
-    diffusion = components["diffusion"](cfg.diffusion)
-    style_encoder = components["style_encoder"](cfg.style_encoder)
+    ## Initialize style encoder
+    style_encoder_cls = components["style_encoder"]
+    style_encoder = style_encoder_cls(cfg.model.style_encoder).to(device)
 
-    # Build model
-    src_ftr_encoder = components["encoder"](
-        content_encoder, pitch_encoder, decoder, sample_rate=sample_rate
-    )
-    model = DDDM(style_encoder, src_ftr_encoder, diffusion)
+    # Load style encoder model weights
+    style_encoder_path = paths.get(style_encoder_cls)
+    if style_encoder_path:
+        if style_encoder_cls == MetaStyleSpeech:
+            util.load_model(style_encoder, style_encoder_path, freeze=True)
+        else:
+            util.load_model(
+                style_encoder.speaker_encoder,
+                paths.get(MetaStyleSpeech, ""),
+                freeze=True,
+            )
 
-    # Load pretrained models if requested
-    if pretrained:
-        _load_pretrained_models(blueprint["pretrained"], model)
-        _freeze_models(blueprint.get("freeze", []), model)
+    ## Initialize content and pitch encoders
+    content_encoder_cls = components["content_encoder"]
+    content_encoder = content_encoder_cls().to(device)
+    if path := paths.get(content_encoder_cls):
+        util.load_model(content_encoder, path, freeze=True)
 
-    return model
+    pitch_encoder_cls = components["pitch_encoder"]
+    pitch_encoder = pitch_encoder_cls(cfg.model.pitch_encoder).to(device)
+    if path := paths.get(pitch_encoder_cls):
+        util.load_model(pitch_encoder, path, freeze=True)
 
+    ## Initialize mel transform and preprocessor
+    mel_transform = MelTransform(cfg.data.mel_transform)
+    preprocessor = DDDMPreprocessor(
+        mel_transform, pitch_encoder, content_encoder, sample_rate
+    ).to(device)
 
-def _load_pretrained_models(
-    pretrained_dict: dict[str, Pretrained], model: DDDM
-) -> None:
-    """Loads pretrained weights based on provided dictionary."""
-    for attr, path_enum in pretrained_dict.items():
-        attr_path = attr.split(".")  # Handle nested attributes
-        target = model
-        for key in attr_path:
-            target = getattr(target, key)
-        util.load_model(target, path_enum.value)
+    ## Initialize decoder and diffusion model
+    decoder_cls = components["decoder"]
+    decoder = decoder_cls(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        f0_dim=cfg.model.pitch_encoder.vq.k_bins,
+    ).to(device)
+    if path := paths.get(decoder_cls):
+        util.load_model(decoder, path)
 
+    diffusion_cls = components["diffusion"]
+    diffusion = diffusion_cls(cfg.model.diffusion).to(device)
+    if path := paths.get(diffusion_cls):
+        util.load_model(diffusion, path)
 
-def _freeze_models(attributes: list[str], model: DDDM) -> None:
-    """Freezes all parameters for specified model attributes."""
-    for attr in attributes:
-        attr_path = attr.split(".")
-        target = model
-        for key in attr_path:
-            target = getattr(target, key)
-        target.requires_grad_(False)
+    ## Finalize and return model components
+    model = DDDM(decoder, diffusion).to(device)
+    return model, preprocessor, style_encoder

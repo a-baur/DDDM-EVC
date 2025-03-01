@@ -6,6 +6,7 @@ from torch.nn.utils.parametrizations import weight_norm
 import util
 import util.math
 from config import WavenetDecoderConfig
+from models.dddm.input import DDDMBatchInput
 
 
 class WaveNet(torch.nn.Module):
@@ -164,28 +165,24 @@ class WavenetDecoder(nn.Module):
 
     def forward(
         self,
-        content_enc: torch.Tensor,
-        pitch_enc: torch.Tensor,
+        x: DDDMBatchInput,
         g: torch.Tensor,
-        mask: torch.Tensor,
         mixup_ratios: torch.Tensor = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass of the Source-Filter encoder.
 
-        :param content_enc: Content encoder output
-        :param pitch_enc: Pitch encoder output
+        :param x: DDDMInput object
         :param g: Global conditioning tensor
-        :param mask: Mask for the input mel-spectrogram
         :param mixup_ratios: Mixup ratios for each sample in the batch
         :return: Source, and Filter representations
         """
-        content = self.emb_c(content_enc)
-        f0 = self.emb_f0(pitch_enc).transpose(1, 2)
+        content = self.emb_c(x.emb_content)
+        f0 = self.emb_f0(x.emb_pitch).transpose(1, 2)
         f0 = F.interpolate(f0, content.shape[-1])  # match the length of content emb
 
         if mixup_ratios is not None:
-            batch_size = content_enc.size(0)
+            batch_size = x.batch_size
             # Randomly shuffle the speaker embeddings
             random_style = g[torch.randperm(g.size()[0])]
 
@@ -193,7 +190,7 @@ class WavenetDecoder(nn.Module):
             g = torch.cat([g, random_style], dim=0)
             content = torch.cat([content, content], dim=0)
             f0 = torch.cat([f0, f0], dim=0)
-            mask = torch.cat([mask, mask], dim=0)
+            mask = torch.cat([x.mask, x.mask], dim=0)
 
             # Decode the source and filter representations
             y_ftr = self.dec_ftr(F.relu(content), mask, g=g)
@@ -210,7 +207,7 @@ class WavenetDecoder(nn.Module):
                 + (1 - mixup_ratios) * y_ftr[batch_size:, :, :]
             )
         else:
-            y_ftr = self.dec_ftr(F.relu(content), mask, g=g)
-            y_src = self.dec_src(f0, mask, g=g)
+            y_ftr = self.dec_ftr(F.relu(content), x.mask, g=g)
+            y_src = self.dec_src(f0, x.mask, g=g)
 
         return y_src, y_ftr

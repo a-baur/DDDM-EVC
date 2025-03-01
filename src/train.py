@@ -11,8 +11,8 @@ from torch.utils.data import DistributedSampler
 
 import config
 import util
-from data import AudioDataloader, MelTransform, MSPPodcast
-from models import dddm_from_config
+from data import AudioDataloader, MSPPodcast
+from models import models_from_config
 from util.training import Trainer
 
 
@@ -75,10 +75,8 @@ def setup_trainer(
         eval_dataset, cfg=cfg.data.dataloader, batch_size=1, shuffle=False
     )
 
-    mel_transform = MelTransform(cfg.data.mel_transform)
-
-    model = dddm_from_config(cfg.model, pretrained=True)
-    model.to(device)
+    model, preprocessor, style_encoder = models_from_config(cfg, device=device)
+    model = torch.compile(model, backend="inductor")
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -99,7 +97,8 @@ def setup_trainer(
 
     return Trainer(
         model=model,
-        mel_transform=mel_transform,
+        preprocessor=preprocessor,
+        style_encoder=style_encoder,
         optimizer=optimizer,
         scheduler=scheduler_g,
         train_dataloader=train_loader,

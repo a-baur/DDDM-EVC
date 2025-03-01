@@ -7,6 +7,7 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
 )
 
 from config import MetaStyleSpeechConfig, StyleEncoderConfig
+from models.dddm.input import DDDMBatchInput
 from modules.commons import Mish
 from modules.style_speech import Conv1dGLU, MultiHeadAttention
 from modules.w2v2_l_robust import RegressionHead
@@ -30,20 +31,16 @@ class StyleEncoder(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(
-        self, x: torch.Tensor, x_mel: torch.Tensor, x_mask: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, x: DDDMBatchInput) -> torch.Tensor:
         """
         Encode condition tensor.
 
-        :param x: Input waveform
-        :param x_mel: Mel-spectrogram of input
-        :param x_mask: Padding mask of input
+        :param x: DDDM input object
         :return: Condition tensor
         """
-        emo = self.emotion_encoder(x, embeddings_only=True)
+        emo = self.emotion_encoder(x.audio, embeddings_only=True)
         emo = self.emotion_emb(emo)
-        spk = self.speaker_encoder(x, x_mel, x_mask)
+        spk = self.speaker_encoder(x)
         cond = torch.cat([spk, emo], dim=1)
         cond = cond * self.cond_acts(cond)
         return cond
@@ -163,22 +160,20 @@ class MetaStyleSpeech(nn.Module):
         self.atten_drop = nn.Dropout(self.dropout)
         self.fc = nn.Conv1d(self.hidden_dim, self.out_dim, 1)
 
-    def forward(
-        self, _: torch.Tensor, x_mel: torch.Tensor, x_mask: torch.Tensor
-    ) -> torch.Tensor:
-        x_mel = self.spectral(x_mel) * x_mask
-        x_mel = self.temporal(x_mel) * x_mask
+    def forward(self, x: DDDMBatchInput) -> torch.Tensor:
+        _x = self.spectral(x.mel) * x.mask
+        _x = self.temporal(_x) * x.mask
 
         # Self-attention mask to prevent
         # attending to padding tokens.
         # mask = (B, 1, T)
         # attn_mask = (B, 1, 1, T) * (B, 1, T, 1) -> (B, 1, T, T)
-        attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
-        y = self.slf_attn(x_mel, x_mel, attn_mask=attn_mask)
-        x_mel = x_mel + self.atten_drop(y)
+        attn_mask = x.mask.unsqueeze(2) * x.mask.unsqueeze(-1)
+        y = self.slf_attn(_x, _x, attn_mask=attn_mask)
+        _x = _x + self.atten_drop(y)
 
-        x_mel = self.fc(x_mel)
+        _x = self.fc(_x)
 
-        w = temporal_avg_pool(x_mel, mask=x_mask)
+        w = temporal_avg_pool(_x, mask=x.mask)
 
         return w
