@@ -3,11 +3,12 @@ from omegaconf import DictConfig
 
 from data import AudioDataloader
 from models import XLSR, Hubert, VQVAEEncoder, models_from_config
+from models.content_encoder import XLSR_ESPEAK_CTC
 from util import get_normalized_f0, load_model
 
 
 @pytest.mark.parametrize(
-    "config_name", ["dddm_vc_xlsr", "dddm_evc_xlsr", "dddm_evc_hu"]
+    "config_name", ["dddm_vc_xlsr", "dddm_evc_xlsr", "dddm_evc_hu", "dddm_vc_xlsr_ph"]
 )
 def test_style_encoder(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test Meta-StyleSpeech encoder."""
@@ -21,7 +22,7 @@ def test_style_encoder(model_config: DictConfig, dataloader: AudioDataloader) ->
 
 
 @pytest.mark.parametrize(
-    "config_name", ["dddm_vc_xlsr", "dddm_evc_xlsr", "dddm_evc_hu"]
+    "config_name", ["dddm_vc_xlsr", "dddm_evc_xlsr", "dddm_evc_hu", "dddm_vc_xlsr_ph"]
 )
 def test_vq_vae(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test VQ-VAE pitch encoder."""
@@ -42,6 +43,19 @@ def test_vq_vae(model_config: DictConfig, dataloader: AudioDataloader) -> None:
 def test_xlsr(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test Wav2Vec2 encoder."""
     xlsr = XLSR()
+    x, _ = next(iter(dataloader))
+    output = xlsr(x)
+
+    expected_frames = x.shape[1] // model_config.data.mel_transform.hop_length
+    assert output.shape[0] == model_config.training.batch_size
+    assert output.shape[1] == model_config.model.content_encoder.out_dim
+    assert output.shape[2] == expected_frames
+
+
+@pytest.mark.parametrize("config_name", ["dddm_vc_xlsr_ph"])
+def test_xlsr_espeak_ctc(model_config: DictConfig, dataloader: AudioDataloader) -> None:
+    """Test Wav2Vec2 encoder."""
+    xlsr = XLSR_ESPEAK_CTC()
     x, _ = next(iter(dataloader))
     output = xlsr(x)
 

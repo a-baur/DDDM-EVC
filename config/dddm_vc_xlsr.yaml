@@ -3,3 +3,5 @@ defaults:
   - model: vc_xlsr
   - training: base
   - _self_
+
+component_id: "VC_XLSR"

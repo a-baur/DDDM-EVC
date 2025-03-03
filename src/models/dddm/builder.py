@@ -1,12 +1,9 @@
-import typing
-
 import torch
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
 import util
-from config import DDDM_EVC_HUBERT_Config, DDDM_EVC_XLSR_Config, DDDM_VC_XLSR_Config
 from data import MelTransform
-from models.content_encoder import XLSR, Hubert
+from models.content_encoder import XLSR, XLSR_ESPEAK_CTC, Hubert
 from models.diffusion import Diffusion
 from models.pitch_encoder import VQVAEEncoder
 from models.style_encoder import MetaStyleSpeech, StyleEncoder
@@ -16,21 +13,28 @@ from .dddm import DDDM
 from .input import DDDMPreprocessor
 
 MODEL_BLUEPRINT = {
-    DDDM_VC_XLSR_Config: {
+    "VC_XLSR": {
         "style_encoder": MetaStyleSpeech,
         "content_encoder": XLSR,
         "pitch_encoder": VQVAEEncoder,
         "decoder": WavenetDecoder,
         "diffusion": Diffusion,
     },
-    DDDM_EVC_XLSR_Config: {
+    "VC_XLSR_PH": {
+        "style_encoder": MetaStyleSpeech,
+        "content_encoder": XLSR_ESPEAK_CTC,
+        "pitch_encoder": VQVAEEncoder,
+        "decoder": WavenetDecoder,
+        "diffusion": Diffusion,
+    },
+    "EVC_XLSR": {
         "style_encoder": StyleEncoder,
         "content_encoder": XLSR,
         "pitch_encoder": VQVAEEncoder,
         "decoder": WavenetDecoder,
         "diffusion": Diffusion,
     },
-    DDDM_EVC_HUBERT_Config: {
+    "EVC_HUBERT": {
         "style_encoder": StyleEncoder,
         "content_encoder": Hubert,
         "pitch_encoder": VQVAEEncoder,
@@ -40,24 +44,37 @@ MODEL_BLUEPRINT = {
 }
 
 MODEL_PATHS = {
-    DDDM_VC_XLSR_Config: {
+    "VC_XLSR": {
         MetaStyleSpeech: "metastylespeech.pth",
         VQVAEEncoder: "vqvae.pth",
         WavenetDecoder: "vc/wavenet_decoder.pth",
         Diffusion: "vc/diffusion.pth",
     },
-    DDDM_EVC_XLSR_Config: {
+    "VC_XLSR_PH": {
         MetaStyleSpeech: "metastylespeech.pth",
         VQVAEEncoder: "vqvae.pth",
     },
-    DDDM_EVC_HUBERT_Config: {
+    "EVC_XLSR": {
+        MetaStyleSpeech: "metastylespeech.pth",
+        VQVAEEncoder: "vqvae.pth",
+    },
+    "EVC_HUBERT": {
         MetaStyleSpeech: "metastylespeech.pth",
         VQVAEEncoder: "vqvae.pth",
     },
 }
 
 
-@typing.no_type_check
+def _comps_and_paths_from_config(
+    cfg: DictConfig,
+) -> tuple[dict[str, type], dict[type, str]]:
+    component_id = cfg.component_id
+    if component_id not in MODEL_BLUEPRINT:
+        raise ValueError(f"Unknown component id: {component_id}")
+
+    return MODEL_BLUEPRINT[component_id], MODEL_PATHS.get(component_id, {})
+
+
 def models_from_config(
     cfg: DictConfig, device: torch.device = torch.device("cpu"), sample_rate: int = None
 ) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder | MetaStyleSpeech]:
@@ -69,32 +86,21 @@ def models_from_config(
     :param sample_rate: Sample rate of data
     :return: DDDM model
     """
+    style_encoder = style_encoder_from_config(cfg, device)
+    preprocessor = preprocessor_from_config(cfg, device, sample_rate)
+    model = dddm_from_config(cfg, device)
+
+    return model, preprocessor, style_encoder
+
+
+def preprocessor_from_config(
+    cfg: DictConfig,
+    device: torch.device,
+    sample_rate: int | None,
+) -> DDDMPreprocessor:
+    components, paths = _comps_and_paths_from_config(cfg)
     if sample_rate is None:
         sample_rate = cfg.data.dataset.sampling_rate
-
-    cfg_type = type(OmegaConf.to_object(cfg.model))
-    if cfg_type not in MODEL_BLUEPRINT:
-        raise ValueError(f"Unknown config type: {cfg_type.__name__}")
-
-    # Retrieve model components and paths
-    components = MODEL_BLUEPRINT[cfg_type]
-    paths = MODEL_PATHS.get(cfg_type, {})
-
-    ## Initialize style encoder
-    style_encoder_cls = components["style_encoder"]
-    style_encoder = style_encoder_cls(cfg.model.style_encoder).to(device)
-
-    # Load style encoder model weights
-    style_encoder_path = paths.get(style_encoder_cls)
-    if style_encoder_path:
-        if style_encoder_cls == MetaStyleSpeech:
-            util.load_model(style_encoder, style_encoder_path, freeze=True)
-        else:
-            util.load_model(
-                style_encoder.speaker_encoder,
-                paths.get(MetaStyleSpeech, ""),
-                freeze=True,
-            )
 
     ## Initialize content and pitch encoders
     content_encoder_cls = components["content_encoder"]
@@ -113,6 +119,40 @@ def models_from_config(
         mel_transform, pitch_encoder, content_encoder, sample_rate
     ).to(device)
 
+    return preprocessor
+
+
+def style_encoder_from_config(
+    cfg: DictConfig,
+    device: torch.device,
+) -> StyleEncoder | MetaStyleSpeech:
+    components, paths = _comps_and_paths_from_config(cfg)
+
+    ## Initialize style encoder
+    style_encoder_cls = components["style_encoder"]
+    style_encoder = style_encoder_cls(cfg.model.style_encoder).to(device)
+
+    # Load style encoder model weights
+    style_encoder_path = paths.get(style_encoder_cls)
+    if style_encoder_path:
+        if style_encoder_cls == MetaStyleSpeech:
+            util.load_model(style_encoder, style_encoder_path, freeze=True)
+        else:
+            util.load_model(
+                style_encoder.speaker_encoder,
+                paths.get(MetaStyleSpeech, ""),
+                freeze=True,
+            )
+
+    return style_encoder
+
+
+def dddm_from_config(
+    cfg: DictConfig,
+    device: torch.device = torch.device("cpu"),
+) -> DDDM:
+    components, paths = _comps_and_paths_from_config(cfg)
+
     ## Initialize decoder and diffusion model
     decoder_cls = components["decoder"]
     decoder = decoder_cls(
@@ -129,5 +169,4 @@ def models_from_config(
         util.load_model(diffusion, path)
 
     ## Finalize and return model components
-    model = DDDM(decoder, diffusion).to(device)
-    return model, preprocessor, style_encoder
+    return DDDM(decoder, diffusion).to(device)

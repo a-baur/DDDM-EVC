@@ -1,5 +1,6 @@
 import torch
 import transformers
+from transformers import Wav2Vec2ForCTC
 
 
 class XLSR(torch.nn.Module):
@@ -25,6 +26,28 @@ class XLSR(torch.nn.Module):
         outputs = self.wav2vec2(x, output_hidden_states=True)
         y = outputs.hidden_states[self.feature_layer]
         return y.permute((0, 2, 1))
+
+
+class XLSR_ESPEAK_CTC(torch.nn.Module):
+    """
+    Wav2Vec2 model for feature extraction
+
+    :param layer: layer to extract features from
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.wav2vec2 = Wav2Vec2ForCTC.from_pretrained(
+            "facebook/wav2vec2-xlsr-53-espeak-cv-ft"
+        )
+
+        self.wav2vec2.requires_grad_(False)
+        self.wav2vec2.eval()
+
+    @torch.no_grad()  # type: ignore
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.wav2vec2(x).logits
+        return x.permute((0, 2, 1))
 
 
 class Hubert(torch.nn.Module):

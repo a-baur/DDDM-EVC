@@ -6,7 +6,7 @@ from torch.nn.utils.parametrizations import weight_norm
 import util
 import util.math
 from config import WavenetDecoderConfig
-from models.dddm.input import DDDMBatchInput
+from models.dddm.input import DDDMInput
 
 
 class WaveNet(torch.nn.Module):
@@ -165,7 +165,7 @@ class WavenetDecoder(nn.Module):
 
     def forward(
         self,
-        x: DDDMBatchInput,
+        x: DDDMInput,
         g: torch.Tensor,
         mixup_ratios: torch.Tensor = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:

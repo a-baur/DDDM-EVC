@@ -4,7 +4,7 @@ from omegaconf import DictConfig
 
 import config
 from data import AudioDataloader, Librispeech, MSPPodcast, librispeech_collate_fn
-from models import models_from_config
+from models import DDDMInput, models_from_config
 from util import get_root_path
 
 TESTING_DATASET = "msp-podcast"  # "librispeech"
@@ -28,7 +28,7 @@ def device() -> torch.device:
 @pytest.fixture  # type: ignore
 def dddm_input(
     model_config: DictConfig, dataloader: AudioDataloader, device: torch.device
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> DDDMInput:
     _, preprocessor, _ = models_from_config(model_config, device)
     x, x_n_frames = next(iter(dataloader))
     x = preprocessor(x)

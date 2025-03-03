@@ -1,7 +1,7 @@
 defaults:
   - data: base
-  - model: evc_xlsr
+  - model: vc_xlsr_ph
   - training: base
   - _self_
 
-component_id: "EVC_XLSR"
+component_id: "VC_XLSR_PH"

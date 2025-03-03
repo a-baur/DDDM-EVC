@@ -1,5 +1,10 @@
 from .dataloader import AudioDataloader, MelTransform
-from .datasets import Librispeech, MSPPodcast, librispeech_collate_fn
+from .datasets import (
+    Librispeech,
+    MSPPodcast,
+    MSPPodcastFilenames,
+    librispeech_collate_fn,
+)
 
 __all__ = [
     "Librispeech",
@@ -7,4 +12,5 @@ __all__ = [
     "AudioDataloader",
     "MSPPodcast",
     "MelTransform",
+    "MSPPodcastFilenames",
 ]

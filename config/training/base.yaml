@@ -9,7 +9,7 @@ learning_rate: 5e-5
 lr_decay: 0.999875
 betas: [0.8, 0.99]
 eps: 1e-9
-use_fp16_scaling: false  # gradient scaling
+use_fp16_scaling: true  # gradient scaling
 diff_loss_coef: 1.0
 rec_loss_coef: 1.0
 log_interval: 1

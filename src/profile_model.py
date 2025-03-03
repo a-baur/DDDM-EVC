@@ -2,9 +2,9 @@ import torch
 from torch.profiler import ProfilerActivity, profile
 
 from config import load_hydra_config
-from data import AudioDataloader, MSPPodcast
+from data import AudioDataloader, MSPPodcastFilenames
 from models import DDDM, models_from_config
-from models.dddm.input import DDDMBatchInput
+from models.dddm.input import DDDMInput
 
 # The flags below controls whether to allow TF32 on cuDNN. This flag defaults to True.
 # torch.backends.cuda.matmul.allow_tf32 = True
@@ -21,17 +21,19 @@ style_encoder.to(device)
 
 model: DDDM = torch.compile(model, backend="inductor")
 
-dataset = MSPPodcast(config.data, split="development")
+# dataset = MSPPodcast(config.data, split="development")
+# collate_fn = None
+
+dataset = MSPPodcastFilenames(config.data, split="development")
+
 dl = AudioDataloader(
     dataset=dataset,
     cfg=config.data.dataloader,
     batch_size=config.training.batch_size,
 )
 
-if __name__ == "__main__":
-    audio, n_frames = next(iter(dl))
-    audio, n_frames = audio.to(device), n_frames.to(device)
 
+if __name__ == "__main__":
     # model(x, x_mel, x_n_frames)
     # summary(model, input_data=(x, x_mel, x_n_frames))
     start = torch.cuda.Event(enable_timing=True)
@@ -46,7 +48,9 @@ if __name__ == "__main__":
     ) as prof:
         start.record()
 
-        x: DDDMBatchInput = preprocessor(audio)
+        audio, n_frames = next(iter(dl))
+        audio, n_frames = audio.to(device), n_frames.to(device)
+        x: DDDMInput = preprocessor(audio)
         g = style_encoder(x).unsqueeze(-1)
         diff_loss, rec_loss = model.compute_loss(x, g)
         loss = diff_loss + rec_loss

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal
+from typing import Literal, no_type_check
 
 import torch
 import torchaudio
@@ -15,6 +15,8 @@ class MSPPodcast(torch.utils.data.Dataset):
     https://doi.org/10.1109/TAFFC.2017.2736999
 
     :param cfg: DatasetConfig object
+    :param split: Split name
+    :param return_filename: Return filename for each sample
     """
 
     MANIFEST_FOLDER = "Manifests"
@@ -30,6 +32,7 @@ class MSPPodcast(torch.utils.data.Dataset):
         self,
         cfg: config.DataConfig,
         split: T_SPLITS,
+        return_filename: bool = False,
     ) -> None:
         self.path = Path(cfg.dataset.path)
         if not self.path.is_absolute():
@@ -42,8 +45,11 @@ class MSPPodcast(torch.utils.data.Dataset):
 
         self.split = split
         self.fnames, self.lengths = self._load_manifest(split)
+        self.return_filename = return_filename
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
+    def __getitem__(
+        self, index: int
+    ) -> tuple[torch.Tensor, int] | tuple[torch.Tensor, int, str]:
         """
         Get a sample from the dataset.
 
@@ -56,6 +62,9 @@ class MSPPodcast(torch.utils.data.Dataset):
 
         audio, segment_size = random_segment(audio, segment_size=self.segment_size)
         n_frames = segment_size // self.hop_length  # number of frames without padding
+
+        if self.return_filename:
+            return audio, n_frames, fname
 
         return audio, n_frames
 
@@ -77,3 +86,20 @@ class MSPPodcast(torch.utils.data.Dataset):
         fnames = [t[0] for t in unpacked_tuples]
         lengths = [float(t[1]) for t in unpacked_tuples]
         return fnames, lengths
+
+
+class MSPPodcastFilenames(MSPPodcast):
+    @no_type_check
+    def __init__(self, *args, extract_path: str | Path = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        if extract_path is None:
+            self.extract_path = self.path / "extracted"
+        else:
+            self.extract_path = extract_path
+
+    @no_type_check
+    def __getitem__(self, index: int) -> tuple[str, str]:
+        return (
+            self.extract_path.as_posix(),
+            self.fnames[index].replace(".wav", ".pth"),
+        )

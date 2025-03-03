@@ -7,7 +7,7 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
 )
 
 from config import MetaStyleSpeechConfig, StyleEncoderConfig
-from models.dddm.input import DDDMBatchInput
+from models.dddm.input import DDDMInput
 from modules.commons import Mish
 from modules.style_speech import Conv1dGLU, MultiHeadAttention
 from modules.w2v2_l_robust import RegressionHead
@@ -31,7 +31,7 @@ class StyleEncoder(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, x: DDDMBatchInput) -> torch.Tensor:
+    def forward(self, x: DDDMInput) -> torch.Tensor:
         """
         Encode condition tensor.
 
@@ -160,7 +160,7 @@ class MetaStyleSpeech(nn.Module):
         self.atten_drop = nn.Dropout(self.dropout)
         self.fc = nn.Conv1d(self.hidden_dim, self.out_dim, 1)
 
-    def forward(self, x: DDDMBatchInput) -> torch.Tensor:
+    def forward(self, x: DDDMInput) -> torch.Tensor:
         _x = self.spectral(x.mel) * x.mask
         _x = self.temporal(_x) * x.mask
 

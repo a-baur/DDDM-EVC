@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import util
-from models.dddm.input import DDDMBatchInput
+from models.dddm.input import DDDMInput
 from models.diffusion import Diffusion
 from modules.wavenet_decoder import WavenetDecoder
 
@@ -24,7 +24,7 @@ class DDDM(nn.Module):
 
     def compute_loss(
         self,
-        x: DDDMBatchInput,
+        x: DDDMInput,
         g: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -48,7 +48,7 @@ class DDDM(nn.Module):
 
     def forward(
         self,
-        x: DDDMBatchInput,
+        x: DDDMInput,
         g: torch.Tensor,
         n_time_steps: int = 6,
         return_enc_out: bool = False,

@@ -209,6 +209,7 @@ class DDDM_EVC_HUBERT_Config:
 # ---------------------
 @dataclass
 class VC_XLSR:
+    component_id: str
     training: TrainingConfig
     data: DataConfig
     model: DDDM_VC_XLSR_Config
@@ -216,6 +217,7 @@ class VC_XLSR:
 
 @dataclass
 class EVC_XLSR:
+    component_id: str
     training: TrainingConfig
     data: DataConfig
     model: DDDM_EVC_XLSR_Config
@@ -223,6 +225,7 @@ class EVC_XLSR:
 
 @dataclass
 class EVC_HUBERT:
+    component_id: str
     training: TrainingConfig
     data: DataConfig
     model: DDDM_EVC_HUBERT_Config
