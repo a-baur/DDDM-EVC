@@ -34,6 +34,13 @@ MODEL_BLUEPRINT = {
         "decoder": WavenetDecoder,
         "diffusion": Diffusion,
     },
+    "EVC_XLSR_PH": {
+        "style_encoder": StyleEncoder,
+        "content_encoder": XLSR_ESPEAK_CTC,
+        "pitch_encoder": VQVAEEncoder,
+        "decoder": WavenetDecoder,
+        "diffusion": Diffusion,
+    },
     "EVC_HUBERT": {
         "style_encoder": StyleEncoder,
         "content_encoder": Hubert,
@@ -55,6 +62,10 @@ MODEL_PATHS = {
         VQVAEEncoder: "vqvae.pth",
     },
     "EVC_XLSR": {
+        MetaStyleSpeech: "metastylespeech.pth",
+        VQVAEEncoder: "vqvae.pth",
+    },
+    "EVC_XLSR_PH": {
         MetaStyleSpeech: "metastylespeech.pth",
         VQVAEEncoder: "vqvae.pth",
     },

@@ -5,8 +5,16 @@ from omegaconf import DictConfig
 from data import AudioDataloader
 from models import models_from_config
 
+CONFIG_NAMES = [
+    # "dddm_evc_xlsr",
+    # "dddm_evc_hu",
+    # "dddm_vc_xlsr_ph",
+    # "dddm_vc_xlsr",
+    "dddm_evc_xlsr_ph",
+]
 
-@pytest.mark.parametrize("config_name", ["dddm_evc_xlsr", "dddm_evc_hu"])
+
+@pytest.mark.parametrize("config_name", CONFIG_NAMES)
 def test_dddm_vc(
     model_config: DictConfig,
     device: torch.device,
@@ -30,7 +38,7 @@ def test_dddm_vc(
     assert ftr_out.shape == x.mel.shape
 
 
-@pytest.mark.parametrize("config_name", ["dddm_evc_xlsr", "dddm_evc_hu"])
+@pytest.mark.parametrize("config_name", CONFIG_NAMES)
 def test_dddm_loss(
     model_config: DictConfig,
     device: torch.device,
