@@ -130,8 +130,20 @@ class F0VQConfig:
 
 @dataclass
 class VQVAEConfig:
+    sample_rate: int
     f0_encoder: F0VAEConfig
     vq: F0VQConfig
+    out_dim: int
+
+
+@dataclass
+class YinEncoderConfig:
+    sample_rate: int
+    hop_length: int
+    win_length: int
+    tau_max: int
+    semitone_range: int
+    out_dim: int
 
 
 @dataclass
@@ -143,6 +155,7 @@ class WavenetDecoderConfig:
     dilation_rate: int
     n_layers: int
     gin_channels: int
+    frame_wise_pitch: bool = False
 
 
 @dataclass
@@ -185,6 +198,16 @@ class DDDM_VC_XLSR_Config:
 
 
 @dataclass
+class DDDM_VC_XLSR_YIN_Config:
+    style_encoder: MetaStyleSpeechConfig
+    content_encoder: XLSRConfig
+    pitch_encoder: YinEncoderConfig
+    decoder: WavenetDecoderConfig
+    diffusion: DiffusionConfig
+    vocoder: HifiGANConfig
+
+
+@dataclass
 class DDDM_EVC_XLSR_Config:
     style_encoder: StyleEncoderConfig
     content_encoder: XLSRConfig
@@ -216,6 +239,14 @@ class VC_XLSR:
 
 
 @dataclass
+class VC_XLSR_YIN:
+    component_id: str
+    training: TrainingConfig
+    data: DataConfig
+    model: DDDM_VC_XLSR_YIN_Config
+
+
+@dataclass
 class EVC_XLSR:
     component_id: str
     training: TrainingConfig
@@ -231,6 +262,14 @@ class EVC_HUBERT:
     model: DDDM_EVC_HUBERT_Config
 
 
+@dataclass
+class VC_HUBERT:
+    component_id: str
+    training: TrainingConfig
+    data: DataConfig
+    model: DDDM_EVC_HUBERT_Config
+
+
 # ---------------------
 # Generalized Hydra Configuration Loader
 # ---------------------
@@ -238,6 +277,7 @@ cs = ConfigStore.instance()
 cs.store(group="model", name="base_vc_xlsr", node=DDDM_VC_XLSR_Config)
 cs.store(group="model", name="base_evc_xlsr", node=DDDM_EVC_XLSR_Config)
 cs.store(group="model", name="base_evc_hu", node=DDDM_EVC_HUBERT_Config)
+cs.store(group="model", name="base_vc_xlsr_yin", node=DDDM_VC_XLSR_YIN_Config)
 cs.store(group="training", name="base_training", node=TrainingConfig)
 cs.store(group="data", name="base_data", node=DataConfig)
 

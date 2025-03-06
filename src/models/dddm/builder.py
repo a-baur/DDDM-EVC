@@ -5,7 +5,7 @@ import util
 from data import MelTransform
 from models.content_encoder import XLSR, XLSR_ESPEAK_CTC, Hubert
 from models.diffusion import Diffusion
-from models.pitch_encoder import VQVAEEncoder
+from models.pitch_encoder import VQVAEEncoder, YINEncoder
 from models.style_encoder import MetaStyleSpeech, StyleEncoder
 from modules.wavenet_decoder import WavenetDecoder
 
@@ -24,6 +24,13 @@ MODEL_BLUEPRINT = {
         "style_encoder": MetaStyleSpeech,
         "content_encoder": XLSR_ESPEAK_CTC,
         "pitch_encoder": VQVAEEncoder,
+        "decoder": WavenetDecoder,
+        "diffusion": Diffusion,
+    },
+    "VC_XLSR_PH_YIN": {
+        "style_encoder": MetaStyleSpeech,
+        "content_encoder": XLSR_ESPEAK_CTC,
+        "pitch_encoder": YINEncoder,
         "decoder": WavenetDecoder,
         "diffusion": Diffusion,
     },
@@ -58,6 +65,10 @@ MODEL_PATHS = {
         Diffusion: "vc/diffusion.pth",
     },
     "VC_XLSR_PH": {
+        MetaStyleSpeech: "metastylespeech.pth",
+        VQVAEEncoder: "vqvae.pth",
+    },
+    "VC_XLSR_PH_YIN": {
         MetaStyleSpeech: "metastylespeech.pth",
         VQVAEEncoder: "vqvae.pth",
     },
@@ -169,7 +180,7 @@ def dddm_from_config(
     decoder = decoder_cls(
         cfg.model.decoder,
         content_dim=cfg.model.content_encoder.out_dim,
-        f0_dim=cfg.model.pitch_encoder.vq.k_bins,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
     ).to(device)
     if path := paths.get(decoder_cls):
         util.load_model(decoder, path)

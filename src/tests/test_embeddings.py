@@ -4,6 +4,7 @@ from omegaconf import DictConfig
 from data import AudioDataloader
 from models import XLSR, Hubert, VQVAEEncoder, models_from_config
 from models.content_encoder import XLSR_ESPEAK_CTC
+from models.pitch_encoder import YINEncoder
 from util import get_normalized_f0, load_model
 
 
@@ -30,6 +31,7 @@ def test_vq_vae(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     load_model(pitch_encoder, "vqvae.pth")
 
     x, _ = next(iter(dataloader))
+
     f0 = get_normalized_f0(x, model_config.data.mel_transform.sample_rate)
     output = pitch_encoder(f0)
 
@@ -76,3 +78,13 @@ def test_hubert(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     assert output.shape[0] == model_config.training.batch_size
     assert output.shape[1] == model_config.model.content_encoder.out_dim
     assert output.shape[2] == expected_frames
+
+
+@pytest.mark.parametrize("config_name", ["dddm_vc_xlsr_ph_yin"])
+def test_yin_encoder(model_config: DictConfig, dataloader: AudioDataloader) -> None:
+    """Test YIN pitch encoder."""
+    yin = YINEncoder(model_config.model.pitch_encoder)
+    x, _ = next(iter(dataloader))
+    out = yin(x)
+    print(out.shape)
+    assert out.shape[0] == x.shape[0]

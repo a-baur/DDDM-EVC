@@ -1,5 +1,5 @@
 defaults:
-  - base_vc_xlsr
+  - base_vc_xlsr_yin
 
 style_encoder:
   in_dim: 80
@@ -7,32 +7,17 @@ style_encoder:
   out_dim: 256
 
 content_encoder:
-  out_dim: 1024
+  out_dim: 392
 
 pitch_encoder:
   sample_rate: 16000
-
-  f0_encoder:
-    in_dim: 1
-    out_dim: 128
-    hidden_dim: 32
-    levels: 1
-    downs_t: [4]
-    strides_t: [2]
-    resnet1d:
-      depth: 4
-      m_conv: 1.0
-      dilation_growth_rate: 3
-
-  vq:
-    k_bins: 20
-    emb_dim: 128
-    levels: 1
-    mu: 0.99
-
-  out_dim: 20
+  hop_length: 320  # same as mel_transform.hop_length
+  win_length: 1480
+  tau_max: 1480  # produces 80 midi values
+  out_dim: 80
 
 decoder:
+  frame_wise_pitch: True
   in_dim: 128
   hidden_dim: 128
   out_dim: 80

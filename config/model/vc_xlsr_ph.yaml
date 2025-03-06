@@ -10,6 +10,8 @@ content_encoder:
   out_dim: 392
 
 pitch_encoder:
+  sample_rate: 16000
+
   f0_encoder:
     in_dim: 1
     out_dim: 128
@@ -27,6 +29,8 @@ pitch_encoder:
     emb_dim: 128
     levels: 1
     mu: 0.99
+
+  out_dim: 20
 
 decoder:
   in_dim: 128

@@ -10,7 +10,6 @@ from .dddm import (
 )
 from .diffusion import Diffusion
 from .pitch_encoder import VQVAEEncoder
-from .source_filter_encoder import SourceFilterEncoder
 from .style_encoder import MetaStyleSpeech, StyleEncoder, W2V2LRobust
 from .vocoder import HifiGAN
 
@@ -21,7 +20,6 @@ __all__ = [
     "VQVAEEncoder",
     "XLSR",
     "Hubert",
-    "SourceFilterEncoder",
     "HifiGAN",
     "Diffusion",
     "DDDM",

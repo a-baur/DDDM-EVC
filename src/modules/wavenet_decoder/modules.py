@@ -156,10 +156,19 @@ class Decoder(nn.Module):
 
 
 class WavenetDecoder(nn.Module):
-    def __init__(self, cfg: WavenetDecoderConfig, content_dim: int, f0_dim: int):
+    def __init__(
+        self,
+        cfg: WavenetDecoderConfig,
+        content_dim: int,
+        pitch_dim: int,
+    ) -> None:
         super().__init__()
+        self.pitch_frame_wise = cfg.frame_wise_pitch
         self.emb_c = nn.Conv1d(content_dim, cfg.hidden_dim, 1)
-        self.emb_f0 = nn.Embedding(f0_dim, cfg.hidden_dim)
+        if self.pitch_frame_wise:
+            self.emb_f0 = nn.Conv1d(pitch_dim, cfg.hidden_dim, 1)
+        else:
+            self.emb_f0 = nn.Embedding(pitch_dim, cfg.hidden_dim)
         self.dec_ftr = Decoder(cfg)
         self.dec_src = Decoder(cfg)
 
@@ -182,8 +191,13 @@ class WavenetDecoder(nn.Module):
             If mixup_ratios is not None, return the mixed up outputs as well
         """
         content = self.emb_c(x.emb_content)
-        f0 = self.emb_f0(x.emb_pitch).transpose(1, 2)
-        f0 = F.interpolate(f0, content.shape[-1])  # match the length of content emb
+        if self.pitch_frame_wise:
+            pitch = self.emb_f0(x.emb_pitch)
+        else:
+            pitch = self.emb_f0(x.emb_pitch).transpose(1, 2)
+            pitch = F.interpolate(
+                pitch, content.shape[-1]
+            )  # match the length of content emb
 
         if mixup_ratios is not None:
             batch_size = x.batch_size
@@ -193,12 +207,12 @@ class WavenetDecoder(nn.Module):
             # Concatenate mixed up batches to the original batch
             g = torch.cat([g, random_style], dim=0)
             content = torch.cat([content, content], dim=0)
-            f0 = torch.cat([f0, f0], dim=0)
+            pitch = torch.cat([pitch, pitch], dim=0)
             mask = torch.cat([x.mask, x.mask], dim=0)
 
             # Decode the source and filter representations
             y_ftr = self.dec_ftr(F.relu(content), mask, g=g)
-            y_src = self.dec_src(f0, mask, g=g)
+            y_src = self.dec_src(pitch, mask, g=g)
 
             # Mixup the outputs according to the mixup ratio
             mixup_ratios = mixup_ratios[:, None, None]  # (B) -> (B x 1 x 1)
@@ -215,5 +229,5 @@ class WavenetDecoder(nn.Module):
             return y_src_true, y_ftr_true, y_src_mixup, y_ftr_mixup
         else:
             y_ftr = self.dec_ftr(F.relu(content), x.mask, g=g)
-            y_src = self.dec_src(f0, x.mask, g=g)
+            y_src = self.dec_src(pitch, x.mask, g=g)
             return y_src, y_ftr

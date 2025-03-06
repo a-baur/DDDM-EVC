@@ -237,8 +237,7 @@ class DDDMPreprocessor(nn.Module):
             )
         mask = util.sequence_mask(n_frames, mel.size(2)).to(mel.dtype)
 
-        f0 = util.get_normalized_f0(audio, self.sample_rate)
-        emb_pitch = self.pitch_encoder(f0)
+        emb_pitch = self.pitch_encoder(audio)
 
         # ensure xlsr/hubert embedding and x_mask are aligned
         x_pad = util.pad_audio_for_xlsr(audio, self.sample_rate)
