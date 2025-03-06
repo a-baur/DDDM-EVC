@@ -27,6 +27,7 @@ def load_model(
     ckpt_dir = util.get_root_path() / "pretrained"
     ckpt = torch.load(ckpt_dir / ckpt_file, map_location=device, weights_only=True)
     model.load_state_dict(ckpt)
+    model.to(device)
     if freeze:
         model.requires_grad_(False)
     if mode == "eval":
