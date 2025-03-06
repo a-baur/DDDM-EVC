@@ -31,13 +31,13 @@ def get_yaapt_f0(
                 nccf_thresh1=0.25,
                 tda_frame_length=25.0,
             )
+            f0s.append(
+                pitch.samp_interp[None, None, :]
+                if interp
+                else pitch.samp_values[None, None, :]
+            )
         except IndexError:
-            pitch = torch.zeros(1, 1, y_pad.shape[0])
-        f0s.append(
-            pitch.samp_interp[None, None, :]
-            if interp
-            else pitch.samp_values[None, None, :]
-        )
+            f0s.append(np.zeros((1, 1, y_pad.shape[0])))
 
     return np.vstack(f0s)
 
