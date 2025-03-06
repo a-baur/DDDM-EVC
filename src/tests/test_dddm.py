@@ -9,9 +9,10 @@ CONFIG_NAMES = [
     # "dddm_evc_xlsr",
     # "dddm_evc_hu",
     # "dddm_vc_xlsr_ph",
-    "dddm_vc_xlsr",
+    # "dddm_vc_xlsr",
     # "dddm_evc_xlsr_ph",
-    "dddm_vc_xlsr_ph_yin",
+    # "dddm_vc_xlsr_ph_yin",
+    "dddm_evc_xlsr_ph_yin",
 ]
 
 

@@ -37,15 +37,18 @@ class DDDM(nn.Module):
         mixup_ratios = torch.randint(0, 2, (x.batch_size,)).to(x.device).detach()
         src_mel, ftr_mel, src_mixup, ftr_mixup = self.encoder(x, g, mixup_ratios)
 
+        # compute the diffusion loss on mixed up outputs
         max_length_new = util.get_u_net_compatible_length(x.mel.size(-1))
         src_mixup, ftr_mixup, x_pad, x_mask_pad = util.pad_tensors_to_length(
             [src_mixup, ftr_mixup, x.mel, x.mask], max_length_new
         )
-
         diff_loss = self.diffusion.compute_loss(
             x_pad, x_mask_pad, src_mixup, ftr_mixup, g
         )
+
+        # compute the reconstruction loss on the original outputs
         rec_loss = F.l1_loss(x.mel, src_mel + ftr_mel)
+
         return diff_loss, rec_loss
 
     def forward(

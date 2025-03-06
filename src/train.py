@@ -76,7 +76,6 @@ def setup_trainer(
     )
 
     model, preprocessor, style_encoder = models_from_config(cfg, device=device)
-    model = torch.compile(model, backend="inductor")
 
     optimizer = torch.optim.AdamW(
         model.parameters(),

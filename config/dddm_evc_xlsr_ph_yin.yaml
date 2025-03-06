@@ -1,0 +1,7 @@
+defaults:
+  - data: base
+  - model: evc_xlsr_ph_yin
+  - training: base
+  - _self_
+
+component_id: "EVC_XLSR_PH_YIN"

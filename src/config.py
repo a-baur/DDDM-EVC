@@ -208,6 +208,16 @@ class DDDM_VC_XLSR_YIN_Config:
 
 
 @dataclass
+class DDDM_EVC_XLSR_YIN_Config:
+    style_encoder: StyleEncoderConfig
+    content_encoder: XLSRConfig
+    pitch_encoder: YinEncoderConfig
+    decoder: WavenetDecoderConfig
+    diffusion: DiffusionConfig
+    vocoder: HifiGANConfig
+
+
+@dataclass
 class DDDM_EVC_XLSR_Config:
     style_encoder: StyleEncoderConfig
     content_encoder: XLSRConfig
@@ -247,6 +257,14 @@ class VC_XLSR_YIN:
 
 
 @dataclass
+class EVC_XLSR_YIN:
+    component_id: str
+    training: TrainingConfig
+    data: DataConfig
+    model: DDDM_EVC_XLSR_YIN_Config
+
+
+@dataclass
 class EVC_XLSR:
     component_id: str
     training: TrainingConfig
@@ -278,6 +296,7 @@ cs.store(group="model", name="base_vc_xlsr", node=DDDM_VC_XLSR_Config)
 cs.store(group="model", name="base_evc_xlsr", node=DDDM_EVC_XLSR_Config)
 cs.store(group="model", name="base_evc_hu", node=DDDM_EVC_HUBERT_Config)
 cs.store(group="model", name="base_vc_xlsr_yin", node=DDDM_VC_XLSR_YIN_Config)
+cs.store(group="model", name="base_evc_xlsr_yin", node=DDDM_EVC_XLSR_YIN_Config)
 cs.store(group="training", name="base_training", node=TrainingConfig)
 cs.store(group="data", name="base_data", node=DataConfig)
 
