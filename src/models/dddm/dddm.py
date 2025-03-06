@@ -35,14 +35,16 @@ class DDDM(nn.Module):
         :return: Tuple of the diffusion loss and the reconstruction loss
         """
         mixup_ratios = torch.randint(0, 2, (x.batch_size,)).to(x.device).detach()
-        src_mel, ftr_mel = self.encoder(x, g, mixup_ratios)
+        src_mel, ftr_mel, src_mixup, ftr_mixup = self.encoder(x, g, mixup_ratios)
 
         max_length_new = util.get_u_net_compatible_length(x.mel.size(-1))
-        src_mel, ftr_mel, x.mel, x_mask = util.pad_tensors_to_length(
-            [src_mel, ftr_mel, x.mel, x.mask], max_length_new
+        src_mixup, ftr_mixup, x_pad, x_mask_pad = util.pad_tensors_to_length(
+            [src_mixup, ftr_mixup, x.mel, x.mask], max_length_new
         )
 
-        diff_loss = self.diffusion.compute_loss(x.mel, x_mask, src_mel, ftr_mel, g)
+        diff_loss = self.diffusion.compute_loss(
+            x_pad, x_mask_pad, src_mixup, ftr_mixup, g
+        )
         rec_loss = F.l1_loss(x.mel, src_mel + ftr_mel)
         return diff_loss, rec_loss
 

@@ -168,7 +168,10 @@ class WavenetDecoder(nn.Module):
         x: DDDMInput,
         g: torch.Tensor,
         mixup_ratios: torch.Tensor = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> (
+        tuple[torch.Tensor, torch.Tensor]
+        | tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    ):
         """
         Forward pass of the Source-Filter encoder.
 
@@ -176,6 +179,7 @@ class WavenetDecoder(nn.Module):
         :param g: Global conditioning tensor
         :param mixup_ratios: Mixup ratios for each sample in the batch
         :return: Source, and Filter representations
+            If mixup_ratios is not None, return the mixed up outputs as well
         """
         content = self.emb_c(x.emb_content)
         f0 = self.emb_f0(x.emb_pitch).transpose(1, 2)
@@ -198,16 +202,18 @@ class WavenetDecoder(nn.Module):
 
             # Mixup the outputs according to the mixup ratio
             mixup_ratios = mixup_ratios[:, None, None]  # (B) -> (B x 1 x 1)
-            y_src = (
+            y_src_mixup = (
                 mixup_ratios * y_src[:batch_size, :, :]
                 + (1 - mixup_ratios) * y_src[batch_size:, :, :]
             )
-            y_ftr = (
+            y_ftr_mixup = (
                 mixup_ratios * y_ftr[:batch_size, :, :]
                 + (1 - mixup_ratios) * y_ftr[batch_size:, :, :]
             )
+            y_src_true = y_src[:batch_size, :, :]
+            y_ftr_true = y_ftr[:batch_size, :, :]
+            return y_src_true, y_ftr_true, y_src_mixup, y_ftr_mixup
         else:
             y_ftr = self.dec_ftr(F.relu(content), x.mask, g=g)
             y_src = self.dec_src(f0, x.mask, g=g)
-
-        return y_src, y_ftr
+            return y_src, y_ftr
