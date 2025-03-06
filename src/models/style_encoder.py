@@ -64,6 +64,7 @@ class W2V2LRobust(Wav2Vec2PreTrainedModel):
         self.requires_grad_(False)
         self.eval()
 
+    @torch.no_grad()
     def forward(
         self,
         x: torch.Tensor,
