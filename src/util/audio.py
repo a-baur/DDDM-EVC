@@ -23,13 +23,16 @@ def get_yaapt_f0(
     f0s = []
     for y in audio.astype(np.float64):
         y_pad = np.pad(y.squeeze(), (to_pad, to_pad), "constant", constant_values=0)
-        pitch = pYAAPT.yaapt(
-            basic.SignalObj(y_pad, sr),
-            frame_length=20.0,
-            frame_space=5.0,
-            nccf_thresh1=0.25,
-            tda_frame_length=25.0,
-        )
+        try:  # TODO remove
+            pitch = pYAAPT.yaapt(
+                basic.SignalObj(y_pad, sr),
+                frame_length=20.0,
+                frame_space=5.0,
+                nccf_thresh1=0.25,
+                tda_frame_length=25.0,
+            )
+        except IndexError:
+            pitch = torch.zeros(1, 1, y_pad.shape[0])
         f0s.append(
             pitch.samp_interp[None, None, :]
             if interp
