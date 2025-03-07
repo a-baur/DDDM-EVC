@@ -32,7 +32,7 @@ def inference(
     )
     ckpt_dir = util.get_root_path() / "pretrained"
     ckpt = torch.load(
-        ckpt_dir / "ckpt_e18_b504.pth", map_location=device, weights_only=False
+        ckpt_dir / "ckpt_e30_b840.pth", map_location=device, weights_only=False
     )
     model.load_state_dict(ckpt["model"])
     model.requires_grad_(False)
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         "-c",
         "--config",
         type=str,
-        default="dddm_vc_xlsr_ph_yin",
+        default="dddm_evc_xlsr_ph_yin",
         help="Name of config to use",
     )
     parser.add_argument(

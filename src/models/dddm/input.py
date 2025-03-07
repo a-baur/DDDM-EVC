@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Generator
 
+import parselmouth
 import torch
 from torch import nn
 
@@ -9,6 +10,7 @@ import util
 from data import MelTransform
 from models.content_encoder import XLSR, Hubert
 from models.pitch_encoder import VQVAEEncoder
+from util.audio import PraatProcessor
 
 
 @dataclass
@@ -200,12 +202,15 @@ class DDDMPreprocessor(nn.Module):
         pitch_encoder: VQVAEEncoder,
         content_encoder: XLSR | Hubert,
         sample_rate: int,
+        perturb_inputs: bool = False,
     ) -> None:
         super().__init__()
         self.mel_transform = mel_transform
         self.pitch_encoder = pitch_encoder
         self.content_encoder = content_encoder
         self.sample_rate = sample_rate
+        self.perturb_inputs = perturb_inputs
+        self._praat_processor = PraatProcessor(sample_rate)
 
     def __call__(
         self,
@@ -237,11 +242,21 @@ class DDDMPreprocessor(nn.Module):
             )
         mask = util.sequence_mask(n_frames, mel.size(2)).to(mel.dtype)
 
-        emb_pitch = self.pitch_encoder(audio)
+        audio_p = (
+            self._praat_processor.g_batched(audio.detach().cpu()).to(audio.device)
+            if self.perturb_inputs
+            else audio.detach()
+        )
+        emb_pitch = self.pitch_encoder(audio_p)
 
         # ensure xlsr/hubert embedding and x_mask are aligned
-        x_pad = util.pad_audio_for_xlsr(audio, self.sample_rate)
-        emb_content = self.content_encoder(x_pad)
+        audio_c = (
+            self._praat_processor.f_batched(audio.detach().cpu()).to(audio.device)
+            if self.perturb_inputs
+            else audio.detach()
+        )
+        audio_c = util.pad_audio_for_xlsr(audio_c, self.sample_rate)
+        emb_content = self.content_encoder(audio_c)
 
         if not labels:
             labels = Label(torch.full((audio.size(0), 5), -1).detach().to(audio.device))
@@ -254,3 +269,11 @@ class DDDMPreprocessor(nn.Module):
             emb_content=emb_content.detach(),
             labels=labels,
         )
+
+    def _perturb_pitch_input(self, audio: torch.Tensor) -> torch.Tensor:
+        """Perturb the audio waveform for pitch encoding."""
+        parselmouth
+
+    def _perturb_content_audio(self, audio: torch.Tensor) -> torch.Tensor:
+        """Perturb the audio waveform for content encoding."""
+        ...

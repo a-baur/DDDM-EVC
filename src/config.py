@@ -195,6 +195,7 @@ class DDDM_VC_XLSR_Config:
     decoder: WavenetDecoderConfig
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
+    perturb_inputs: bool = False
 
 
 @dataclass
@@ -205,6 +206,7 @@ class DDDM_VC_XLSR_YIN_Config:
     decoder: WavenetDecoderConfig
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
+    perturb_inputs: bool = False
 
 
 @dataclass
@@ -215,6 +217,7 @@ class DDDM_EVC_XLSR_YIN_Config:
     decoder: WavenetDecoderConfig
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
+    perturb_inputs: bool = False
 
 
 @dataclass
@@ -225,6 +228,7 @@ class DDDM_EVC_XLSR_Config:
     decoder: WavenetDecoderConfig
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
+    perturb_inputs: bool = False
 
 
 @dataclass
@@ -235,6 +239,7 @@ class DDDM_EVC_HUBERT_Config:
     decoder: WavenetDecoderConfig
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
+    perturb_inputs: bool = False
 
 
 # ---------------------

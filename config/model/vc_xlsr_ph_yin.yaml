@@ -1,6 +1,8 @@
 defaults:
   - base_vc_xlsr_yin
 
+perturb_inputs: True
+
 style_encoder:
   in_dim: 80
   hidden_dim: 256

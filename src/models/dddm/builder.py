@@ -149,7 +149,11 @@ def preprocessor_from_config(
     ## Initialize mel transform and preprocessor
     mel_transform = MelTransform(cfg.data.mel_transform)
     preprocessor = DDDMPreprocessor(
-        mel_transform, pitch_encoder, content_encoder, sample_rate
+        mel_transform,
+        pitch_encoder,
+        content_encoder,
+        sample_rate,
+        cfg.model.perturb_inputs,
     ).to(device)
 
     return preprocessor
