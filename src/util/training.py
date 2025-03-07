@@ -291,6 +291,8 @@ class Trainer:
                 "epoch": epoch,
                 "iteration": batch_idx,
                 "model": self.model.state_dict(),
+                "preprocessor": self.preprocessor.state_dict(),
+                "style_encoder": self.style_encoder.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
                 "scaler": self.scaler.state_dict(),
                 "scheduler": self.scheduler.state_dict(),
@@ -308,6 +310,8 @@ class Trainer:
         """
         ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
         self.model.load_state_dict(ckpt["model"])
+        self.preprocessor.load_state_dict(ckpt["preprocessor"])
+        self.style_encoder.load_state_dict(ckpt["style_encoder"])
         self.optimizer.load_state_dict(ckpt["optimizer"])
         self.scaler.load_state_dict(ckpt["scaler"])
         self.scheduler.load_state_dict(ckpt["scheduler"])

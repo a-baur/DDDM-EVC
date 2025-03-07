@@ -306,9 +306,9 @@ cs.store(group="training", name="base_training", node=TrainingConfig)
 cs.store(group="data", name="base_data", node=DataConfig)
 
 
-def load_hydra_config(config_name: str) -> DictConfig:
+def load_hydra_config(config_name: str, overrides: list[str] = None) -> DictConfig:
     """Load and instantiate Hydra configuration."""
+    _overrides = ["training.output_dir='./outputs'"]
+    _overrides.extend(overrides or [])
     with initialize_config_dir(version_base=None, config_dir=CONFIG_PATH.as_posix()):
-        return compose(
-            config_name=config_name, overrides=["training.output_dir='./outputs'"]
-        )
+        return compose(config_name=config_name, overrides=_overrides)
