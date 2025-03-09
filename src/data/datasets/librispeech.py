@@ -10,7 +10,7 @@ from util import get_root_path, random_segment
 def librispeech_collate_fn(
     batch: list[tuple[torch.Tensor, ...]],
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    cfg = config.load_hydra_config("dddm_vc_xlsr")
+    cfg = config.load_hydra_config("vc_xlsr")
 
     audio = next(zip(*batch))
     segments = [random_segment(a, cfg.data.dataset.segment_size) for a in audio]

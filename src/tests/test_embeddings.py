@@ -1,4 +1,5 @@
 import pytest
+import torch
 from omegaconf import DictConfig
 
 from data import AudioDataloader
@@ -8,13 +9,14 @@ from models.pitch_encoder import YINEncoder
 from util import get_normalized_f0, load_model
 
 
-@pytest.mark.parametrize(
-    "config_name", ["dddm_vc_xlsr", "dddm_evc_xlsr", "dddm_evc_hu", "dddm_vc_xlsr_ph"]
-)
-def test_style_encoder(model_config: DictConfig, dataloader: AudioDataloader) -> None:
+@pytest.mark.parametrize("config_name", ["vc_xlsr", "evc_xlsr", "evc_hu", "vc_xlsr_ph"])
+def test_style_encoder(
+    model_config: DictConfig, dataloader: AudioDataloader, device: torch.device
+) -> None:
     """Test Meta-StyleSpeech encoder."""
-    _, preprocessor, style_encoder = models_from_config(model_config)
+    _, preprocessor, style_encoder = models_from_config(model_config, device)
     audio, n_frames = next(iter(dataloader))
+    audio, n_frames = audio.to(device), n_frames.to(device)
     x = preprocessor(audio)
     output = style_encoder(x)
     assert output.shape[0] == model_config.training.batch_size
@@ -22,9 +24,7 @@ def test_style_encoder(model_config: DictConfig, dataloader: AudioDataloader) ->
     assert output.shape[1] == model_config.model.diffusion.gin_channels
 
 
-@pytest.mark.parametrize(
-    "config_name", ["dddm_vc_xlsr", "dddm_evc_xlsr", "dddm_evc_hu", "dddm_vc_xlsr_ph"]
-)
+@pytest.mark.parametrize("config_name", ["vc_xlsr", "evc_xlsr", "evc_hu", "vc_xlsr_ph"])
 def test_vq_vae(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test VQ-VAE pitch encoder."""
     pitch_encoder = VQVAEEncoder(model_config.model.pitch_encoder)
@@ -41,7 +41,7 @@ def test_vq_vae(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     assert not output.is_floating_point()  # Discrete codes
 
 
-@pytest.mark.parametrize("config_name", ["dddm_vc_xlsr", "dddm_evc_xlsr"])
+@pytest.mark.parametrize("config_name", ["vc_xlsr", "evc_xlsr"])
 def test_xlsr(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test Wav2Vec2 encoder."""
     xlsr = XLSR()
@@ -54,20 +54,20 @@ def test_xlsr(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     assert output.shape[2] == expected_frames
 
 
-@pytest.mark.parametrize("config_name", ["dddm_vc_xlsr_ph"])
+@pytest.mark.parametrize("config_name", ["vc_xlsr_ph"])
 def test_xlsr_espeak_ctc(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test Wav2Vec2 encoder."""
     xlsr = XLSR_ESPEAK_CTC()
     x, _ = next(iter(dataloader))
-    output = xlsr(x)
+    logits, emb = xlsr(x, return_hidden=True)
 
     expected_frames = x.shape[1] // model_config.data.mel_transform.hop_length
-    assert output.shape[0] == model_config.training.batch_size
-    assert output.shape[1] == model_config.model.content_encoder.out_dim
-    assert output.shape[2] == expected_frames
+    assert logits.shape[0] == model_config.training.batch_size
+    assert logits.shape[1] == model_config.model.content_encoder.out_dim
+    assert logits.shape[2] == expected_frames
 
 
-@pytest.mark.parametrize("config_name", ["dddm_evc_hu"])
+@pytest.mark.parametrize("config_name", ["evc_hu"])
 def test_hubert(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test Wav2Vec2 encoder."""
     hubert = Hubert()
@@ -80,7 +80,7 @@ def test_hubert(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     assert output.shape[2] == expected_frames
 
 
-@pytest.mark.parametrize("config_name", ["dddm_vc_xlsr_ph_yin"])
+@pytest.mark.parametrize("config_name", ["vc_xlsr_ph_yin"])
 def test_yin_encoder(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test YIN pitch encoder."""
     yin = YINEncoder(model_config.model.pitch_encoder)

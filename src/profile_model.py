@@ -13,7 +13,7 @@ from models.dddm.input import DDDMInput
 # torch.autograd.set_detect_anomaly(True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-config = load_hydra_config("dddm_vc_xlsr")
+config = load_hydra_config("vc_xlsr")
 model, preprocessor, style_encoder = models_from_config(config, device=device)
 model.to(device)
 preprocessor.to(device)

@@ -5,7 +5,7 @@ import torch
 from omegaconf import DictConfig
 
 from data import AudioDataloader, MSPPodcast, MSPPodcastFilenames
-from models import preprocessor_from_config
+from models import models_from_config
 from models.dddm.input import DDDMInput, Label
 
 
@@ -32,13 +32,13 @@ def test_batch_save_load(tmp_path: Path) -> None:
     assert batch.labels.label_tensor.eq(loaded.labels.label_tensor).all()
 
 
-@pytest.mark.parametrize("config_name", ["dddm_evc_xlsr", "dddm_evc_hu"])
+@pytest.mark.parametrize("config_name", ["evc_xlsr", "evc_hu"])
 def test_feature_extraciton(
     tmp_path: Path,
     model_config: DictConfig,
     device: torch.device,
 ) -> None:
-    preprocessor = preprocessor_from_config(model_config, device, sample_rate=16000)
+    _, preprocessor, _ = models_from_config(model_config, device)
     dataset = MSPPodcast(
         model_config.data,
         split="train",

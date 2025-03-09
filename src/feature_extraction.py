@@ -12,7 +12,7 @@ TARGET_PATH = Path(r"D:\DDDM-EVC\datasets\msp-podcast\Extracted")
 
 
 if __name__ == "__main__":
-    cfg = load_hydra_config("dddm_evc_xlsr")
+    cfg = load_hydra_config("evc_xlsr")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mel_transform = MelTransform(cfg.data.mel_transform).to(device)
 

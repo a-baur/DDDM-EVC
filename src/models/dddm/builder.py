@@ -9,201 +9,247 @@ from models.pitch_encoder import VQVAEEncoder, YINEncoder
 from models.style_encoder import MetaStyleSpeech, StyleEncoder
 from modules.wavenet_decoder import WavenetDecoder
 
-from .dddm import DDDM
+from .base import DDDM
 from .input import DDDMPreprocessor
-
-MODEL_BLUEPRINT = {
-    "VC_XLSR": {
-        "style_encoder": MetaStyleSpeech,
-        "content_encoder": XLSR,
-        "pitch_encoder": VQVAEEncoder,
-        "decoder": WavenetDecoder,
-        "diffusion": Diffusion,
-    },
-    "VC_XLSR_PH": {
-        "style_encoder": MetaStyleSpeech,
-        "content_encoder": XLSR_ESPEAK_CTC,
-        "pitch_encoder": VQVAEEncoder,
-        "decoder": WavenetDecoder,
-        "diffusion": Diffusion,
-    },
-    "VC_XLSR_PH_YIN": {
-        "style_encoder": MetaStyleSpeech,
-        "content_encoder": XLSR_ESPEAK_CTC,
-        "pitch_encoder": YINEncoder,
-        "decoder": WavenetDecoder,
-        "diffusion": Diffusion,
-    },
-    "EVC_XLSR_PH_YIN": {
-        "style_encoder": StyleEncoder,
-        "content_encoder": XLSR_ESPEAK_CTC,
-        "pitch_encoder": YINEncoder,
-        "decoder": WavenetDecoder,
-        "diffusion": Diffusion,
-    },
-    "EVC_XLSR": {
-        "style_encoder": StyleEncoder,
-        "content_encoder": XLSR,
-        "pitch_encoder": VQVAEEncoder,
-        "decoder": WavenetDecoder,
-        "diffusion": Diffusion,
-    },
-    "EVC_XLSR_PH": {
-        "style_encoder": StyleEncoder,
-        "content_encoder": XLSR_ESPEAK_CTC,
-        "pitch_encoder": VQVAEEncoder,
-        "decoder": WavenetDecoder,
-        "diffusion": Diffusion,
-    },
-    "EVC_HUBERT": {
-        "style_encoder": StyleEncoder,
-        "content_encoder": Hubert,
-        "pitch_encoder": VQVAEEncoder,
-        "decoder": WavenetDecoder,
-        "diffusion": Diffusion,
-    },
-}
-
-MODEL_PATHS = {
-    "VC_XLSR": {
-        MetaStyleSpeech: "metastylespeech.pth",
-        VQVAEEncoder: "vqvae.pth",
-        WavenetDecoder: "vc/wavenet_decoder.pth",
-        Diffusion: "vc/diffusion.pth",
-    },
-    "VC_XLSR_PH": {
-        MetaStyleSpeech: "metastylespeech.pth",
-        VQVAEEncoder: "vqvae.pth",
-    },
-    "VC_XLSR_PH_YIN": {
-        MetaStyleSpeech: "metastylespeech.pth",
-        VQVAEEncoder: "vqvae.pth",
-    },
-    "EVC_XLSR_PH_YIN": {
-        MetaStyleSpeech: "metastylespeech.pth",
-        VQVAEEncoder: "vqvae.pth",
-    },
-    "EVC_XLSR": {
-        MetaStyleSpeech: "metastylespeech.pth",
-        VQVAEEncoder: "vqvae.pth",
-    },
-    "EVC_XLSR_PH": {
-        MetaStyleSpeech: "metastylespeech.pth",
-        VQVAEEncoder: "vqvae.pth",
-    },
-    "EVC_HUBERT": {
-        MetaStyleSpeech: "metastylespeech.pth",
-        VQVAEEncoder: "vqvae.pth",
-    },
-}
-
-
-def _comps_and_paths_from_config(
-    cfg: DictConfig,
-) -> tuple[dict[str, type], dict[type, str]]:
-    component_id = cfg.component_id
-    if component_id not in MODEL_BLUEPRINT:
-        raise ValueError(f"Unknown component id: {component_id}")
-
-    return MODEL_BLUEPRINT[component_id], MODEL_PATHS.get(component_id, {})
 
 
 def models_from_config(
-    cfg: DictConfig, device: torch.device = torch.device("cpu"), sample_rate: int = None
-) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder | MetaStyleSpeech]:
-    """
-    Builds DDDM model from configuration.
+    config: DictConfig, device: torch.device = None
+) -> tuple[DDDM, DDDMPreprocessor, MetaStyleSpeech | StyleEncoder]:
+    """Build DDDM model from Hydra configuration."""
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model_choice = config.model_choice
+    if model_choice == "vc_xlsr":
+        return build_vc_xlsr(config, device)
+    elif model_choice == "vc_xlsr_ph":
+        return build_vc_xlsr_ph(config, device)
+    elif model_choice == "vc_xlsr_ph_yin":
+        return build_vc_xlsr_ph_yin(config, device)
+    elif model_choice == "evc_xlsr":
+        return build_evc_xlsr(config, device)
+    elif model_choice == "evc_xlsr_ph":
+        return build_evc_xlsr_ph(config, device)
+    elif model_choice == "evc_xlsr_ph_yin":
+        return build_evc_xlsr_ph_yin(config, device)
+    elif model_choice == "evc_hu":
+        return build_evc_hubert(config, device)
+    else:
+        raise ValueError(f"Unknown model configuration: {model_choice}")
 
-    :param cfg: ConfigVC or ConfigEVC
-    :param device: Device to move model to
-    :param sample_rate: Sample rate of data
-    :return: DDDM model
-    """
-    style_encoder = style_encoder_from_config(cfg, device)
-    preprocessor = preprocessor_from_config(cfg, device, sample_rate)
-    model = dddm_from_config(cfg, device)
 
-    return model, preprocessor, style_encoder
+def build_vc_xlsr(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, DDDMPreprocessor, MetaStyleSpeech]:
+    """Build DDDM VC XLSR model."""
+    style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
 
+    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    util.load_model(vq_vae, "vqvae.pth")
 
-def preprocessor_from_config(
-    cfg: DictConfig,
-    device: torch.device,
-    sample_rate: int | None,
-) -> DDDMPreprocessor:
-    components, paths = _comps_and_paths_from_config(cfg)
-    if sample_rate is None:
-        sample_rate = cfg.data.dataset.sampling_rate
-
-    ## Initialize content and pitch encoders
-    content_encoder_cls = components["content_encoder"]
-    content_encoder = content_encoder_cls().to(device)
-    if path := paths.get(content_encoder_cls):
-        util.load_model(content_encoder, path, freeze=True)
-
-    pitch_encoder_cls = components["pitch_encoder"]
-    pitch_encoder = pitch_encoder_cls(cfg.model.pitch_encoder).to(device)
-    if path := paths.get(pitch_encoder_cls):
-        util.load_model(pitch_encoder, path, freeze=True)
-
-    ## Initialize mel transform and preprocessor
-    mel_transform = MelTransform(cfg.data.mel_transform)
     preprocessor = DDDMPreprocessor(
-        mel_transform,
-        pitch_encoder,
-        content_encoder,
-        sample_rate,
-        cfg.model.perturb_inputs,
-    ).to(device)
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=vq_vae,
+        content_encoder=XLSR().to(device),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+    )
 
-    return preprocessor
-
-
-def style_encoder_from_config(
-    cfg: DictConfig,
-    device: torch.device,
-) -> StyleEncoder | MetaStyleSpeech:
-    components, paths = _comps_and_paths_from_config(cfg)
-
-    ## Initialize style encoder
-    style_encoder_cls = components["style_encoder"]
-    style_encoder = style_encoder_cls(cfg.model.style_encoder).to(device)
-
-    # Load style encoder model weights
-    style_encoder_path = paths.get(style_encoder_cls)
-    if style_encoder_path:
-        if style_encoder_cls == MetaStyleSpeech:
-            util.load_model(style_encoder, style_encoder_path, freeze=True)
-        else:
-            util.load_model(
-                style_encoder.speaker_encoder,
-                paths.get(MetaStyleSpeech, ""),
-                freeze=True,
-            )
-
-    return style_encoder
-
-
-def dddm_from_config(
-    cfg: DictConfig,
-    device: torch.device = torch.device("cpu"),
-) -> DDDM:
-    components, paths = _comps_and_paths_from_config(cfg)
-
-    ## Initialize decoder and diffusion model
-    decoder_cls = components["decoder"]
-    decoder = decoder_cls(
+    src_ftr_encoder = WavenetDecoder(
         cfg.model.decoder,
         content_dim=cfg.model.content_encoder.out_dim,
         pitch_dim=cfg.model.pitch_encoder.out_dim,
     ).to(device)
-    if path := paths.get(decoder_cls):
-        util.load_model(decoder, path)
 
-    diffusion_cls = components["diffusion"]
-    diffusion = diffusion_cls(cfg.model.diffusion).to(device)
-    if path := paths.get(diffusion_cls):
-        util.load_model(diffusion, path)
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion).to(device),
+    )
 
-    ## Finalize and return model components
-    return DDDM(decoder, diffusion).to(device)
+    return model, preprocessor, style_encoder
+
+
+def build_vc_xlsr_ph(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, DDDMPreprocessor, MetaStyleSpeech]:
+    """Build DDDM VC XLSR with pitch encoder model."""
+    style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
+    util.load_model(style_encoder, "metastylespeech.pth")
+
+    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    util.load_model(vq_vae, "vqvae.pth")
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=vq_vae,
+        content_encoder=XLSR_ESPEAK_CTC().to(device),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+    )
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion).to(device),
+    )
+
+    return model, preprocessor, style_encoder
+
+
+def build_vc_xlsr_ph_yin(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, DDDMPreprocessor, MetaStyleSpeech]:
+    """Build DDDM VC XLSR with pitch encoder model."""
+    style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
+    util.load_model(style_encoder, "metastylespeech.pth")
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
+        content_encoder=XLSR_ESPEAK_CTC().to(device),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+    )
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion).to(device),
+    )
+
+    return model, preprocessor, style_encoder
+
+
+def build_evc_xlsr(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder]:
+    """Build DDDM EVC XLSR model."""
+    style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
+    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
+
+    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    util.load_model(vq_vae, "vqvae.pth")
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=vq_vae,
+        content_encoder=XLSR().to(device),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+    )
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion).to(device),
+    )
+
+    return model, preprocessor, style_encoder
+
+
+def build_evc_xlsr_ph(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder]:
+    """Build DDDM EVC XLSR with pitch encoder model."""
+    style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
+    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
+
+    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    util.load_model(vq_vae, "vqvae.pth")
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=vq_vae,
+        content_encoder=XLSR_ESPEAK_CTC().to(device),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+    )
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion).to(device),
+    )
+
+    return model, preprocessor, style_encoder
+
+
+def build_evc_xlsr_ph_yin(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder]:
+    """Build DDDM EVC XLSR with pitch encoder model."""
+    style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
+    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
+        content_encoder=XLSR_ESPEAK_CTC().to(device),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+    )
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion).to(device),
+    )
+
+    return model, preprocessor, style_encoder
+
+
+def build_evc_hubert(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder]:
+    """Build DDDM EVC Hubert model."""
+    style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
+    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
+
+    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    util.load_model(vq_vae, "vqvae.pth")
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=vq_vae,
+        content_encoder=Hubert().to(device),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+    )
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion).to(device),
+    )
+
+    return model, preprocessor, style_encoder

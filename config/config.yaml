@@ -4,4 +4,4 @@ defaults:
   - training: base
   - _self_
 
-component_id: "VC_XLSR"
+model_choice: ${hydra:runtime.choices.model}

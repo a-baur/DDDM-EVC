@@ -1,7 +1,0 @@
-defaults:
-  - data: base
-  - model: evc_hu
-  - training: base
-  - _self_
-
-component_id: "EVC_HUBERT"

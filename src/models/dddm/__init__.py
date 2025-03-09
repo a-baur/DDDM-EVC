@@ -1,10 +1,5 @@
-from .builder import (
-    dddm_from_config,
-    models_from_config,
-    preprocessor_from_config,
-    style_encoder_from_config,
-)
-from .dddm import DDDM
+from .base import DDDM
+from .builder import models_from_config
 from .input import DDDMInput, DDDMPreprocessor
 
 __all__ = [
@@ -12,7 +7,4 @@ __all__ = [
     "DDDMPreprocessor",
     "DDDMInput",
     "models_from_config",
-    "dddm_from_config",
-    "preprocessor_from_config",
-    "style_encoder_from_config",
 ]

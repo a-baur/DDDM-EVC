@@ -1,7 +1,0 @@
-defaults:
-  - data: base
-  - model: vc_xlsr_ph_yin
-  - training: base
-  - _self_
-
-component_id: "VC_XLSR_PH_YIN"
