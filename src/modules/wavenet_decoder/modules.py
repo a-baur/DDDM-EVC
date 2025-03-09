@@ -6,7 +6,7 @@ from torch.nn.utils.parametrizations import weight_norm
 import util
 import util.math
 from config import WavenetDecoderConfig
-from models.dddm.input import DDDMInput
+from models.dddm.preprocessor import DDDMInput
 
 
 class WaveNet(torch.nn.Module):

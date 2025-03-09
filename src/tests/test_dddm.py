@@ -6,13 +6,14 @@ from data import AudioDataloader
 from models import models_from_config
 
 CONFIG_NAMES = [
-    "evc_xlsr",
-    "evc_hu",
-    "vc_xlsr_ph",
-    "vc_xlsr",
-    "evc_xlsr_ph",
-    "vc_xlsr_ph_yin",
-    "evc_xlsr_ph_yin",
+    # "evc_xlsr",
+    # "evc_hu",
+    # "vc_xlsr_ph",
+    # "vc_xlsr",
+    # "evc_xlsr_ph",
+    # "vc_xlsr_ph_yin",
+    # "evc_xlsr_ph_yin",
+    "vc_xlsr_yin",
 ]
 
 

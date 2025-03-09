@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import util
-from models.dddm.input import DDDMInput
+from models.dddm.preprocessor import DDDMInput
 from models.diffusion import Diffusion
 from modules.wavenet_decoder import WavenetDecoder
 

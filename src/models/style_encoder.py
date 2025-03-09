@@ -7,7 +7,7 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
 )
 
 from config import MetaStyleSpeechConfig, StyleEncoderConfig
-from models.dddm.input import DDDMInput
+from models.dddm.preprocessor import DDDMInput
 from modules.commons import Mish
 from modules.style_speech import Conv1dGLU, MultiHeadAttention
 from modules.w2v2_l_robust import RegressionHead

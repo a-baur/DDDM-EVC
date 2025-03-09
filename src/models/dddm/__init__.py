@@ -1,6 +1,6 @@
 from .base import DDDM
 from .builder import models_from_config
-from .input import DDDMInput, DDDMPreprocessor
+from .preprocessor import DDDMInput, DDDMPreprocessor
 
 __all__ = [
     "DDDM",

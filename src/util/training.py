@@ -15,7 +15,7 @@ from torch import GradScaler
 import util
 from data import AudioDataloader
 from models import DDDM, HifiGAN
-from models.dddm.input import DDDMPreprocessor
+from models.dddm.preprocessor import DDDMPreprocessor
 
 try:
     import matplotlib

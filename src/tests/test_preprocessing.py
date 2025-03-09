@@ -6,7 +6,7 @@ from omegaconf import DictConfig
 
 from data import AudioDataloader, MSPPodcast, MSPPodcastFilenames
 from models import models_from_config
-from models.dddm.input import DDDMInput, Label
+from models.dddm.preprocessor import DDDMInput, Label
 
 
 def test_batch_save_load(tmp_path: Path) -> None:

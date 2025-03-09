@@ -35,7 +35,7 @@ class XLSR_ESPEAK_CTC(torch.nn.Module):
     :param layer: layer to extract features from
     """
 
-    def __init__(self, layer: int = 12) -> None:
+    def __init__(self, return_hidden: bool = False, layer: int = 12) -> None:
         super().__init__()
         self.wav2vec2 = Wav2Vec2ForCTC.from_pretrained(
             "facebook/wav2vec2-xlsr-53-espeak-cv-ft"
@@ -44,18 +44,18 @@ class XLSR_ESPEAK_CTC(torch.nn.Module):
         self.wav2vec2.requires_grad_(False)
         self.wav2vec2.eval()
         self.feature_layer = layer
+        self.return_hidden = return_hidden
 
     @torch.no_grad()  # type: ignore
     def forward(
-        self, x: torch.Tensor, return_hidden=False
+        self, x: torch.Tensor
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        outputs = self.wav2vec2(x, output_hidden_states=return_hidden)
-        logits = outputs.logits.permute((0, 2, 1))
-        if return_hidden:
+        outputs = self.wav2vec2(x, output_hidden_states=self.return_hidden)
+        if self.return_hidden:
             hidden_states = outputs.hidden_states[self.feature_layer].permute((0, 2, 1))
-            return logits, hidden_states
+            return hidden_states
         else:
-            return logits
+            return outputs.logits.permute((0, 2, 1))
 
 
 class Hubert(torch.nn.Module):

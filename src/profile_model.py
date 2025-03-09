@@ -4,7 +4,7 @@ from torch.profiler import ProfilerActivity, profile
 from config import load_hydra_config
 from data import AudioDataloader, MSPPodcastFilenames
 from models import DDDM, models_from_config
-from models.dddm.input import DDDMInput
+from models.dddm.preprocessor import DDDMInput
 
 # The flags below controls whether to allow TF32 on cuDNN. This flag defaults to True.
 # torch.backends.cuda.matmul.allow_tf32 = True
