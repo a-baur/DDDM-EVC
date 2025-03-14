@@ -165,10 +165,15 @@ def get_conv_padding(kernel_size: int, dilation: int = 1) -> int:
     return int((kernel_size * dilation - dilation) / 2)
 
 
-def pad_tensors_to_length(xs: list[torch.Tensor], length: int) -> list[torch.Tensor]:
+def pad_tensors_to_length(
+    xs: list[torch.Tensor], length: int, value: int = None
+) -> list[torch.Tensor]:
     """Pad the input tensors to the given length."""
     pad_amount = [length - x.shape[-1] for x in xs]
-    return [F.pad(x, (0, pad)) if pad > 0 else x for x, pad in zip(xs, pad_amount)]
+    return [
+        F.pad(x, (0, pad), value=value) if pad > 0 else x
+        for x, pad in zip(xs, pad_amount)
+    ]
 
 
 def get_u_net_compatible_length(length: int, num_downsamplings_in_unet: int = 2) -> int:
