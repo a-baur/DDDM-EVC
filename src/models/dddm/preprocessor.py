@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Generator
 
-import parselmouth
 import torch
 from torch import nn
 
@@ -249,12 +248,12 @@ class DDDMPreprocessor(nn.Module):
         )
         emb_pitch = self.pitch_encoder(audio_p)
 
-        # ensure xlsr/hubert embedding and x_mask are aligned
         audio_c = (
             self._praat_processor.f_batched(audio.detach().cpu()).to(audio.device)
             if self.perturb_inputs
             else audio.detach()
         )
+        # ensure xlsr/hubert embedding and x_mask are aligned
         audio_c = util.pad_audio_for_xlsr(audio_c, self.sample_rate)
         emb_content = self.content_encoder(audio_c)
 
@@ -269,11 +268,3 @@ class DDDMPreprocessor(nn.Module):
             emb_content=emb_content.detach(),
             labels=labels,
         )
-
-    def _perturb_pitch_input(self, audio: torch.Tensor) -> torch.Tensor:
-        """Perturb the audio waveform for pitch encoding."""
-        parselmouth
-
-    def _perturb_content_audio(self, audio: torch.Tensor) -> torch.Tensor:
-        """Perturb the audio waveform for content encoding."""
-        ...
