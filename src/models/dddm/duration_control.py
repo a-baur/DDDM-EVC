@@ -97,9 +97,11 @@ class DurationControl(nn.Module):
         u_emb_p = self._unit_pooling(x.emb_pitch, unit_mapping)
 
         # frame-level expansion
-        log_dur_pred = self.duration_predictor(u_emb_c, u_mask.unsqueeze(1), g).squeeze(
-            1
-        )
+        log_dur_pred = self.duration_predictor(
+            u_emb_c,
+            u_mask.unsqueeze(1),
+            g,
+        ).squeeze(1)
         dur_pred = torch.exp(log_dur_pred) * u_mask
         dur_pred = torch.ceil(dur_pred)
         unit_mapping = self._get_unit_mapping(dur_pred).unsqueeze(1)
@@ -211,8 +213,6 @@ class DurationControl(nn.Module):
 
         max_len = max([u.size(0) for u in units])
         units = util.pad_tensors_to_length(units, max_len)
-
-        max_len = max([d.size(0) for d in durations])
         durations = util.pad_tensors_to_length(durations, max_len)
 
         return torch.stack(units), torch.stack(durations)
@@ -243,7 +243,7 @@ class DurationControl(nn.Module):
         units = ph_sample[diff]
 
         # get the indices where changes occur
-        idx = diff.nonzero(as_tuple=False).squeeze()
+        idx = diff.nonzero(as_tuple=False).squeeze(1)
 
         # add the last index to the end
         idx = torch.cat(
@@ -332,7 +332,7 @@ def _test() -> None:
 
     dc = DurationControl(1024, 512).to(device)
     x_mask = torch.full((32, 118), 1).unsqueeze(1).to(device).detach()
-    ph = torch.randint(0, 3, (32, 118)).to(device).detach()
+    ph = torch.full((32, 118), 1).to(device).detach()
     emb_c = torch.randn(32, 1024, 118).to(device)
     emb_p = torch.randn(32, 1024, 118).to(device)
 
