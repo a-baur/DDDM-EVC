@@ -112,7 +112,7 @@ class DurationControl(nn.Module):
 
         new_len = unit_mapping.size(2)
         if return_loss:
-            loss = F.l1_loss(dur_pred, dur)
+            loss = F.l1_loss(dur_pred, dur.float())
             x.mel = F.interpolate(x.mel, size=new_len, mode="linear")
             return x, loss
         else:
