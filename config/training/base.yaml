@@ -2,7 +2,7 @@ defaults:
   - base_training
 
 seed: 42
-batch_size: 32
+batch_size: 4
 epochs: 100
 segment_size: 38000
 learning_rate: 5e-5
@@ -12,6 +12,7 @@ eps: 1e-9
 use_fp16_scaling: true  # gradient scaling
 diff_loss_coef: 1.0
 rec_loss_coef: 1.0
+dur_loss_coef: 1.0
 log_interval: 1
 eval_interval: 10
 save_interval: 10

@@ -8,6 +8,7 @@ from .helpers import (
     move_to_device,
 )
 from .sequences import (
+    forward_fill,
     get_conv_padding,
     get_u_net_compatible_length,
     pad_audio_for_xlsr,
@@ -33,4 +34,5 @@ __all__ = [
     "pad_audio_for_xlsr",
     "clip_grad_value",
     "get_cuda_devices",
+    "forward_fill",
 ]

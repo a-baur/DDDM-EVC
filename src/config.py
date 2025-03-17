@@ -26,6 +26,7 @@ class TrainingConfig:
     use_fp16_scaling: bool
     diff_loss_coef: float
     rec_loss_coef: float
+    dur_loss_coef: float
     log_interval: int
     eval_interval: int
     save_interval: int
@@ -196,6 +197,7 @@ class DDDM_VC_XLSR_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    use_duration_control: bool = False
 
 
 @dataclass
@@ -207,6 +209,7 @@ class DDDM_VC_XLSR_YIN_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    use_duration_control: bool = False
 
 
 @dataclass
@@ -218,6 +221,7 @@ class DDDM_EVC_XLSR_YIN_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    use_duration_control: bool = False
 
 
 @dataclass
@@ -229,6 +233,7 @@ class DDDM_EVC_XLSR_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    use_duration_control: bool = False
 
 
 @dataclass
@@ -240,6 +245,7 @@ class DDDM_EVC_HUBERT_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    use_duration_control: bool = False
 
 
 # ---------------------

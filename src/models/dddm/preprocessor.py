@@ -1,6 +1,4 @@
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Generator
 
 import torch
 from torch import nn
@@ -38,6 +36,7 @@ class DDDMInput:
     :param mask: Padding mask for the mel-spectrogram
     :param emb_pitch: Pitch embedding
     :param emb_content: Content embedding
+    :param phonemes: Phoneme sequence prediction
     :param labels: Metadata labels
     """
 
@@ -46,27 +45,12 @@ class DDDMInput:
     mask: torch.Tensor
     emb_pitch: torch.Tensor
     emb_content: torch.Tensor
-    labels: Label
-
-    def __getitem__(self, idx: int) -> list[torch.Tensor]:
-        """Get a single sample from the batch."""
-        return [
-            self.audio[idx : idx + 1],
-            self.mel[idx : idx + 1],
-            self.mask[idx : idx + 1],
-            self.emb_pitch[idx : idx + 1],
-            self.emb_content[idx : idx + 1],
-            self.labels.label_tensor[idx : idx + 1],
-        ]
+    phonemes: torch.Tensor | None = None
+    labels: Label | None = None
 
     def __len__(self) -> int:
         """Get the number of samples in the batch."""
         return self.batch_size
-
-    def __iter__(self) -> Generator[list[torch.Tensor], None, None]:
-        """Iterate over the samples in the batch."""
-        for i in range(len(self)):
-            yield self[i]
 
     def __repr__(self) -> str:
         """Get a string representation of the object."""
@@ -101,100 +85,16 @@ class DDDMInput:
         self.mask = self.mask.to(device, non_blocking=True)
         self.emb_pitch = self.emb_pitch.to(device, non_blocking=True)
         self.emb_content = self.emb_content.to(device, non_blocking=True)
+        if self.phonemes is not None:
+            self.phonemes = self.phonemes.to(device, non_blocking=True)
+        if self.labels is not None:
+            self.labels.label_tensor = self.labels.label_tensor.to(
+                device, non_blocking=True
+            )
         return self
 
-    @torch.no_grad()
-    def save(self, path: str | Path, filenames: list[str]) -> None:
-        """
-        Save each sample in the input batch to a separate file.
 
-        All features are flattened and saved into a single tensor
-        for efficient storage. Offsets and shapes are saved to
-        reconstruct the original tensors.
-
-        :param path: Directory to save the files
-        :param filenames: List of filenames, one for each sample
-        """
-        assert len(filenames) == self.batch_size
-
-        if isinstance(path, str):
-            path = Path(path)
-
-        path.mkdir(parents=True, exist_ok=True)
-
-        for tensors, fname in zip(self, filenames):
-            shapes = [t.shape for t in tensors]
-            dtypes = [t.dtype for t in tensors]
-            offsets = [0]
-            for t in tensors:
-                offsets.append(offsets[-1] + t.numel())
-
-            merged_tensor = torch.cat([t.flatten() for t in tensors])
-            out_path = (path / fname).with_suffix(".pth")
-            torch.save(
-                {
-                    "tensor": merged_tensor,
-                    "offsets": offsets,
-                    "shapes": shapes,
-                    "dtypes": dtypes,
-                },
-                out_path,
-            )
-
-    @classmethod
-    @torch.no_grad()
-    def load(
-        cls,
-        path: str | Path,
-        filenames: list[str],
-        pin_memory: bool = False,
-    ) -> "DDDMInput":
-        """Load the input from a file."""
-        if isinstance(path, str):
-            path = Path(path)
-
-        file_tensors = []
-        batch_offsets = []
-        batch_shapes = []
-        batch_dtypes = []
-        for fname in filenames:
-            data = torch.load(path / fname)
-            merged_tensor = data["tensor"]
-            batch_offsets.append(data["offsets"])
-            batch_shapes.append(data["shapes"])
-            batch_dtypes.append(data["dtypes"])
-            file_tensors.append(merged_tensor)
-
-        assert all(o == batch_offsets[0] for o in batch_offsets)
-        assert all(s == batch_shapes[0] for s in batch_shapes)
-        assert all(d == batch_dtypes[0] for d in batch_dtypes)
-
-        batch_tensors = torch.stack(file_tensors, dim=0)  # (B, N)
-        batch_size = len(filenames)
-
-        shapes = [(batch_size,) + s[1:] for s in batch_shapes[0]]
-        offsets = batch_offsets[0]
-        dtypes = batch_dtypes[0]
-        tensors = [
-            batch_tensors[:, offsets[i] : offsets[i + 1]]
-            .reshape(shapes[i])
-            .to(dtype=dtypes[i])
-            for i in range(len(shapes))
-        ]
-        if pin_memory:
-            tensors = [t.pin_memory() for t in tensors]
-
-        return cls(
-            audio=tensors[0],
-            mel=tensors[1],
-            mask=tensors[2],
-            emb_pitch=tensors[3],
-            emb_content=tensors[4],
-            labels=Label(tensors[5]),
-        )
-
-
-class DDDMPreprocessor(nn.Module):
+class BasePreprocessor(nn.Module):
     def __init__(
         self,
         mel_transform: MelTransform,
@@ -218,12 +118,13 @@ class DDDMPreprocessor(nn.Module):
     ) -> DDDMInput:
         return super().__call__(audio, n_frames)
 
+
+class DDDMPreprocessor(BasePreprocessor):
     @torch.no_grad()
     def forward(
         self,
         audio: torch.Tensor,
         n_frames: torch.Tensor | None = None,
-        labels: Label | None = None,
     ) -> DDDMInput:
         """
         Preprocess the audio waveform.
@@ -257,8 +158,53 @@ class DDDMPreprocessor(nn.Module):
         audio_c = util.pad_audio_for_xlsr(audio_c, self.sample_rate)
         emb_content = self.content_encoder(audio_c)
 
-        if not labels:
-            labels = Label(torch.full((audio.size(0), 5), -1).detach().to(audio.device))
+        return DDDMInput(
+            audio=audio,
+            mel=mel,
+            mask=mask.detach(),
+            emb_pitch=emb_pitch.detach(),
+            emb_content=emb_content.detach(),
+        )
+
+
+class DurDDDMPreprocessor(BasePreprocessor):
+    @torch.no_grad()
+    def forward(
+        self,
+        audio: torch.Tensor,
+        n_frames: torch.Tensor | None = None,
+    ) -> DDDMInput:
+        """
+        Preprocess the audio waveform.
+
+        :param audio: Audio waveform
+        :param n_frames: Number of unpaded frames in the mel-spectrogram
+        :param labels: Metadata labels
+        :return: DDDMInput object
+        """
+        mel = self.mel_transform(audio)
+
+        if n_frames is None:
+            n_frames = torch.full(
+                (mel.size(0),), mel.size(2), dtype=torch.long, device=mel.device
+            )
+        mask = util.sequence_mask(n_frames, mel.size(2)).to(mel.dtype)
+
+        audio_p = (
+            self._praat_processor.g_batched(audio.detach().cpu()).to(audio.device)
+            if self.perturb_inputs
+            else audio.detach()
+        )
+        emb_pitch = self.pitch_encoder(audio_p)
+
+        audio_c = (
+            self._praat_processor.f_batched(audio.detach().cpu()).to(audio.device)
+            if self.perturb_inputs
+            else audio.detach()
+        )
+        # ensure xlsr/hubert embedding and x_mask are aligned
+        audio_c = util.pad_audio_for_xlsr(audio_c, self.sample_rate)
+        phonemes, emb_content = self.content_encoder(audio_c)
 
         return DDDMInput(
             audio=audio,
@@ -266,5 +212,5 @@ class DDDMPreprocessor(nn.Module):
             mask=mask.detach(),
             emb_pitch=emb_pitch.detach(),
             emb_content=emb_content.detach(),
-            labels=labels,
+            phonemes=phonemes,
         )

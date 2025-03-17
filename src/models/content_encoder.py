@@ -1,6 +1,8 @@
 import torch
 import transformers
-from transformers import Wav2Vec2ForCTC
+from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+
+from util import forward_fill
 
 
 class XLSR(torch.nn.Module):
@@ -35,8 +37,13 @@ class XLSR_ESPEAK_CTC(torch.nn.Module):
     :param layer: layer to extract features from
     """
 
-    def __init__(self, return_hidden: bool = False, layer: int = 12) -> None:
+    def __init__(
+        self, return_logits: bool = True, return_hidden: bool = False, layer: int = 12
+    ) -> None:
         super().__init__()
+        self.processor = Wav2Vec2Processor.from_pretrained(
+            "facebook/wav2vec2-lv-60-espeak-cv-ft"
+        )
         self.wav2vec2 = Wav2Vec2ForCTC.from_pretrained(
             "facebook/wav2vec2-xlsr-53-espeak-cv-ft"
         )
@@ -44,18 +51,35 @@ class XLSR_ESPEAK_CTC(torch.nn.Module):
         self.wav2vec2.requires_grad_(False)
         self.wav2vec2.eval()
         self.feature_layer = layer
+        self.return_logits = return_logits
         self.return_hidden = return_hidden
+
+    @staticmethod
+    def _logits_to_phoneme_sequence(logits: torch.Tensor) -> torch.Tensor:
+        ph = torch.argmax(logits, dim=-1)
+        return forward_fill(ph)
 
     @torch.no_grad()  # type: ignore
     def forward(
         self, x: torch.Tensor
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        x = (
+            self.processor(x, return_tensors="pt", sampling_rate=16000)
+            .input_values.squeeze(0)
+            .to(x.device)
+        )
         outputs = self.wav2vec2(x, output_hidden_states=self.return_hidden)
-        if self.return_hidden:
+        if self.return_logits and self.return_hidden:
+            hidden_states = outputs.hidden_states[self.feature_layer].permute((0, 2, 1))
+            logits = self._logits_to_phoneme_sequence(outputs.logits)
+            return logits, hidden_states
+        elif self.return_hidden:
             hidden_states = outputs.hidden_states[self.feature_layer].permute((0, 2, 1))
             return hidden_states
+        elif self.return_logits:
+            return self._logits_to_phoneme_sequence(outputs.logits)
         else:
-            return outputs.logits.permute((0, 2, 1))
+            raise ValueError("Model must return either logits or hidden states")
 
 
 class Hubert(torch.nn.Module):

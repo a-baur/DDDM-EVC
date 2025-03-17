@@ -54,17 +54,18 @@ def test_xlsr(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     assert output.shape[2] == expected_frames
 
 
-@pytest.mark.parametrize("config_name", ["vc_xlsr_ph"])
+@pytest.mark.parametrize("config_name", ["vc_xlsr_yin_dc"])
 def test_xlsr_espeak_ctc(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test Wav2Vec2 encoder."""
-    xlsr = XLSR_ESPEAK_CTC()
+    xlsr = XLSR_ESPEAK_CTC(return_logits=True, return_hidden=True)
     x, _ = next(iter(dataloader))
-    logits, emb = xlsr(x, return_hidden=True)
-
+    logits, emb = xlsr(x)
     expected_frames = x.shape[1] // model_config.data.mel_transform.hop_length
     assert logits.shape[0] == model_config.training.batch_size
-    assert logits.shape[1] == model_config.model.content_encoder.out_dim
-    assert logits.shape[2] == expected_frames
+    assert logits.shape[1] == expected_frames
+    assert emb.shape[0] == model_config.training.batch_size
+    assert emb.shape[1] == model_config.model.content_encoder.out_dim
+    assert emb.shape[2] == expected_frames
 
 
 @pytest.mark.parametrize("config_name", ["evc_hu"])

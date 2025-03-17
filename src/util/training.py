@@ -15,7 +15,8 @@ from torch import GradScaler
 import util
 from data import AudioDataloader
 from models import DDDM, HifiGAN
-from models.dddm.preprocessor import DDDMPreprocessor
+from models.dddm.duration_control import DurationControl
+from models.dddm.preprocessor import BasePreprocessor
 
 try:
     import matplotlib
@@ -37,6 +38,7 @@ class TrainMetrics:
     loss: float
     diff_loss: float
     rec_loss: float
+    dur_loss: float
     grad_norm: float
     learning_rate: float
 
@@ -53,7 +55,7 @@ class Trainer:
     def __init__(
         self,
         model: DDDM,
-        preprocessor: DDDMPreprocessor,
+        preprocessor: BasePreprocessor,
         style_encoder: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler.LRScheduler,
@@ -82,6 +84,14 @@ class Trainer:
         self.vocoder = HifiGAN(self.cfg.model.vocoder)
         util.load_model(self.vocoder, "hifigan.pth", device, freeze=True)
         self.vocoder.eval()
+
+        if cfg.model.use_duration_control:
+            self.duration_control = DurationControl(
+                cfg.model.content_encoder.out_dim,
+                cfg.model.style_encoder.out_dim,
+            ).to(device)
+        else:
+            self.duration_control = None
 
         self.preprocessor.to(device)
         self.style_encoder.to(device)
@@ -174,6 +184,11 @@ class Trainer:
         x = self.preprocessor(audio, n_frames)
         g = self.style_encoder(x).unsqueeze(-1)
 
+        if self.duration_control is not None:
+            x, dur_loss = self.duration_control(x, g, return_loss=True)
+        else:
+            dur_loss = 0.0
+
         if self.distributed:
             diff_loss, rec_loss = self.model.module.compute_loss(x)
         else:
@@ -182,6 +197,7 @@ class Trainer:
         loss = (
             diff_loss * self.cfg.training.diff_loss_coef
             + rec_loss * self.cfg.training.rec_loss_coef
+            + dur_loss * self.cfg.training.dur_loss_coef
         )
 
         if self.cfg.training.use_fp16_scaling:
@@ -207,6 +223,7 @@ class Trainer:
             loss=loss.item(),
             diff_loss=diff_loss.item(),
             rec_loss=rec_loss.item(),
+            dur_loss=dur_loss,
             grad_norm=grad_norm,
             learning_rate=self.optimizer.param_groups[0]["lr"],
         )
@@ -338,7 +355,7 @@ class Trainer:
         batch_progress = batch_idx / self.n_batches
         self.logger.info(
             f"Epoch {epoch}: {batch_progress:7.2%} {batch_idx:4}/{self.n_batches} "
-            f"[{metrics.loss=:.5f}, {metrics.diff_loss=:.5f}, {metrics.rec_loss=:.5f}]"
+            f"[{metrics.loss=:.5f}, {metrics.diff_loss=:.5f}, {metrics.rec_loss=:.5f}, {metrics.dur_loss=:.5f}]"
         )
         if not VISUALIZATION:
             return
@@ -347,6 +364,7 @@ class Trainer:
             "total": metrics.loss,
             "reconstruction": metrics.rec_loss,
             "diffusion": metrics.diff_loss,
+            "duration": metrics.dur_loss,
         }
 
         self.train_writer.add_scalars("loss", losses, global_step)

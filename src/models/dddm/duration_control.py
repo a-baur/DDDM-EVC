@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch import nn
 
 import util
+from models import DDDMInput
 
 
 class LayerNorm(nn.Module):
@@ -72,38 +73,49 @@ class DurationControl(nn.Module):
     def __init__(
         self,
         in_dim: int,
+        gin_channels: int,
     ) -> None:
         super().__init__()
         self.duration_predictor = DurationPredictor(
-            in_dim, 256, 3, 0.5, gin_channels=512
+            in_dim, 256, 3, 0.5, gin_channels=gin_channels
         )
 
     def forward(
         self,
-        ph: torch.Tensor,
-        emb_c: torch.Tensor,
-        emb_p: torch.Tensor,
-        x_mask: torch.Tensor,
+        x: DDDMInput,
         g: torch.Tensor,
         return_loss: bool = False,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> DDDMInput | tuple[DDDMInput, torch.Tensor]:
+        assert x.phonemes is not None
+
         # unit pooling
-        units, dur = self._deduplicate(ph * x_mask.squeeze(1))
+        units, dur = self._deduplicate(x.phonemes * x.mask.squeeze(1))
         unit_mapping = self._get_unit_mapping(dur).unsqueeze(1)
 
-        u_mask = unit_mapping != 0
-        u_emb_c = self._unit_pooling(emb_c, unit_mapping)
-        u_emb_p = self._unit_pooling(emb_p, unit_mapping)
+        u_mask = units != 0
+        u_emb_c = self._unit_pooling(x.emb_content, unit_mapping)
+        u_emb_p = self._unit_pooling(x.emb_pitch, unit_mapping)
 
         # frame-level expansion
-        dur_pred = self.duration_predictor(u_emb_c, u_mask, g).squeeze(1)
+        log_dur_pred = self.duration_predictor(u_emb_c, u_mask.unsqueeze(1), g).squeeze(
+            1
+        )
+        dur_pred = torch.exp(log_dur_pred) * u_mask
+        dur_pred = torch.ceil(dur_pred)
         unit_mapping = self._get_unit_mapping(dur_pred).unsqueeze(1)
 
-        f_mask = unit_mapping != 0
-        f_emb_c = self._frame_expansion(u_emb_c, unit_mapping)
-        f_emb_p = self._frame_expansion(u_emb_p, unit_mapping)
+        x.mask = unit_mapping != 0
+        x.emb_content = self._frame_expansion(u_emb_c, unit_mapping)
+        x.emb_pitch = self._frame_expansion(u_emb_p, unit_mapping)
 
-        return f_emb_c, f_emb_p, f_mask
+        new_len = unit_mapping.size(2)
+        if return_loss:
+            loss = F.l1_loss(log_dur_pred, torch.log(dur.float() + 1e-6))
+            x.mel = F.interpolate(x.mel, size=new_len, mode="linear")
+            return x, loss
+        else:
+            x.mel = F.interpolate(x.mel, size=new_len, mode="linear")
+            return x
 
     @staticmethod
     def _unit_pooling(x: torch.Tensor, unit_mapping: torch.Tensor) -> torch.Tensor:
@@ -318,17 +330,27 @@ def _test() -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    dc = DurationControl(1024).to(device)
+    dc = DurationControl(1024, 512).to(device)
     x_mask = torch.full((32, 118), 1).unsqueeze(1).to(device).detach()
-    ph = torch.randint(0, 392, (32, 118)).to(device).detach()
+    ph = torch.randint(0, 3, (32, 118)).to(device).detach()
     emb_c = torch.randn(32, 1024, 118).to(device)
     emb_p = torch.randn(32, 1024, 118).to(device)
+
+    x = DDDMInput(
+        audio=None,
+        mel=None,
+        mask=x_mask,
+        emb_content=emb_c,
+        emb_pitch=emb_p,
+        phonemes=ph,
+    )
+
     start = time.time()
-    emb_c, emb_p, x_mask = dc(ph, emb_c, emb_p, x_mask, None)
+    output = dc(x, None)
     print(time.time() - start)
-    print(emb_c.shape)
-    print(emb_p.shape)
-    print(x_mask.shape)
+    print(output.emb_content.shape)
+    print(output.emb_pitch.shape)
+    print(output.mask.shape)
 
 
 if __name__ == "__main__":

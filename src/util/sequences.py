@@ -217,3 +217,23 @@ def pad_audio_for_xlsr(x: torch.Tensor, sampling_rate: int = 16000) -> torch.Ten
         return F.pad(x, (pad, pad), "reflect")
     else:
         return x
+
+
+def forward_fill(x: torch.Tensor) -> torch.Tensor:
+    """Forward fill zerores in a 2d-tensor
+
+    :param x: Input tensor (B,T)
+    :return: Forward fill tensor (B,T)
+    """
+    n_dim, t_dim = x.shape
+    # Generate indices range
+    rng = torch.arange(t_dim)
+
+    rng_2d = rng.unsqueeze(0).repeat(n_dim, 1)
+    # Replace indices to zero for elements that equal zero
+    rng_2d[x == 0] = 0
+
+    # Forward fill of indices range so all zero elements will be replaced with previous non-zero index.
+    idx = rng_2d.cummax(1).values
+    x = x[torch.arange(n_dim)[:, None], idx]
+    return x

@@ -10,12 +10,12 @@ from models.style_encoder import MetaStyleSpeech, StyleEncoder
 from modules.wavenet_decoder import WavenetDecoder
 
 from .base import DDDM
-from .preprocessor import DDDMPreprocessor
+from .preprocessor import BasePreprocessor, DDDMPreprocessor, DurDDDMPreprocessor
 
 
 def models_from_config(
     config: DictConfig, device: torch.device = None
-) -> tuple[DDDM, DDDMPreprocessor, MetaStyleSpeech | StyleEncoder]:
+) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech | StyleEncoder]:
     """Build DDDM model from Hydra configuration."""
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,6 +28,8 @@ def models_from_config(
         return build_vc_xlsr_ph_yin(config, device)
     elif model_choice == "vc_xlsr_yin":
         return build_vc_xlsr_yin(config, device)
+    elif model_choice == "vc_xlsr_yin_dc":
+        return build_vc_xlsr_yin_dc(config, device)
     elif model_choice == "evc_xlsr":
         return build_evc_xlsr(config, device)
     elif model_choice == "evc_xlsr_ph":
@@ -42,7 +44,7 @@ def models_from_config(
 
 def build_vc_xlsr(
     cfg: DictConfig, device: torch.device
-) -> tuple[DDDM, DDDMPreprocessor, MetaStyleSpeech]:
+) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech]:
     """Build DDDM VC XLSR model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
 
@@ -73,7 +75,7 @@ def build_vc_xlsr(
 
 def build_vc_xlsr_ph(
     cfg: DictConfig, device: torch.device
-) -> tuple[DDDM, DDDMPreprocessor, MetaStyleSpeech]:
+) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech]:
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
     util.load_model(style_encoder, "metastylespeech.pth")
@@ -105,7 +107,7 @@ def build_vc_xlsr_ph(
 
 def build_vc_xlsr_ph_yin(
     cfg: DictConfig, device: torch.device
-) -> tuple[DDDM, DDDMPreprocessor, MetaStyleSpeech]:
+) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech]:
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
     util.load_model(style_encoder, "metastylespeech.pth")
@@ -259,7 +261,7 @@ def build_evc_hubert(
 
 def build_vc_xlsr_yin(
     cfg: DictConfig, device: torch.device
-) -> tuple[DDDM, DDDMPreprocessor, MetaStyleSpeech]:
+) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech]:
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
     util.load_model(style_encoder, "metastylespeech.pth")
@@ -267,7 +269,40 @@ def build_vc_xlsr_yin(
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
         pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
-        content_encoder=XLSR_ESPEAK_CTC(return_hidden=True).to(device),
+        content_encoder=XLSR_ESPEAK_CTC(return_logits=False, return_hidden=True).to(
+            device
+        ),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+    )
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion).to(device),
+    )
+
+    return model, preprocessor, style_encoder
+
+
+def build_vc_xlsr_yin_dc(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech]:
+    """Build DDDM VC XLSR with pitch encoder model."""
+    style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
+    util.load_model(style_encoder, "metastylespeech.pth")
+
+    preprocessor = DurDDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
+        content_encoder=XLSR_ESPEAK_CTC(return_logits=True, return_hidden=True).to(
+            device
+        ),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
     )

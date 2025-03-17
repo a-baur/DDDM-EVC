@@ -19,7 +19,7 @@ from util.training import Trainer
 @hydra.main(
     version_base=None,
     config_path=config.CONFIG_PATH.as_posix(),
-    config_name="vc_xlsr_ph_yin",
+    config_name="config",
 )  # type: ignore
 def main(cfg: DictConfig) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
