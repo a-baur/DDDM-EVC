@@ -36,6 +36,8 @@ def models_from_config(
         return build_evc_xlsr_ph(config, device)
     elif model_choice == "evc_xlsr_ph_yin":
         return build_evc_xlsr_ph_yin(config, device)
+    elif model_choice == "evc_xlsr_yin":
+        return build_evc_xlsr_yin(config, device)
     elif model_choice == "evc_hu":
         return build_evc_hubert(config, device)
     else:
@@ -265,6 +267,37 @@ def build_vc_xlsr_yin(
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
     util.load_model(style_encoder, "metastylespeech.pth")
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
+        content_encoder=XLSR_ESPEAK_CTC(return_logits=False, return_hidden=True).to(
+            device
+        ),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+    )
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion).to(device),
+    )
+
+    return model, preprocessor, style_encoder
+
+
+def build_evc_xlsr_yin(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, BasePreprocessor, StyleEncoder]:
+    """Build DDDM VC XLSR with pitch encoder model."""
+    style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
+    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
