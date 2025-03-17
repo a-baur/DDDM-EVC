@@ -97,13 +97,13 @@ class DurationControl(nn.Module):
         u_emb_p = self._unit_pooling(x.emb_pitch, unit_mapping)
 
         # frame-level expansion
-        log_dur_pred = self.duration_predictor(
+        dur_pred = self.duration_predictor(
             u_emb_c.detach(),
             u_mask.unsqueeze(1),
             g,
         ).squeeze(1)
-        dur_pred = torch.exp(log_dur_pred) * u_mask
-        dur_pred = torch.ceil(dur_pred)
+        # dur_pred = torch.exp(log_dur_pred) * u_mask
+        dur_pred = torch.ceil(dur_pred * u_mask)
         unit_mapping = self._get_unit_mapping(dur_pred).unsqueeze(1)
 
         x.mask = (unit_mapping != 0).detach()
@@ -112,7 +112,7 @@ class DurationControl(nn.Module):
 
         new_len = unit_mapping.size(2)
         if return_loss:
-            loss = F.l1_loss(log_dur_pred, torch.log(dur.float() + 1e-6))
+            loss = F.l1_loss(dur_pred, dur.float())
             x.mel = F.interpolate(x.mel, size=new_len, mode="linear")
             return x, loss
         else:
