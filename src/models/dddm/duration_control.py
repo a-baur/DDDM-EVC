@@ -98,7 +98,7 @@ class DurationControl(nn.Module):
 
         # frame-level expansion
         log_dur_pred = self.duration_predictor(
-            u_emb_c,
+            u_emb_c.detach(),
             u_mask.unsqueeze(1),
             g,
         ).squeeze(1)
@@ -106,7 +106,7 @@ class DurationControl(nn.Module):
         dur_pred = torch.ceil(dur_pred)
         unit_mapping = self._get_unit_mapping(dur_pred).unsqueeze(1)
 
-        x.mask = unit_mapping != 0
+        x.mask = (unit_mapping != 0).detach()
         x.emb_content = self._frame_expansion(u_emb_c, unit_mapping)
         x.emb_pitch = self._frame_expansion(u_emb_p, unit_mapping)
 
