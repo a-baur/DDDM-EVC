@@ -51,7 +51,7 @@ def build_vc_xlsr(
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
 
     vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
-    util.load_model(vq_vae, "vqvae.pth")
+    util.load_model(vq_vae, "vqvae.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
@@ -80,10 +80,10 @@ def build_vc_xlsr_ph(
 ) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech]:
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
-    util.load_model(style_encoder, "metastylespeech.pth")
+    util.load_model(style_encoder, "metastylespeech.pth", mode="eval", freeze=True)
 
     vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
-    util.load_model(vq_vae, "vqvae.pth")
+    util.load_model(vq_vae, "vqvae.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
@@ -112,7 +112,7 @@ def build_vc_xlsr_ph_yin(
 ) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech]:
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
-    util.load_model(style_encoder, "metastylespeech.pth")
+    util.load_model(style_encoder, "metastylespeech.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
@@ -141,7 +141,9 @@ def build_evc_xlsr(
 ) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder]:
     """Build DDDM EVC XLSR model."""
     style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
-    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
+    util.load_model(
+        style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
+    )
 
     vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
     util.load_model(vq_vae, "vqvae.pth")
@@ -173,10 +175,12 @@ def build_evc_xlsr_ph(
 ) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder]:
     """Build DDDM EVC XLSR with pitch encoder model."""
     style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
-    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
+    util.load_model(
+        style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
+    )
 
     vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
-    util.load_model(vq_vae, "vqvae.pth")
+    util.load_model(vq_vae, "vqvae.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
@@ -205,7 +209,9 @@ def build_evc_xlsr_ph_yin(
 ) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder]:
     """Build DDDM EVC XLSR with pitch encoder model."""
     style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
-    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
+    util.load_model(
+        style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
+    )
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
@@ -234,10 +240,12 @@ def build_evc_hubert(
 ) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder]:
     """Build DDDM EVC Hubert model."""
     style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
-    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
+    util.load_model(
+        style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
+    )
 
     vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
-    util.load_model(vq_vae, "vqvae.pth")
+    util.load_model(vq_vae, "vqvae.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
@@ -266,7 +274,7 @@ def build_vc_xlsr_yin(
 ) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech]:
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
-    util.load_model(style_encoder, "metastylespeech.pth")
+    util.load_model(style_encoder, "metastylespeech.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
@@ -297,7 +305,9 @@ def build_evc_xlsr_yin(
 ) -> tuple[DDDM, BasePreprocessor, StyleEncoder]:
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
-    util.load_model(style_encoder.speaker_encoder, "metastylespeech.pth")
+    util.load_model(
+        style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
+    )
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
@@ -328,7 +338,7 @@ def build_vc_xlsr_yin_dc(
 ) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech]:
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
-    util.load_model(style_encoder, "metastylespeech.pth")
+    util.load_model(style_encoder, "metastylespeech.pth", mode="eval", freeze=True)
 
     preprocessor = DurDDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),

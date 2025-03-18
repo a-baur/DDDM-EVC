@@ -174,7 +174,9 @@ class Trainer:
         :param batch: Batch, containing waveform and unpadded length of frames
         :return: training metrics
         """
+        self.preprocessor.train()
         self.model.train()
+        self.style_encoder.train()
         self.optimizer.zero_grad()
 
         audio, n_frames = (
@@ -235,7 +237,9 @@ class Trainer:
 
         :return: evaluation metrics
         """
+        self.preprocessor.eval()
         self.model.eval()
+        self.style_encoder.eval()
 
         max_batches = self.cfg.training.eval_n_batches
         if not max_batches:

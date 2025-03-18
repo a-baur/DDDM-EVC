@@ -161,6 +161,7 @@ class MetaStyleSpeech(nn.Module):
         self.atten_drop = nn.Dropout(self.dropout)
         self.fc = nn.Conv1d(self.hidden_dim, self.out_dim, 1)
 
+    @torch.no_grad()
     def forward(self, x: DDDMInput) -> torch.Tensor:
         _x = self.spectral(x.mel) * x.mask
         _x = self.temporal(_x) * x.mask
