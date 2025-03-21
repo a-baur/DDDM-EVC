@@ -21,16 +21,8 @@ class StyleEncoder(nn.Module):
         self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
         self.emotion_encoder = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
 
-        spk_dim = cfg.speaker_encoder.out_dim
         emo_dim = cfg.emotion_emb_dim
-        cond_total = spk_dim + emo_dim
         self.emotion_emb = nn.Linear(cfg.emotion_encoder.out_dim, emo_dim)
-        self.cond_acts = nn.Sequential(
-            nn.Linear(cond_total, cond_total // 2),
-            nn.ReLU(),
-            nn.Linear(cond_total // 2, cond_total),
-            nn.Sigmoid(),
-        )
 
     def emotion_conversion(self, x: DDDMInput, emo_level: int) -> torch.Tensor:
         path = get_root_path() / "avgclass_emo_embeds" / "Development"
@@ -48,10 +40,9 @@ class StyleEncoder(nn.Module):
         :return: Condition tensor
         """
         emo = self.emotion_encoder(x.audio, embeddings_only=True)
-        # emo = self.emotion_emb(emo)
+        emo = self.emotion_emb(emo)
         spk = self.speaker_encoder(x)
         cond = torch.cat([spk, emo], dim=1)
-        # cond = cond * self.cond_acts(cond)
         return cond
 
 
