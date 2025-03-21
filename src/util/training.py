@@ -312,20 +312,20 @@ class Trainer:
         """
         ckpt_path = self.out_dir / "ckpt" / f"ckpt_e{epoch}_b{batch_idx}.pth"
         ckpt_path.parent.mkdir(exist_ok=True)
-        torch.save(
-            {
-                "epoch": epoch,
-                "iteration": batch_idx,
-                "model": self.model.state_dict(),
-                "preprocessor": self.preprocessor.state_dict(),
-                "style_encoder": self.style_encoder.state_dict(),
-                "duration_control": self.duration_control.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
-                "scaler": self.scaler.state_dict(),
-                "scheduler": self.scheduler.state_dict(),
-            },
-            ckpt_path,
-        )
+        ckpt = {
+            "epoch": epoch,
+            "iteration": batch_idx,
+            "model": self.model.state_dict(),
+            "preprocessor": self.preprocessor.state_dict(),
+            "style_encoder": self.style_encoder.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "scaler": self.scaler.state_dict(),
+            "scheduler": self.scheduler.state_dict(),
+        }
+        if self.duration_control is not None:
+            ckpt["duration_control"] = self.duration_control.state_dict()
+
+        torch.save(ckpt, ckpt_path)
         self.logger.info(f">>> CHECKPOINT SAVED in {ckpt_path.as_posix()}")
 
     def load_checkpoint(self, ckpt_path: str | Path) -> tuple[int, int]:
