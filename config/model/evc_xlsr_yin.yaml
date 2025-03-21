@@ -1,7 +1,7 @@
 defaults:
   - base_evc_xlsr_yin
 
-perturb_inputs: True
+perturb_inputs: False
 
 style_encoder:
   emotion_emb_dim: 256
