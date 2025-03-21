@@ -177,6 +177,9 @@ class Trainer:
         self.preprocessor.train()
         self.model.train()
         self.style_encoder.train()
+        if self.duration_control is not None:
+            self.duration_control.train()
+
         self.optimizer.zero_grad()
 
         audio, n_frames = (
@@ -240,6 +243,8 @@ class Trainer:
         self.preprocessor.eval()
         self.model.eval()
         self.style_encoder.eval()
+        if self.duration_control is not None:
+            self.duration_control.eval()
 
         max_batches = self.cfg.training.eval_n_batches
         if not max_batches:
@@ -314,6 +319,7 @@ class Trainer:
                 "model": self.model.state_dict(),
                 "preprocessor": self.preprocessor.state_dict(),
                 "style_encoder": self.style_encoder.state_dict(),
+                "duration_control": self.duration_control.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
                 "scaler": self.scaler.state_dict(),
                 "scheduler": self.scheduler.state_dict(),
@@ -333,6 +339,8 @@ class Trainer:
         self.model.load_state_dict(ckpt["model"])
         self.preprocessor.load_state_dict(ckpt["preprocessor"])
         self.style_encoder.load_state_dict(ckpt["style_encoder"])
+        if self.duration_control is not None:
+            self.duration_control.load_state_dict(ckpt["duration_control"])
         self.optimizer.load_state_dict(ckpt["optimizer"])
         self.scaler.load_state_dict(ckpt["scaler"])
         self.scheduler.load_state_dict(ckpt["scheduler"])
