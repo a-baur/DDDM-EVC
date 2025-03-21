@@ -116,7 +116,7 @@ def build_vc_xlsr_ph_yin(
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
-        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
+        pitch_encoder=YINEncoder().to(device),
         content_encoder=XLSR_ESPEAK_CTC().to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
@@ -185,7 +185,10 @@ def build_evc_xlsr_ph(
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
         pitch_encoder=vq_vae,
-        content_encoder=XLSR_ESPEAK_CTC().to(device),
+        content_encoder=XLSR_ESPEAK_CTC(
+            return_logits=True,
+            return_hidden=False,
+        ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
     )
@@ -215,8 +218,11 @@ def build_evc_xlsr_ph_yin(
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
-        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
-        content_encoder=XLSR_ESPEAK_CTC().to(device),
+        pitch_encoder=YINEncoder().to(device),
+        content_encoder=XLSR_ESPEAK_CTC(
+            return_logits=True,
+            return_hidden=False,
+        ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
     )
@@ -278,10 +284,11 @@ def build_vc_xlsr_yin(
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
-        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
-        content_encoder=XLSR_ESPEAK_CTC(return_logits=False, return_hidden=True).to(
-            device
-        ),
+        pitch_encoder=YINEncoder().to(device),
+        content_encoder=XLSR_ESPEAK_CTC(
+            return_logits=False,
+            return_hidden=True,
+        ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
     )
@@ -311,10 +318,11 @@ def build_evc_xlsr_yin(
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
-        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
-        content_encoder=XLSR_ESPEAK_CTC(return_logits=False, return_hidden=True).to(
-            device
-        ),
+        pitch_encoder=YINEncoder().to(device),
+        content_encoder=XLSR_ESPEAK_CTC(
+            return_logits=False,
+            return_hidden=True,
+        ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
     )
@@ -342,10 +350,12 @@ def build_vc_xlsr_yin_dc(
 
     preprocessor = DurDDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
-        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
-        content_encoder=XLSR_ESPEAK_CTC(return_logits=True, return_hidden=True).to(
-            device
-        ),
+        pitch_encoder=YINEncoder().to(device),
+        content_encoder=XLSR_ESPEAK_CTC(
+            return_logits=True,
+            return_hidden=True,
+            logits_to_phoneme=True,
+        ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
     )

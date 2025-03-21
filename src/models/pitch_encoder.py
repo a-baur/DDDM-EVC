@@ -30,7 +30,7 @@ class VQVAEEncoder(nn.Module):
 class YINEncoder(nn.Module):
     """YIN pitch encoder module."""
 
-    def __init__(self, cfg: VQVAEConfig) -> None:
+    def __init__(self) -> None:
         super().__init__()
         self.yin_transform = YINTransform(
             sample_rate=16000,

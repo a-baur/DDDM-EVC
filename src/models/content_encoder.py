@@ -38,7 +38,11 @@ class XLSR_ESPEAK_CTC(torch.nn.Module):
     """
 
     def __init__(
-        self, return_logits: bool = True, return_hidden: bool = False, layer: int = 12
+        self,
+        return_logits: bool = True,
+        return_hidden: bool = False,
+        logits_to_phoneme: bool = False,
+        layer: int = 12,
     ) -> None:
         super().__init__()
         self.processor = Wav2Vec2Processor.from_pretrained(
@@ -53,11 +57,12 @@ class XLSR_ESPEAK_CTC(torch.nn.Module):
         self.feature_layer = layer
         self.return_logits = return_logits
         self.return_hidden = return_hidden
+        self.logits_to_phoneme = logits_to_phoneme
 
-    @staticmethod
-    def _logits_to_phoneme_sequence(logits: torch.Tensor) -> torch.Tensor:
-        ph = torch.argmax(logits, dim=-1)
-        return forward_fill(ph)
+    def _logits_to_phoneme_sequence(self, logits: torch.Tensor) -> torch.Tensor:
+        if self.logits_to_phoneme:
+            return forward_fill(torch.argmax(logits, dim=-1))
+        return logits.permute((0, 2, 1))
 
     @torch.no_grad()  # type: ignore
     def forward(
