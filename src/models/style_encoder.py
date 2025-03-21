@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch import nn
 from transformers import Wav2Vec2Config, Wav2Vec2Processor
@@ -11,7 +12,7 @@ from models.dddm.preprocessor import DDDMInput
 from modules.commons import Mish
 from modules.style_speech import Conv1dGLU, MultiHeadAttention
 from modules.w2v2_l_robust import RegressionHead
-from util import temporal_avg_pool
+from util import get_root_path, temporal_avg_pool
 
 
 class StyleEncoder(nn.Module):
@@ -31,6 +32,14 @@ class StyleEncoder(nn.Module):
             nn.Sigmoid(),
         )
 
+    def emotion_conversion(self, x: DDDMInput, emo_level: int) -> torch.Tensor:
+        path = get_root_path() / "avgclass_emo_embeds" / "Development"
+        emo = np.load(path / f"{emo_level}.npy").astype(np.float32)
+        emo = torch.tensor(emo).to(x.audio.device).unsqueeze(0).expand(x.batch_size, -1)
+        spk = self.speaker_encoder(x)
+        cond = torch.cat([spk, emo], dim=1)
+        return cond
+
     def forward(self, x: DDDMInput) -> torch.Tensor:
         """
         Encode condition tensor.
@@ -39,10 +48,10 @@ class StyleEncoder(nn.Module):
         :return: Condition tensor
         """
         emo = self.emotion_encoder(x.audio, embeddings_only=True)
-        emo = self.emotion_emb(emo)
+        # emo = self.emotion_emb(emo)
         spk = self.speaker_encoder(x)
         cond = torch.cat([spk, emo], dim=1)
-        cond = cond * self.cond_acts(cond)
+        # cond = cond * self.cond_acts(cond)
         return cond
 
 
