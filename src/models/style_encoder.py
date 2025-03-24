@@ -28,6 +28,7 @@ class StyleEncoder(nn.Module):
         path = get_root_path() / "avgclass_emo_embeds" / "Development"
         emo = np.load(path / f"{emo_level}.npy").astype(np.float32)
         emo = torch.tensor(emo).to(x.audio.device).unsqueeze(0).expand(x.batch_size, -1)
+        emo = self.emotion_emb(emo)
         spk = self.speaker_encoder(x)
         cond = torch.cat([spk, emo], dim=1)
         return cond

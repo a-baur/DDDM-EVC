@@ -112,7 +112,7 @@ class DurationControl(nn.Module):
 
         new_len = unit_mapping.size(2)
         if return_loss:
-            loss = F.l1_loss(dur_pred, torch.log(dur.float()))
+            loss = F.l1_loss(log_dur_pred, torch.log(dur.float()))
             x.mel = F.interpolate(x.mel, size=new_len, mode="linear")
             return x, loss
         else:
@@ -225,7 +225,7 @@ class DurationControl(nn.Module):
 
         :example:
         >>> ph = torch.tensor([1, 1, 2, 3, 3, 3, 4, 4, 4, 4])
-        >>> DurationControl._deduplicate_sample(ph_sample)
+        >>> DurationControl._deduplicate_sample(ph)
         (tensor([1, 2, 3, 4]), tensor([2, 1, 3, 4]))
 
         :param ph_sample: Phoneme sequence tensor

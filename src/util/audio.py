@@ -127,7 +127,6 @@ class PraatProcessor:
 
         f(x) = fs(pr(peq(x)))
         """
-
         audio = self.parametric_equalizer(audio)
         wav_numpy = audio.numpy()
 
