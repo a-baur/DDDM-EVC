@@ -81,10 +81,10 @@ def test_hubert(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     assert output.shape[2] == expected_frames
 
 
-@pytest.mark.parametrize("config_name", ["vc_xlsr_ph_yin"])
+@pytest.mark.parametrize("config_name", ["evc_xlsr_yin"])
 def test_yin_encoder(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test YIN pitch encoder."""
-    yin = YINEncoder(model_config.model.pitch_encoder)
+    yin = YINEncoder()
     x, _ = next(iter(dataloader))
     out = yin(x)
     print(out.shape)

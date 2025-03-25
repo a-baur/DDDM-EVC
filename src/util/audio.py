@@ -14,6 +14,14 @@ import torch
 import torchaudio.functional as AF
 
 
+def _random_ratio(min_val: float, max_val: float) -> float:
+    ratio = random.uniform(min_val, max_val)
+    use_reciprocal = random.uniform(-1, 1) > 0
+    if use_reciprocal:
+        ratio = 1 / ratio
+    return ratio
+
+
 def get_yaapt_f0(
     audio: np.ndarray, sr: int = 16000, interp: bool = False
 ) -> np.ndarray:
@@ -97,6 +105,7 @@ class PraatProcessor:
 
     def __init__(self, sample_rate: int = 16000):
         self.sample_rate = sample_rate
+        self.parametric_equalizer = ParametricEqualizer(sample_rate)
 
     def g_batched(self, audio: torch.Tensor) -> torch.Tensor:
         """Batched version of g"""
@@ -113,7 +122,7 @@ class PraatProcessor:
 
         g(x) = fs(peq(x))
         """
-        audio = self.parametric_equalizer(audio)
+        audio = self.parametric_equalizer.apply(audio)
         wav_numpy = audio.numpy()
 
         sound = self.wav_to_Sound(wav_numpy)
@@ -127,7 +136,7 @@ class PraatProcessor:
 
         f(x) = fs(pr(peq(x)))
         """
-        audio = self.parametric_equalizer(audio)
+        audio = self.parametric_equalizer.apply(audio)
         wav_numpy = audio.numpy()
 
         sound = self.wav_to_Sound(wav_numpy)
@@ -141,9 +150,9 @@ class PraatProcessor:
 
         fs(pr(x))
         """
-        formant_shifting_ratio = self._random_ratio(1, 1.4)
-        pitch_shift_ratio = self._random_ratio(1, 2)
-        pitch_range_ratio = self._random_ratio(1, 1.5)
+        formant_shifting_ratio = _random_ratio(1, 1.4)
+        pitch_shift_ratio = _random_ratio(1, 2)
+        pitch_range_ratio = _random_ratio(1, 1.5)
 
         sound_new = self.apply_formant_and_pitch_shift(
             sound,
@@ -158,7 +167,7 @@ class PraatProcessor:
 
         fs(x)
         """
-        formant_shifting_ratio = self._random_ratio(1, 1.4)
+        formant_shifting_ratio = _random_ratio(1, 1.4)
 
         return self.apply_formant_and_pitch_shift(
             sound,
@@ -166,58 +175,6 @@ class PraatProcessor:
             pitch_shift_ratio=self._DEFAULT_PITCHSHIFTRATIO,
             pitch_range_ratio=self._DEFAULT_PITCHRANGERATIO,
         )
-
-    def parametric_equalizer(self, audio: torch.Tensor) -> torch.Tensor:
-        """Apply parametric equalizer for random frequency shaping
-
-        peq(x)
-        """
-        cutoff_low_freq = 60.0
-        cutoff_high_freq = 10000.0
-
-        q_min = 2
-        q_max = 5
-
-        num_filters = 8 + 2  # 8 for peak, 2 for high/low
-        key_freqs = [
-            self._power_ratio(float(z) / num_filters, cutoff_low_freq, cutoff_high_freq)
-            for z in range(num_filters)
-        ]
-        Qs = [
-            self._power_ratio(random.uniform(0, 1), q_min, q_max)
-            for _ in range(num_filters)
-        ]
-        gains = [random.uniform(-12, 12) for _ in range(num_filters)]
-
-        # peak filters
-        for i in range(1, 9):
-            audio = self._apply_iir_filter(
-                audio,
-                ftype="peak",
-                dBgain=gains[i],
-                cutoff_freq=key_freqs[i],
-                Q=Qs[i],
-            )
-
-        # high-shelving filter
-        audio = self._apply_iir_filter(
-            audio,
-            ftype="high",
-            dBgain=gains[-1],
-            cutoff_freq=key_freqs[-1],
-            Q=Qs[-1],
-        )
-
-        # low-shelving filter
-        audio = self._apply_iir_filter(
-            audio,
-            ftype="low",
-            dBgain=gains[0],
-            cutoff_freq=key_freqs[0],
-            Q=Qs[0],
-        )
-
-        return audio
 
     def wav_to_Sound(
         self, wav: parselmouth.Sound | np.ndarray | list
@@ -311,6 +268,63 @@ class PraatProcessor:
 
         return new_sound
 
+
+class ParametricEqualizer:
+    def __init__(self, sample_rate: int = 16000):
+        self.sample_rate = sample_rate
+
+    def apply(self, audio: torch.Tensor) -> torch.Tensor:
+        """Apply parametric equalizer for random frequency shaping
+
+        peq(x)
+        """
+        cutoff_low_freq = 60.0
+        cutoff_high_freq = 10000.0
+
+        q_min = 2
+        q_max = 5
+
+        num_filters = 8 + 2  # 8 for peak, 2 for high/low
+        key_freqs = [
+            self._power_ratio(float(z) / num_filters, cutoff_low_freq, cutoff_high_freq)
+            for z in range(num_filters)
+        ]
+        Qs = [
+            self._power_ratio(random.uniform(0, 1), q_min, q_max)
+            for _ in range(num_filters)
+        ]
+        gains = [random.uniform(-12, 12) for _ in range(num_filters)]
+
+        # peak filters
+        for i in range(1, 9):
+            audio = self._apply_iir_filter(
+                audio,
+                ftype="peak",
+                dBgain=gains[i],
+                cutoff_freq=key_freqs[i],
+                Q=Qs[i],
+            )
+
+        # high-shelving filter
+        audio = self._apply_iir_filter(
+            audio,
+            ftype="high",
+            dBgain=gains[-1],
+            cutoff_freq=key_freqs[-1],
+            Q=Qs[-1],
+        )
+
+        # low-shelving filter
+        audio = self._apply_iir_filter(
+            audio,
+            ftype="low",
+            dBgain=gains[0],
+            cutoff_freq=key_freqs[0],
+            Q=Qs[0],
+        )
+
+        return audio
+
     def _apply_iir_filter(
         self,
         audio: torch.Tensor,
@@ -395,11 +409,3 @@ class PraatProcessor:
     @staticmethod
     def _power_ratio(r: float, a: float, b: float) -> float:
         return a * math.pow((b / a), r)
-
-    @staticmethod
-    def _random_ratio(min_val: float, max_val: float) -> float:
-        ratio = random.uniform(min_val, max_val)
-        use_reciprocal = random.uniform(-1, 1) > 0
-        if use_reciprocal:
-            ratio = 1 / ratio
-        return ratio

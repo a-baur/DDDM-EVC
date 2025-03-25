@@ -142,18 +142,17 @@ class DDDMPreprocessor(BasePreprocessor):
             )
         mask = util.sequence_mask(n_frames, mel.size(2)).to(mel.dtype)
 
-        audio_p = (
-            self._praat_processor.g_batched(audio.detach().cpu()).to(audio.device)
-            if self.perturb_inputs
-            else audio.detach()
-        )
+        if self.perturb_inputs:
+            detached = audio.detach().cpu()
+            audio_p = self._praat_processor.g_batched(detached).to(audio.device)
+            audio_c = self._praat_processor.f_batched(detached).to(audio.device)
+        else:
+            detached = audio.detach()
+            audio_p = detached
+            audio_c = detached
+
         emb_pitch = self.pitch_encoder(audio_p)
 
-        audio_c = (
-            self._praat_processor.f_batched(audio.detach().cpu()).to(audio.device)
-            if self.perturb_inputs
-            else audio.detach()
-        )
         # ensure xlsr/hubert embedding and x_mask are aligned
         audio_c = util.pad_audio_for_xlsr(audio_c, self.sample_rate)
         emb_content = self.content_encoder(audio_c)
