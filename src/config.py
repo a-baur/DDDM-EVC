@@ -140,10 +140,11 @@ class VQVAEConfig:
 @dataclass
 class YinEncoderConfig:
     sample_rate: int
-    hop_length: int
     win_length: int
+    hop_length: int
     tau_max: int
     semitone_range: int
+    scope_lower: int
     out_dim: int
 
 

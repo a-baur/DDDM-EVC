@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 import util
-from config import VQVAEConfig
+from config import VQVAEConfig, YinEncoderConfig
 from modules.vqvae import Bottleneck, Encoder
 from modules.yin_encoder.modules import YINTransform_
 
@@ -30,16 +30,17 @@ class VQVAEEncoder(nn.Module):
 class YINEncoder(nn.Module):
     """YIN pitch encoder module."""
 
-    def __init__(self) -> None:
+    def __init__(self, cfg: YinEncoderConfig) -> None:
         super().__init__()
         self.yin_transform = YINTransform_(
-            sample_rate=16000,
-            win_length=1480,
-            hop_length=320,
-            tau_max=1480,
+            sample_rate=cfg.sample_rate,
+            win_length=cfg.win_length,
+            hop_length=cfg.hop_length,
+            tau_max=cfg.tau_max,
+            semitone_range=cfg.semitone_range,
         )
-        self.scope_lower = 15
-        self.scope_upper = 65
+        self.scope_lower = cfg.scope_lower
+        self.scope_upper = cfg.scope_lower + cfg.out_dim
 
     @torch.no_grad()  # type: ignore
     def forward(
@@ -50,9 +51,8 @@ class YINEncoder(nn.Module):
         if scope_shift is None:
             return yin[:, self.scope_lower : self.scope_upper]
         else:
-            return torch.stack(
-                [
-                    yin[:, self.scope_lower + shift : self.scope_upper + shift]
-                    for shift in scope_shift
-                ]
-            )
+            yin = [
+                yin[:, self.scope_lower + shift : self.scope_upper + shift]
+                for shift in scope_shift
+            ]
+            return torch.stack(yin)

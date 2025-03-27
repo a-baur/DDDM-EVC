@@ -20,9 +20,11 @@ content_encoder:
 pitch_encoder:
   sample_rate: 16000
   hop_length: 320  # same as mel_transform.hop_length
-  win_length: 1480
-  tau_max: 1480  # produces 80 midi values
-  out_dim: 80
+  win_length: 2048
+  tau_max: 2048  # produces 80 midi values
+  semitone_range: 12
+  scope_lower: 5
+  out_dim: 50
 
 decoder:
   frame_wise_pitch: True
