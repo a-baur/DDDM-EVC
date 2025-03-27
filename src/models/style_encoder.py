@@ -21,6 +21,9 @@ class StyleEncoder(nn.Module):
         self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
         self.emotion_encoder = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
 
+        self.speaker_encoder.requires_grad_(False)
+        self.emotion_encoder.requires_grad_(False)
+
         emo_dim = cfg.emotion_emb_dim
         self.emotion_emb = nn.Linear(cfg.emotion_encoder.out_dim, emo_dim)
 

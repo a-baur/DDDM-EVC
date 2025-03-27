@@ -4,7 +4,7 @@ import torch.nn as nn
 import util
 from config import VQVAEConfig, YinEncoderConfig
 from modules.vqvae import Bottleneck, Encoder
-from modules.yin_encoder.modules import YINTransform_
+from modules.yin_encoder.modules import YINTransform
 
 
 class VQVAEEncoder(nn.Module):
@@ -32,13 +32,14 @@ class YINEncoder(nn.Module):
 
     def __init__(self, cfg: YinEncoderConfig) -> None:
         super().__init__()
-        self.yin_transform = YINTransform_(
+        self.yin_transform = YINTransform(
             sample_rate=cfg.sample_rate,
             win_length=cfg.win_length,
             hop_length=cfg.hop_length,
             tau_max=cfg.tau_max,
             semitone_range=cfg.semitone_range,
         )
+        self.sample_rate = cfg.sample_rate
         self.scope_lower = cfg.scope_lower
         self.scope_upper = cfg.scope_lower + cfg.out_dim
 

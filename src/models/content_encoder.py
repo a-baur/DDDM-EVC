@@ -69,7 +69,11 @@ class XLSR_ESPEAK_CTC(torch.nn.Module):
         self, x: torch.Tensor
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         x = (
-            self.processor(x, return_tensors="pt", sampling_rate=16000)
+            self.processor(
+                x,
+                return_tensors="pt",
+                sampling_rate=16000,
+            )
             .input_values.squeeze(0)
             .to(x.device)
         )

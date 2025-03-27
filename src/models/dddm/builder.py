@@ -38,8 +38,6 @@ def models_from_config(
         return build_evc_xlsr_ph_yin(config, device)
     elif model_choice == "evc_xlsr_yin":
         return build_evc_xlsr_yin(config, device)
-    elif model_choice == "evc_hu":
-        return build_evc_hubert(config, device)
     else:
         raise ValueError(f"Unknown model configuration: {model_choice}")
 
@@ -313,7 +311,10 @@ def build_evc_xlsr_yin(
     """Build DDDM VC XLSR with pitch encoder model."""
     style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
     util.load_model(
-        style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
+        style_encoder.speaker_encoder,
+        "metastylespeech.pth",
+        mode="eval",
+        freeze=True,
     )
 
     preprocessor = DDDMPreprocessor(
