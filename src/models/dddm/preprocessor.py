@@ -142,7 +142,7 @@ class DDDMPreprocessor(BasePreprocessor):
             )
         mask = util.sequence_mask(n_frames, mel.size(2)).to(mel.dtype)
 
-        if self.perturb_inputs:
+        if self.perturb_inputs and self.training:
             detached = audio.detach().cpu()
             audio_p = self._praat_processor.g_batched(detached).to(audio.device)
             audio_c = self._praat_processor.f_batched(detached).to(audio.device)
