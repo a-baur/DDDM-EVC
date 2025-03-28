@@ -4,7 +4,7 @@ import torch.nn as nn
 import util
 from config import VQVAEConfig, YinEncoderConfig
 from modules.vqvae import Bottleneck, Encoder
-from modules.yin_encoder.modules import YINTransform
+from modules.yin_encoder.yingram import Yingram
 
 
 class VQVAEEncoder(nn.Module):
@@ -32,28 +32,20 @@ class YINEncoder(nn.Module):
 
     def __init__(self, cfg: YinEncoderConfig) -> None:
         super().__init__()
-        self.yin_transform = YINTransform(
+        self.yin_transform = Yingram(
             sample_rate=cfg.sample_rate,
             win_length=cfg.win_length,
             hop_length=cfg.hop_length,
-            tau_max=cfg.tau_max,
-            semitone_range=cfg.semitone_range,
+            fmin=cfg.fmin,
+            fmax=cfg.fmax,
+            scope_fmin=cfg.scope_fmin,
+            scope_fmax=cfg.scope_fmax,
+            bins=cfg.bins,
         )
         self.sample_rate = cfg.sample_rate
-        self.scope_lower = cfg.scope_lower
-        self.scope_upper = cfg.scope_lower + cfg.out_dim
 
     @torch.no_grad()  # type: ignore
     def forward(
-        self, x: torch.Tensor, scope_shift: torch.Tensor = None
+        self, x: torch.Tensor, semitone_shift: torch.Tensor = None
     ) -> torch.Tensor:
-        yin = self.yin_transform.yingram_batch(x)
-
-        if scope_shift is None:
-            return yin[:, self.scope_lower : self.scope_upper]
-        else:
-            yin = [
-                yin[:, self.scope_lower + shift : self.scope_upper + shift]
-                for shift in scope_shift
-            ]
-            return torch.stack(yin)
+        return self.yin_transform(x, semitone_shift)

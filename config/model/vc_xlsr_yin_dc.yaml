@@ -14,12 +14,14 @@ content_encoder:
 
 pitch_encoder:
   sample_rate: 16000
-  hop_length: 320  # same as mel_transform.hop_length
-  win_length: 2048
-  tau_max: 2048  # produces 80 midi values
-  semitone_range: 12
-  scope_lower: 5
-  out_dim: 50
+  hop_length: 320       # 16000 / 50
+  win_length: 1468      # 16000 / 10.913 (midi 5)
+  fmin: 10.91           # Hz, midi 5
+  fmax: 1046.50         # Hz, midi 84, 80 semitones
+  scope_fmin: 25.97     # Hz, midi 20
+  scope_fmax: 440.00    # Hz, midi 69, 50 semitones
+  bins: 20              # bins per semitone
+  out_dim: 1000         # 50 semitones * 20 bins
 
 decoder:
   frame_wise_pitch: True

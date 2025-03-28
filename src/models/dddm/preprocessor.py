@@ -154,7 +154,7 @@ class DDDMPreprocessor(BasePreprocessor):
         emb_pitch = self.pitch_encoder(audio_p)
 
         # ensure xlsr/hubert embedding and x_mask are aligned
-        audio_c = util.pad_audio_for_xlsr(audio_c, self.sample_rate)
+        audio_c = util.pad_for_xlsr(audio_c, self.sample_rate)
         emb_content = self.content_encoder(audio_c)
 
         return DDDMInput(
@@ -201,7 +201,7 @@ class DurDDDMPreprocessor(BasePreprocessor):
         emb_pitch = self.pitch_encoder(audio_p)
 
         # ensure xlsr/hubert embedding and x_mask are aligned
-        audio_c = util.pad_audio_for_xlsr(audio_c, self.sample_rate)
+        audio_c = util.pad_for_xlsr(audio_c, self.sample_rate)
         phonemes, emb_content = self.content_encoder(audio_c)
 
         return DDDMInput(

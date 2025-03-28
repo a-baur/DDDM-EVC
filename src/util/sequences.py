@@ -190,33 +190,37 @@ def get_u_net_compatible_length(length: int, num_downsamplings_in_unet: int = 2)
         length += 1
 
 
-def pad_audio_for_xlsr(x: torch.Tensor, sampling_rate: int = 16000) -> torch.Tensor:
+def pad_for_xlsr(x: torch.Tensor, sampling_rate: int = 16000) -> torch.Tensor:
     """
     Pads the input audio to ensure frame alignment between XLS-R embeddings
     and Mel spectrograms.
 
-    Wav2Vec2/XLS-R uses a 20ms stride and a 25ms window, but it skips the last
-    stride if the last window contains all remaining samples. In contrast,
-    Mel spectrogram computation performs another stride if the next window.
-    would still contain some samples.
-
-    Padding ensures XLS-R performs the last stride,
-    preventing an off-by-one frame mismatch.
+    Wav2Vec2/XLS-R uses a 20ms stride and a 25ms window. The padding ensures
+    that the last stride of XLS-R embeddings aligns with the last frame of
+    the Mel spectrogram.
 
     :param x: Input audio waveform
     :param sampling_rate: Sampling rate
     :return: Padded audio waveform
     """
-    diff_samples = int(0.005 * sampling_rate)
-    stride_samples = int(0.020 * sampling_rate)
+    win_length = int(0.025 * sampling_rate)
+    hop_length = int(0.020 * sampling_rate)
+    return pad_for_mel_alignment(x, win_length, hop_length)
 
-    # if remaining windows has less than 5ms of samples,
-    # pad so next window will contain at least one new sample.
-    if (rem := x.size(-1) % stride_samples) <= diff_samples:
-        pad = (rem // 2) + 1
-        return F.pad(x, (pad, pad), "reflect")
-    else:
-        return x
+
+def pad_for_mel_alignment(
+    x: torch.Tensor, win_length: int, hop_length: int
+) -> torch.Tensor:
+    """
+    Pad the input tensor to ensure frame alignment with centered mel-spectrogram.
+
+    :param x: Input tensor
+    :param win_length: Window length
+    :param hop_length: Hop length
+    :return: Padded tensor
+    """
+    pad = round((win_length - hop_length) // 2)
+    return F.pad(x, (pad, pad), mode="reflect")
 
 
 def forward_fill(x: torch.Tensor) -> torch.Tensor:

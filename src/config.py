@@ -142,9 +142,11 @@ class YinEncoderConfig:
     sample_rate: int
     win_length: int
     hop_length: int
-    tau_max: int
-    semitone_range: int
-    scope_lower: int
+    fmin: float
+    fmax: float
+    scope_fmin: float
+    scope_fmax: float
+    bins: int
     out_dim: int
 
 
