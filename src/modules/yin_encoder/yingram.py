@@ -154,7 +154,7 @@ class Yingram(nn.Module):
         idx_end = idx_start + self.scope_range
         if semitone_shift is not None:
             # raising by a semitone is equivalent to shifting down the scope
-            idx_shift = -(semitone_shift * self.bins).long()
+            idx_shift = -(semitone_shift * self.bins).int()
             return torch.stack(
                 [
                     x[i, :, idx_start + idx : idx_end + idx]

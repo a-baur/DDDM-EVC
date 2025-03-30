@@ -1,3 +1,5 @@
+import numpy as np
+import parselmouth
 import torch
 import torch.nn as nn
 
@@ -49,3 +51,24 @@ class YINEncoder(nn.Module):
         self, x: torch.Tensor, semitone_shift: torch.Tensor = None
     ) -> torch.Tensor:
         return self.yin_transform(x, semitone_shift)
+
+    def yin_with_pitch_shift(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+        """Compute the yin with pitch shift."""
+        x_pitch = torch.Tensor([_extract_pitch(s, self.sample_rate) for s in x])
+        t_pitch = torch.Tensor([_extract_pitch(s, self.sample_rate) for s in t])
+        x_midi = 69 + torch.log2(x_pitch / 440) * 12
+        t_midi = 69 + torch.log2(t_pitch / 440) * 12
+        semitone_shift = t_midi - x_midi
+        return self.yin_transform(x, semitone_shift)
+
+
+def _extract_pitch(x: torch.Tensor, sample_rate: int) -> float:
+    """Extract pitch from audio."""
+    pitch = parselmouth.praat.call(
+        parselmouth.Sound(x.cpu().numpy(), sampling_frequency=sample_rate),
+        "To Pitch",
+        0.01,
+        75,
+        600,
+    ).selected_array["frequency"]
+    return np.median(pitch[pitch > 1e-5]).item()

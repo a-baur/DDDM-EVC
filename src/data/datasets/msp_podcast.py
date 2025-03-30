@@ -33,6 +33,7 @@ class MSPPodcast(torch.utils.data.Dataset):
         cfg: config.DataConfig,
         split: T_SPLITS,
         return_filename: bool = False,
+        random_segmentation: bool = True,
     ) -> None:
         self.path = Path(cfg.dataset.path)
         if not self.path.is_absolute():
@@ -46,6 +47,7 @@ class MSPPodcast(torch.utils.data.Dataset):
         self.split = split
         self.fnames, self.lengths = self._load_manifest(split)
         self.return_filename = return_filename
+        self.random_segmentation = random_segmentation
 
     def __getitem__(
         self, index: int
@@ -60,7 +62,10 @@ class MSPPodcast(torch.utils.data.Dataset):
         audio, _ = torchaudio.load(self.path / "Audio" / fname)
         audio = audio.squeeze(0)  # (1, T) -> (T,), mono audio
 
-        audio, segment_size = random_segment(audio, segment_size=self.segment_size)
+        if self.random_segmentation:
+            audio, segment_size = random_segment(audio, segment_size=self.segment_size)
+        else:
+            segment_size = audio.size(-1)
         n_frames = segment_size // self.hop_length  # number of frames without padding
 
         if self.return_filename:
