@@ -81,15 +81,18 @@ class W2V2LRobust(Wav2Vec2PreTrainedModel):
         :param embeddings_only: If true, only return hidden states.
         :return: Hidden states and logits
         """
-        np_batch = [s.cpu().detach().numpy() for s in x.unbind(0)]
-        x_norm: torch.Tensor = self.processor(
-            np_batch,
-            return_tensors="pt",
-            sampling_rate=16000,
-            return_attention_mask=False,
-        )["input_values"].to(x.device)
+        x: torch.Tensor = (
+            self.processor(
+                x,
+                return_tensors="pt",
+                sampling_rate=16000,
+                return_attention_mask=False,
+            )
+            .input_values.squeeze(0)
+            .to(x.device)
+        )
 
-        outputs = self.wav2vec2(x_norm)
+        outputs = self.wav2vec2(x)
         hidden_states = outputs[0]
         hidden_states = torch.mean(hidden_states, dim=1)
 
