@@ -17,4 +17,5 @@ log_interval: 10
 eval_interval: 200
 save_interval: 2000
 output_dir: ${hydra:runtime.cwd}/${hydra:run.dir}
-eval_n_batches: 50  # Number of batches to eval during training
+eval_n_batches: 3  # Number of batches to eval during training
+eval_batch_size: 32

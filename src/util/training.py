@@ -236,7 +236,7 @@ class Trainer:
     @torch.no_grad()  # type: ignore
     def eval(self) -> EvalMetrics:
         """
-        Evaluate on the evaluation dataset.
+        Evaluate on the evaluation dataset with batched input.
 
         :return: evaluation metrics
         """
@@ -246,21 +246,22 @@ class Trainer:
         if self.duration_control is not None:
             self.duration_control.eval()
 
-        max_batches = self.cfg.training.eval_n_batches
-        if not max_batches:
-            max_batches = len(self.eval_dataloader)
+        max_batches = self.cfg.training.eval_n_batches or len(self.eval_dataloader)
 
         mel_loss = 0.0
         enc_loss = 0.0
         smpl_img = dict()
         smpl_audio = dict()
 
+        sample_count = 0
+
         batch: tuple[torch.Tensor, torch.Tensor]
         for batch_idx, batch in enumerate(self.eval_dataloader):
             audio, n_frames = (
-                batch[0].to(self.device, non_blocking=True),
-                batch[1].to(self.device, non_blocking=True),
+                batch[0].to(self.device, non_blocking=True),  # shape [B, ...]
+                batch[1].to(self.device, non_blocking=True),  # shape [B]
             )
+
             x = self.preprocessor(audio, n_frames)
             g = self.style_encoder(x).unsqueeze(-1)
 
@@ -269,27 +270,32 @@ class Trainer:
             )
             rec_mel = src_mel + ftr_mel
 
-            mel_loss += F.l1_loss(x.mel, y_mel).item()
-            enc_loss += F.l1_loss(x.mel, rec_mel).item()
+            mel_loss += F.l1_loss(x.mel, y_mel, reduction="mean").item()
+            enc_loss += F.l1_loss(x.mel, rec_mel, reduction="mean").item()
 
-            if batch_idx < 5:
-                # keep track of first five samples in eval dataset
-                y = self.vocoder(y_mel)
-                enc_wv = self.vocoder(rec_mel)
-                src_wv = self.vocoder(src_mel)
-                ftr_wv = self.vocoder(ftr_mel)
+            # Generate up to 5 samples total
+            for i in range(audio.size(0)):
+                if sample_count >= 5:
+                    break
 
-                smpl_audio[f"gen/audio_{batch_idx}"] = y.squeeze()
-                smpl_audio[f"gen/audio_enc_{batch_idx}"] = enc_wv.squeeze()
-                smpl_audio[f"gen/audio_src_{batch_idx}"] = src_wv.squeeze()
-                smpl_audio[f"gen/audio_ftr_{batch_idx}"] = ftr_wv.squeeze()
+                y = self.vocoder(y_mel[i].unsqueeze(0))
+                enc_wv = self.vocoder(rec_mel[i].unsqueeze(0))
+                src_wv = self.vocoder(src_mel[i].unsqueeze(0))
+                ftr_wv = self.vocoder(ftr_mel[i].unsqueeze(0))
 
-                smpl_img[f"gen/mel_{batch_idx}"] = _plot_spectrogram_to_numpy(
-                    [x.mel, y_mel, rec_mel, ftr_mel, src_mel],
+                smpl_audio[f"gen/audio_{sample_count}"] = y.squeeze()
+                smpl_audio[f"gen/audio_enc_{sample_count}"] = enc_wv.squeeze()
+                smpl_audio[f"gen/audio_src_{sample_count}"] = src_wv.squeeze()
+                smpl_audio[f"gen/audio_ftr_{sample_count}"] = ftr_wv.squeeze()
+
+                smpl_img[f"gen/mel_{sample_count}"] = _plot_spectrogram_to_numpy(
+                    [x.mel[i], y_mel[i], rec_mel[i], ftr_mel[i], src_mel[i]],
                     ["x", "dddm", "encoder", "filter", "source"],
                 )
 
-            if batch_idx == max_batches:
+                sample_count += 1
+
+            if batch_idx + 1 == max_batches:
                 break
 
         mel_loss /= max_batches

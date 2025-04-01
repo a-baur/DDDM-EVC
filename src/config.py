@@ -31,8 +31,9 @@ class TrainingConfig:
     eval_interval: int
     save_interval: int
     output_dir: str
+    eval_n_batches: int
+    eval_batch_size: int
     checkpoint: Optional[str] = None
-    eval_n_batches: Optional[int] = None
     clip_value: Optional[float] = None
 
 
@@ -189,6 +190,7 @@ class StyleEncoderConfig:
     emotion_emb_dim: int
     speaker_encoder: MetaStyleSpeechConfig
     emotion_encoder: W2VLRobustConfig
+    l2_normalize: bool = False
 
 
 @dataclass

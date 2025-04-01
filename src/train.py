@@ -72,7 +72,10 @@ def setup_trainer(
 
     eval_dataset = MSPPodcast(cfg.data, split="test1")
     eval_loader = AudioDataloader(
-        eval_dataset, cfg=cfg.data.dataloader, batch_size=1, shuffle=False
+        eval_dataset,
+        cfg=cfg.data.dataloader,
+        batch_size=cfg.training.eval_batch_size,
+        shuffle=False,
     )
 
     model, preprocessor, style_encoder = models_from_config(cfg, device=device)
