@@ -191,6 +191,8 @@ class StyleEncoderConfig:
     speaker_encoder: MetaStyleSpeechConfig
     emotion_encoder: W2VLRobustConfig
     l2_normalize: bool = False
+    p_emo_masking: float = 0.0
+    p_spk_masking: float = 0.0
 
 
 @dataclass

@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch import nn
 from transformers import Wav2Vec2Config, Wav2Vec2Processor
 from transformers.models.wav2vec2.modeling_wav2vec2 import (
@@ -27,12 +28,21 @@ class StyleEncoder(nn.Module):
         emo_dim = cfg.emotion_emb_dim
         self.emotion_emb = nn.Linear(cfg.emotion_encoder.out_dim, emo_dim)
 
+        self.l2_normalize = cfg.l2_normalize
+        self.p_spk_masking = cfg.p_spk_masking
+        self.p_emo_masking = cfg.p_emo_masking
+
     def emotion_conversion(self, x: DDDMInput, emo_level: int) -> torch.Tensor:
-        path = get_root_path() / "avgclass_emo_embeds" / "Development"
+        path = get_root_path() / "avgclass_emo_embeds" / "Train"
         emo = np.load(path / f"{emo_level}.npy").astype(np.float32)
         emo = torch.tensor(emo).to(x.audio.device).unsqueeze(0).expand(x.batch_size, -1)
         emo = self.emotion_emb(emo)
         spk = self.speaker_encoder(x)
+
+        if self.l2_normalize:
+            spk = F.normalize(spk, p=2, dim=1)
+            emo = F.normalize(emo, p=2, dim=1)
+
         cond = torch.cat([spk, emo], dim=1)
         return cond
 
@@ -46,6 +56,21 @@ class StyleEncoder(nn.Module):
         emo = self.emotion_encoder(x.audio, embeddings_only=True)
         emo = self.emotion_emb(emo)
         spk = self.speaker_encoder(x)
+
+        if self.l2_normalize:
+            spk = F.normalize(spk, p=2, dim=1)
+            emo = F.normalize(emo, p=2, dim=1)
+
+        if self.p_emo_masking > 0:
+            r = torch.rand(x.batch_size, 1).to(x.audio.device)
+            emo_mask = (r < self.p_emo_masking).float()
+            emo = emo * emo_mask.unsqueeze(1)
+
+        if self.p_spk_masking > 0:
+            r = torch.rand(x.batch_size, 1).to(x.audio.device)
+            spk_mask = (r < self.p_spk_masking).float()
+            spk = spk * spk_mask.unsqueeze(1)
+
         cond = torch.cat([spk, emo], dim=1)
         return cond
 
