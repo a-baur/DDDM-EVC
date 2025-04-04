@@ -145,6 +145,62 @@ class Diffusion(torch.nn.Module):
 
         return xt_src * mask, xt_ftr * mask, z * mask
 
+    def reverse_ode(
+        self,
+        z_src: torch.Tensor,
+        z_ftr: torch.Tensor,
+        mask: torch.Tensor,
+        src_out: torch.Tensor,
+        ftr_out: torch.Tensor,
+        g: torch.Tensor,
+        n_timesteps: int,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Reverse process using the probability flow ODE.
+
+        The reverse process is defined as:
+        dx_t = -0.5 * beta_t * (x_t - x_0) dt + 0.5 * beta_t * h * score(x_t, t) dt
+
+        :param z_src: Latent source tensor.
+        :param z_ftr: Latent filter tensor.
+        :param mask: Mask for the input tensor.
+        :param src_out: Source output of Source-Filter encoder.
+        :param ftr_out: Filter output of Source-Filter encoder.
+        :param g: Global conditioning tensor.
+        :param n_timesteps: Number of diffusion steps.
+        :param mode: Inference mode (pf, em, ml).
+        :return: Deterministic reconstruction of source and filter.
+        """
+        h = 1.0 / n_timesteps
+        xt_src = z_src * mask
+        xt_ftr = z_ftr * mask
+
+        for i in range(n_timesteps):
+            t = 1.0 - i * h
+            time = t * torch.ones(
+                z_src.shape[0], dtype=z_src.dtype, device=z_src.device
+            )
+
+            beta_t = self.get_beta(t)
+            dxt_src = (src_out - xt_src) * (0.5 * beta_t * h)
+            dxt_ftr = (ftr_out - xt_ftr) * (0.5 * beta_t * h)
+
+            estimated_score = (
+                0.5
+                * (
+                    self.estimator_src(xt_src, mask, src_out, g, time)
+                    + self.estimator_ftr(xt_ftr, mask, ftr_out, g, time)
+                )
+                * (beta_t * h)
+            )
+            dxt_src -= estimated_score
+            dxt_ftr -= estimated_score
+
+            xt_src = (xt_src - dxt_src) * mask
+            xt_ftr = (xt_ftr - dxt_ftr) * mask
+
+        return xt_src, xt_ftr
+
     @torch.no_grad()  # type: ignore
     def reverse_diffusion(
         self,
@@ -155,7 +211,7 @@ class Diffusion(torch.nn.Module):
         ftr_out: torch.Tensor,
         g: torch.Tensor,
         n_timesteps: int,
-        mode: Literal["pf", "em", "ml"],
+        mode: Literal["em", "ml"],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Reverse diffusion step.
@@ -171,7 +227,7 @@ class Diffusion(torch.nn.Module):
         :param ftr_out: Filter output of Source-Filter encoder.
         :param g: Global conditioning tensor.
         :param n_timesteps: Number of diffusion steps.
-        :param mode: Inference mode (pf, em, ml).
+        :param mode: Inference mode (em, ml).
         :return: Updated source and filter tensors.
         """
         h = 1.0 / n_timesteps
@@ -195,7 +251,6 @@ class Diffusion(torch.nn.Module):
                 omega += self.get_mu(t - h, t)
                 omega -= 0.5 * beta_t * h + 1.0
                 sigma = self.get_sigma(t - h, t)
-
             else:
                 kappa = 0.0
                 omega = 0.0
@@ -224,7 +279,6 @@ class Diffusion(torch.nn.Module):
 
         return xt_src, xt_ftr
 
-    @torch.no_grad()  # type: ignore
     def forward(
         self,
         z_src: torch.Tensor,
@@ -249,9 +303,18 @@ class Diffusion(torch.nn.Module):
         :param mode: Inference mode (pf, em, ml).
         :return: Updated source and filter tensors.
         """
-        return self.reverse_diffusion(
-            z_src, z_ftr, mask, src_out, ftr_out, g, n_timesteps, mode
-        )
+        if mode in ["ml", "em"]:
+            return self.reverse_diffusion(
+                z_src, z_ftr, mask, src_out, ftr_out, g, n_timesteps, mode
+            )
+        elif mode == "pf":
+            return self.reverse_ode(
+                z_src, z_ftr, mask, src_out, ftr_out, g, n_timesteps
+            )
+        else:
+            raise ValueError(
+                f"Invalid mode: {mode}. Expected one of ['pf', 'em', 'ml']"
+            )
 
     def loss_t(
         self,

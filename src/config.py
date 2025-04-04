@@ -24,7 +24,8 @@ class TrainingConfig:
     betas: tuple[float, float]
     eps: float
     use_fp16_scaling: bool
-    diff_loss_coef: float
+    src_ftr_loss_coef: float
+    score_loss_coef: float
     rec_loss_coef: float
     dur_loss_coef: float
     log_interval: int

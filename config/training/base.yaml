@@ -10,9 +10,10 @@ lr_decay: 0.999875
 betas: [0.8, 0.99]
 eps: 1e-9
 use_fp16_scaling: false  # gradient scaling
-diff_loss_coef: 1.0
+src_ftr_loss_coef: 1.0
+score_loss_coef: 1.0
 rec_loss_coef: 1.0
-dur_loss_coef: 1.0
+dur_loss_coef: 0.0
 log_interval: 10
 eval_interval: 200
 save_interval: 2000

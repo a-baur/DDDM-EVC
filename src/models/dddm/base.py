@@ -26,16 +26,26 @@ class DDDM(nn.Module):
         self,
         x: DDDMInput,
         g: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        rec_loss: bool = False,
+        time_steps: int = 6,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Compute the resynthesis loss of the DDDM model.
 
         :param x: DDDM input object
         :param g: Global conditioning tensor
-        :return: Tuple of the diffusion loss and the reconstruction loss
+        :param rec_loss: Whether to compute the diffusion reconstruction loss or not
+        :param time_steps: Number of diffusion steps for reconstruction loss
+        :return: Tuple of (score loss, source-filter loss, reconstruction loss)
         """
         mixup_ratios = torch.randint(0, 2, (x.batch_size,)).to(x.device).detach()
         src_mel, ftr_mel, src_mixup, ftr_mixup = self.encoder(x, g, mixup_ratios)
+        src_ftr_loss = F.l1_loss(x.mel, src_mel + ftr_mel)
+
+        if rec_loss:
+            src_mean_x, ftr_mean_x = self.diffusion.compute_diffused_mean(
+                x.mel, x.mask, src_mixup, ftr_mixup, 1.0
+            )
 
         # compute the diffusion loss on mixed up outputs
         max_length_new = util.get_u_net_compatible_length(x.mel.size(-1))
@@ -46,10 +56,32 @@ class DDDM(nn.Module):
             x_pad, x_mask_pad, src_mixup, ftr_mixup, g
         )
 
-        # compute the reconstruction loss on the original outputs
-        rec_loss = F.l1_loss(x.mel, src_mel + ftr_mel)
+        if rec_loss:
+            # Pad the sequences for U-Net compatibility
+            src_mean_x, ftr_mean_x = util.pad_tensors_to_length(
+                [src_mean_x, ftr_mean_x], max_length_new
+            )
 
-        return diff_loss, rec_loss
+            # Add noise to diffused mean to create priors for diffusion
+            start_n = torch.randn_like(src_mean_x, device=src_mean_x.device)
+            src_mean_x.add_(start_n)
+            ftr_mean_x.add_(start_n)
+
+            # use probability flow ODE to maintain gradient flow
+            y_mel = self.diffusion(
+                src_mean_x,
+                ftr_mean_x,
+                x_mask_pad,
+                src_mixup,
+                ftr_mixup,
+                g,
+                time_steps,
+                "pf",
+            )
+            rec_loss = F.l1_loss(y_mel, x_pad)
+            return diff_loss, src_ftr_loss, rec_loss
+        else:
+            return diff_loss, src_ftr_loss, torch.tensor(0.0)
 
     def forward(
         self,
@@ -70,7 +102,7 @@ class DDDM(nn.Module):
         src_mel, ftr_mel = self.encoder(x, g)
 
         if return_enc_out:
-            _src_mel, _ftr_mel = src_mel.detach().clone(), ftr_mel.detach().clone()
+            _src_mel, _ftr_mel = src_mel.clone().detach(), ftr_mel.clone().detach()
         else:
             _src_mel, _ftr_mel = None, None
 
@@ -81,7 +113,7 @@ class DDDM(nn.Module):
 
         # Pad the sequences for U-Net compatibility
         max_length_new = util.get_u_net_compatible_length(x.mel.size(-1))
-        src_mean_x, ftr_mean_x, src_mel, ftr_mel, x.mask = util.pad_tensors_to_length(
+        src_mean_x, ftr_mean_x, src_mel, ftr_mel, x_mask = util.pad_tensors_to_length(
             [src_mean_x, ftr_mean_x, src_mel, ftr_mel, x.mask], max_length_new
         )
 
@@ -92,8 +124,9 @@ class DDDM(nn.Module):
 
         # Diffusion
         y_src, y_ftr = self.diffusion(
-            src_mean_x, ftr_mean_x, x.mask, src_mel, ftr_mel, g, n_time_steps, "ml"
+            src_mean_x, ftr_mean_x, x_mask, src_mel, ftr_mel, g, n_time_steps, "ml"
         )
+
         y = (y_src + y_ftr) / 2
         y = y[:, :, : x.mel.size(-1)]  # Remove the padded frames
 

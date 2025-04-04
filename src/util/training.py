@@ -36,7 +36,8 @@ except ModuleNotFoundError:
 @dataclass
 class TrainMetrics:
     loss: float
-    diff_loss: float
+    score_loss: float
+    src_ftr_loss: float
     rec_loss: float
     dur_loss: float
     grad_norm: float
@@ -194,13 +195,19 @@ class Trainer:
         else:
             dur_loss = 0.0
 
+        compute_rec_loss = self.cfg.training.rec_loss_coef > 0.0
         if self.distributed:
-            diff_loss, rec_loss = self.model.module.compute_loss(x)
+            score_loss, src_ftr_loss, rec_loss = self.model.module.compute_loss(
+                x, g, compute_rec_loss
+            )
         else:
-            diff_loss, rec_loss = self.model.compute_loss(x, g)
+            score_loss, src_ftr_loss, rec_loss = self.model.compute_loss(
+                x, g, compute_rec_loss
+            )
 
         loss = (
-            diff_loss * self.cfg.training.diff_loss_coef
+            score_loss * self.cfg.training.score_loss_coef
+            + src_ftr_loss * self.cfg.training.src_ftr_loss_coef
             + rec_loss * self.cfg.training.rec_loss_coef
             + dur_loss * self.cfg.training.dur_loss_coef
         )
@@ -226,7 +233,8 @@ class Trainer:
 
         return TrainMetrics(
             loss=loss.item(),
-            diff_loss=diff_loss.item(),
+            score_loss=score_loss.item(),
+            src_ftr_loss=src_ftr_loss.item(),
             rec_loss=rec_loss.item(),
             dur_loss=dur_loss,
             grad_norm=grad_norm,
@@ -373,15 +381,17 @@ class Trainer:
         batch_progress = batch_idx / self.n_batches
         self.logger.info(
             f"Epoch {epoch}: {batch_progress:7.2%} {batch_idx:4}/{self.n_batches} "
-            f"[{metrics.loss=:.5f}, {metrics.diff_loss=:.5f}, {metrics.rec_loss=:.5f}, {metrics.dur_loss=:.5f}]"
+            f"[{metrics.loss=:.5f}, {metrics.src_ftr_loss=:.5f}, {metrics.score_loss=:.5f},"
+            f" {metrics.rec_loss=:.5f}, {metrics.dur_loss=:.5f}]"
         )
         if not VISUALIZATION:
             return
 
         losses = {
             "total": metrics.loss,
+            "source-filter": metrics.src_ftr_loss,
+            "score": metrics.score_loss,
             "reconstruction": metrics.rec_loss,
-            "diffusion": metrics.diff_loss,
             "duration": metrics.dur_loss,
         }
 

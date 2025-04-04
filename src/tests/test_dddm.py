@@ -73,6 +73,8 @@ def test_dddm_loss(
         x, dur_loss = dc(x, g, return_loss=True)
         assert dur_loss >= 0
 
-    diff_loss, rec_loss = model.compute_loss(x, g)
-    assert diff_loss >= 0
+    score_loss, src_ftr_loss, rec_loss = model.compute_loss(x, g, rec_loss=True)
+    print(score_loss, src_ftr_loss, rec_loss)
+    assert score_loss >= 0
+    assert src_ftr_loss >= 0
     assert rec_loss >= 0
