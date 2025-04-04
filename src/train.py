@@ -68,6 +68,7 @@ def setup_trainer(
         cfg=cfg.data.dataloader,
         batch_size=cfg.training.batch_size,
         sampler=train_sampler,
+        shuffle=not distributed,
     )
 
     eval_dataset = MSPPodcast(cfg.data, split="test1")

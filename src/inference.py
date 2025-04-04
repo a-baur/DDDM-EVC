@@ -27,10 +27,12 @@ def inference(
     tgt_audio, tgt_sr = torchaudio.load(target_path)
     assert src_sr == tgt_sr, "Source and target audio must have the same sampling rate"
 
+    src_audio = src_audio[:, :16000]
+
     model, preprocessor, style_encoder = models_from_config(cfg, device=device)
-    ckpt_dir = util.get_root_path() / "pretrained"
+    ckpt_dir = util.get_root_path() / "ckpt"
     ckpt = torch.load(
-        ckpt_dir / "ckpt_e30_b840.pth", map_location=device, weights_only=False
+        ckpt_dir / "ckpt_e7_b1196.pth", map_location=device, weights_only=False
     )
     model.load_state_dict(ckpt["model"])
     model.requires_grad_(False)
@@ -87,7 +89,7 @@ if __name__ == "__main__":
         "-c",
         "--config",
         type=str,
-        default="evc_xlsr_ph_yin",
+        default="evc_xlsr_yin",
         help="Name of config to use",
     )
     parser.add_argument(
