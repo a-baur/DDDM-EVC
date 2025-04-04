@@ -6,13 +6,13 @@ batch_size: 32
 epochs: 100
 segment_size: 32000
 learning_rate: 5e-5
-lr_decay: 0.999875
-betas: [0.8, 0.99]
-eps: 1e-9
+lr_decay: 0.9999
+betas: [0.85, 0.98]
+eps: 1e-8
 use_fp16_scaling: false  # gradient scaling
 src_ftr_loss_coef: 1.0
 score_loss_coef: 1.0
-rec_loss_coef: 1.0
+rec_loss_coef: 0.0
 dur_loss_coef: 0.0
 log_interval: 10
 eval_interval: 200
