@@ -61,15 +61,15 @@ class StyleEncoder(nn.Module):
             spk = F.normalize(spk, p=2, dim=1)
             emo = F.normalize(emo, p=2, dim=1)
 
-        if self.p_emo_masking > 0:
+        if self.p_emo_masking > 0 and self.training:
             r = torch.rand(x.batch_size, 1).to(x.audio.device)
-            emo_mask = (r < self.p_emo_masking).float()
-            emo = emo * emo_mask.unsqueeze(1)
+            emo_mask = 1 - (r < self.p_emo_masking).float()
+            emo = emo * emo_mask
 
-        if self.p_spk_masking > 0:
+        if self.p_spk_masking > 0 and self.training:
             r = torch.rand(x.batch_size, 1).to(x.audio.device)
-            spk_mask = (r < self.p_spk_masking).float()
-            spk = spk * spk_mask.unsqueeze(1)
+            spk_mask = 1 - (r < self.p_spk_masking).float()
+            spk = spk * spk_mask
 
         cond = torch.cat([spk, emo], dim=1)
         return cond
