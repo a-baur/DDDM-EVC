@@ -2,6 +2,10 @@ defaults:
   - base_evc_xlsr
 
 style_encoder:
+  l2_normalize: False
+  p_emo_masking: 0.0
+  p_spk_masking: 0.0
+
   emotion_emb_dim: 256
 
   emotion_encoder:
