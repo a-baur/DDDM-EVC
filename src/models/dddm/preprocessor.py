@@ -102,6 +102,7 @@ class BasePreprocessor(nn.Module):
         content_encoder: XLSR | Hubert | XLSR_ESPEAK_CTC,
         sample_rate: int,
         perturb_inputs: bool = False,
+        flatten_pitch: bool = False,
     ) -> None:
         super().__init__()
         self.mel_transform = mel_transform
@@ -109,7 +110,7 @@ class BasePreprocessor(nn.Module):
         self.content_encoder = content_encoder
         self.sample_rate = sample_rate
         self.perturb_inputs = perturb_inputs
-        self._praat_processor = PraatProcessor(sample_rate)
+        self._praat_processor = PraatProcessor(sample_rate, flatten_pitch)
 
     def __call__(
         self,

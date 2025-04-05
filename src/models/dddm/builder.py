@@ -57,6 +57,7 @@ def build_vc_xlsr(
         content_encoder=XLSR().to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(
@@ -89,6 +90,7 @@ def build_vc_xlsr_ph(
         content_encoder=XLSR_ESPEAK_CTC().to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(
@@ -118,6 +120,7 @@ def build_vc_xlsr_ph_yin(
         content_encoder=XLSR_ESPEAK_CTC().to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(
@@ -152,6 +155,7 @@ def build_evc_xlsr(
         content_encoder=XLSR().to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(
@@ -189,6 +193,7 @@ def build_evc_xlsr_ph(
         ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(
@@ -223,6 +228,7 @@ def build_evc_xlsr_ph_yin(
         ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(
@@ -257,6 +263,7 @@ def build_evc_hubert(
         content_encoder=Hubert().to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(
@@ -289,6 +296,7 @@ def build_vc_xlsr_yin(
         ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(
@@ -326,6 +334,7 @@ def build_evc_xlsr_yin(
         ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(
@@ -359,6 +368,7 @@ def build_vc_xlsr_yin_dc(
         ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
     )
 
     src_ftr_encoder = WavenetDecoder(

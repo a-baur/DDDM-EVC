@@ -2,6 +2,7 @@ defaults:
   - base_evc_xlsr_yin
 
 perturb_inputs: True
+flatten_pitch: True
 
 style_encoder:
   l2_normalize: False

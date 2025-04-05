@@ -9,6 +9,7 @@ import amfm_decompy.basic_tools as basic
 import amfm_decompy.pYAAPT as pYAAPT
 import numpy as np
 import parselmouth
+import pyworld as pw
 import scipy
 import torch
 import torchaudio.functional as AF
@@ -115,17 +116,20 @@ class PraatProcessor:
     _DEFAULT_PITCHSHIFTRATIO = 1.0
     _DEFAULT_PITCHRANGERATIO = 1.0
 
-    def __init__(self, sample_rate: int = 16000):
+    def __init__(self, sample_rate: int = 16000, flatten_pitch: bool = False) -> None:
         self.sample_rate = sample_rate
         self.parametric_equalizer = ParametricEqualizer(sample_rate)
+        self.flatten_pitch = flatten_pitch
 
     def g_batched(self, audio: torch.Tensor) -> torch.Tensor:
         """Batched version of g"""
+        audio = self.parametric_equalizer.apply(audio)
         batch_audio = [self.g(a) for a in audio]
         return torch.stack(batch_audio).to(audio.device)
 
     def f_batched(self, audio: torch.Tensor) -> torch.Tensor:
         """Batched version of f"""
+        audio = self.parametric_equalizer.apply(audio)
         batch_audio = [self.f(a) for a in audio]
         return torch.stack(batch_audio).to(audio.device)
 
@@ -134,10 +138,12 @@ class PraatProcessor:
 
         g(x) = fs(peq(x))
         """
-        audio = self.parametric_equalizer.apply(audio)
-        wav_numpy = audio.numpy()
+        sound = audio.numpy().astype(np.float64)
 
-        sound = self.wav_to_Sound(wav_numpy)
+        if self.flatten_pitch:
+            sound = self.apply_pitch_flattening(sound)
+
+        sound = self.wav_to_Sound(sound)
         sound = self.formant_shift(sound)
 
         audio = torch.from_numpy(sound.values).float().squeeze(0)
@@ -148,10 +154,12 @@ class PraatProcessor:
 
         f(x) = fs(pr(peq(x)))
         """
-        audio = self.parametric_equalizer.apply(audio)
-        wav_numpy = audio.numpy()
+        sound = audio.numpy().astype(np.float64)
 
-        sound = self.wav_to_Sound(wav_numpy)
+        if self.flatten_pitch:
+            sound = self.apply_pitch_flattening(sound)
+
+        sound = self.wav_to_Sound(sound)
         sound = self.formant_and_pitch_shift(sound)
 
         audio = torch.from_numpy(sound.values).float().squeeze(0)
@@ -279,6 +287,23 @@ class PraatProcessor:
         )
 
         return new_sound
+
+    def apply_pitch_flattening(self, wav: np.ndarray) -> np.ndarray:
+        """
+        Flatten the pitch of the audio signal.
+
+        :param wav: Audio waveform.
+        :return: Flattened audio waveform.
+        """
+        _f0, t = pw.dio(wav, self.sample_rate)
+        f0 = pw.stonemask(wav, _f0, t, self.sample_rate)
+        sp = pw.cheaptrick(wav, f0, t, self.sample_rate)
+        ap = pw.d4c(wav, f0, t, self.sample_rate)
+
+        mean_f0 = np.mean(f0[f0 > 0])
+        flat_f0 = np.where(f0 > 0, mean_f0, 0.0)
+
+        return pw.synthesize(flat_f0, sp, ap, self.sample_rate)
 
 
 class ParametricEqualizer:
