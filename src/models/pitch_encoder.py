@@ -20,11 +20,9 @@ class VQVAEEncoder(nn.Module):
 
     @torch.no_grad()  # type: ignore
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        f0 = util.get_normalized_f0(x, self.sample_rate)
+        f0 = util.get_normalized_f0(x, self.sample_rate, framework="parselmouth")
         f0_h = self.encoder(f0)
-        f0_h = [x.detach() for x in f0_h]
         zs, _, _, _ = self.vq(f0_h)
-        zs = [x.detach() for x in zs]
 
         return zs[0].detach()
 

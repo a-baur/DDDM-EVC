@@ -23,7 +23,7 @@ def _random_ratio(min_val: float, max_val: float) -> float:
 
 
 def get_yaapt_f0(
-    audio: np.ndarray, sr: int = 16000, interp: bool = False
+    audio: np.ndarray, sr: int = 16000, interp: bool = False, framework: str = "pyaapt"
 ) -> np.ndarray:
     """
     Get the fundamental frequency using YAAPT.
@@ -31,6 +31,7 @@ def get_yaapt_f0(
     :param audio: Audio waveform.
     :param sr: Sampling rate.
     :param interp: Interpolate the pitch values.
+    :param framework: Framework to use for pitch extraction.
     :return: Fundamental frequency values.
     """
     to_pad = int(20.0 / 1000 * sr) // 2
@@ -38,18 +39,26 @@ def get_yaapt_f0(
     for y in audio.astype(np.float64):
         y_pad = np.pad(y.squeeze(), (to_pad, to_pad), "constant", constant_values=0)
         try:  # TODO remove
-            pitch = pYAAPT.yaapt(
-                basic.SignalObj(y_pad, sr),
-                frame_length=20.0,
-                frame_space=5.0,
-                nccf_thresh1=0.25,
-                tda_frame_length=25.0,
-            )
-            f0s.append(
-                pitch.samp_interp[None, None, :]
-                if interp
-                else pitch.samp_values[None, None, :]
-            )
+            if framework == "pyaapt":
+                pitch = pYAAPT.yaapt(
+                    basic.SignalObj(y_pad, sr),
+                    frame_length=20.0,
+                    frame_space=5.0,
+                    nccf_thresh1=0.25,
+                    tda_frame_length=25.0,
+                ).samp_values
+            elif framework == "parselmouth":
+                pitch = parselmouth.praat.call(
+                    parselmouth.Sound(y_pad, sampling_frequency=sr),
+                    "To Pitch",
+                    0.005,
+                    75,
+                    600,
+                ).selected_array["frequency"]
+            else:
+                raise NotImplementedError(f"Unknown framework: {framework}")
+
+            f0s.append(pitch[None, None, :])
         except IndexError:
             f0s.append(np.zeros((1, 1, y_pad.shape[0])))
 
@@ -69,15 +78,18 @@ def normalize_f0(f0: np.ndarray) -> np.ndarray:
     return f0
 
 
-def get_normalized_f0(x: torch.Tensor, sr: int = 16000) -> torch.Tensor:
+def get_normalized_f0(
+    x: torch.Tensor, sr: int = 16000, framework: str = "pyaapt"
+) -> torch.Tensor:
     """
     Get the normalized fundamental frequency values.
 
     :param x: Audio tensor (B x T).
     :param sr: Sampling rate.
+    :param framework: Framework to use for pitch extraction.
     :return: Normalized fundamental frequency values.
     """
-    f0 = get_yaapt_f0(x.cpu().numpy(), sr)
+    f0 = get_yaapt_f0(x.cpu().numpy(), sr, framework=framework)
     f0 = normalize_f0(f0)
     return torch.FloatTensor(f0).to(x.device)
 
