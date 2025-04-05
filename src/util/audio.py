@@ -303,7 +303,8 @@ class PraatProcessor:
         mean_f0 = np.mean(f0[f0 > 0])
         flat_f0 = np.where(f0 > 0, mean_f0, 0.0)
 
-        return pw.synthesize(flat_f0, sp, ap, self.sample_rate)
+        y = pw.synthesize(flat_f0, sp, ap, self.sample_rate)
+        return y[: wav.shape[0]]  # Ensure the output shape matches the input shape
 
 
 class ParametricEqualizer:
