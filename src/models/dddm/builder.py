@@ -38,6 +38,8 @@ def models_from_config(
         return build_evc_xlsr_ph_yin(config, device)
     elif model_choice == "evc_xlsr_yin":
         return build_evc_xlsr_yin(config, device)
+    elif model_choice == "evc_xlsr_yin_l2_norm":
+        return build_evc_xlsr_yin(config, device)
     else:
         raise ValueError(f"Unknown model configuration: {model_choice}")
 
