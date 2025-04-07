@@ -36,6 +36,7 @@ class TrainingConfig:
     eval_batch_size: int
     checkpoint: Optional[str] = None
     clip_value: Optional[float] = None
+    compute_emotion_loss: bool = False
 
 
 # ---------------------

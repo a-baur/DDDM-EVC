@@ -14,9 +14,9 @@ from torch import GradScaler
 
 import util
 from data import AudioDataloader
-from models import DDDM, HifiGAN
+from models import DDDM, HifiGAN, W2V2LRobust
 from models.dddm.duration_control import DurationControl
-from models.dddm.preprocessor import BasePreprocessor
+from models.dddm.preprocessor import BasePreprocessor, DDDMInput
 
 try:
     import matplotlib
@@ -48,6 +48,7 @@ class TrainMetrics:
 class EvalMetrics:
     mel_loss: float
     enc_loss: float
+    emo_loss: float
     audio: dict[str, torch.Tensor]
     images: dict[str, np.ndarray | None]
 
@@ -93,6 +94,13 @@ class Trainer:
             ).to(device)
         else:
             self.duration_control = None
+
+        if cfg.training.compute_emotion_loss:
+            self.compute_emotion_loss = True
+            self.emotion_model = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
+        else:
+            self.compute_emotion_loss = False
+            self.emotion_model = None
 
         self.preprocessor.to(device)
         self.style_encoder.to(device)
@@ -261,6 +269,7 @@ class Trainer:
 
         mel_loss = 0.0
         enc_loss = 0.0
+        emo_loss = 0.0
         smpl_img = dict()
         smpl_audio = dict()
 
@@ -285,17 +294,23 @@ class Trainer:
             mel_loss += F.l1_loss(x.mel, y_mel, reduction="mean").item()
             enc_loss += F.l1_loss(x.mel, rec_mel, reduction="mean").item()
 
+            if self.compute_emotion_loss:
+                y = self.vocoder(y_mel)
+                emo_loss += self._compute_emo_loss(x, y)
+            else:
+                y = self.vocoder(y_mel[:5, ...])
+
             # Generate up to 5 samples total
             for i in range(audio.size(0)):
                 if sample_count >= 5:
                     break
 
-                y = self.vocoder(y_mel[i].unsqueeze(0))
+                y_wv = y[i]
                 enc_wv = self.vocoder(rec_mel[i].unsqueeze(0))
                 src_wv = self.vocoder(src_mel[i].unsqueeze(0))
                 ftr_wv = self.vocoder(ftr_mel[i].unsqueeze(0))
 
-                smpl_audio[f"gen/audio_{sample_count}"] = y.squeeze()
+                smpl_audio[f"gen/audio_{sample_count}"] = y_wv.squeeze()
                 smpl_audio[f"gen/audio_enc_{sample_count}"] = enc_wv.squeeze()
                 smpl_audio[f"gen/audio_src_{sample_count}"] = src_wv.squeeze()
                 smpl_audio[f"gen/audio_ftr_{sample_count}"] = ftr_wv.squeeze()
@@ -316,6 +331,7 @@ class Trainer:
         return EvalMetrics(
             mel_loss=mel_loss,
             enc_loss=enc_loss,
+            emo_loss=emo_loss,
             images=smpl_img,
             audio=smpl_audio,
         )
@@ -421,7 +437,8 @@ class Trainer:
         """
         self.logger.info(
             f">>> EVAL [Training progress: {global_progress:7.2%} "
-            f"| DDDM L1: {metrics.mel_loss:.5f} , Encoder L1: {metrics.enc_loss:.5f}]"
+            f"| DDDM L1: {metrics.mel_loss:.5f} , Encoder L1: {metrics.enc_loss:.5f} , "
+            f"Emotion loss: {metrics.emo_loss:.5f}]"
         )
         if not VISUALIZATION:
             return
@@ -429,6 +446,7 @@ class Trainer:
         losses = {
             "dddm": metrics.mel_loss,
             "source-filter encoder": metrics.enc_loss,
+            "emotion-classification-loss": metrics.emo_loss,
         }
 
         self.eval_writer.add_scalars("loss", losses, global_step)
@@ -480,6 +498,14 @@ class Trainer:
         if not checkpoint_files:
             return None
         return checkpoint_files[-1]
+
+    def _compute_emo_loss(self, x: DDDMInput, y: torch.Tensor) -> float:
+        assert x.label is not None, "Label is None. Cannot compute emotion loss."
+        # shape [B, (Act, Dom, Val)]
+        _, emo = self.emotion_model(y, embeddings_only=False)
+        labels = torch.cat([x.label.emo_act, x.label.emo_dom, x.label.emo_val])
+        emo_loss = F.mse_loss(emo, labels.float())
+        return emo_loss.item()
 
 
 def _plot_spectrogram_to_numpy(
