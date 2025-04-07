@@ -15,8 +15,8 @@ def test_style_encoder(
 ) -> None:
     """Test Meta-StyleSpeech encoder."""
     _, preprocessor, style_encoder = models_from_config(model_config, device)
-    audio, n_frames = next(iter(dataloader))
-    audio, n_frames = audio.to(device), n_frames.to(device)
+    audio, n_frames, labels = next(iter(dataloader))
+    audio, n_frames, labels = audio.to(device), n_frames.to(device), labels.to(device)
     x = preprocessor(audio)
     output = style_encoder(x)
     assert output.shape[0] == model_config.training.batch_size
@@ -84,7 +84,7 @@ def test_hubert(model_config: DictConfig, dataloader: AudioDataloader) -> None:
 @pytest.mark.parametrize("config_name", ["evc_xlsr_yin"])
 def test_yin_encoder(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test YIN pitch encoder."""
-    yin = YINEncoder()
+    yin = YINEncoder(model_config.pitch_encoder)
     x, _ = next(iter(dataloader))
     out = yin(x)
     print(out.shape)

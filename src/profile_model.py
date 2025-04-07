@@ -48,12 +48,16 @@ if __name__ == "__main__":
     ) as prof:
         start.record()
 
-        audio, n_frames = next(iter(dl))
-        audio, n_frames = audio.to(device), n_frames.to(device)
+        audio, n_frames, labels = next(iter(dl))
+        audio, n_frames, labels = (
+            audio.to(device),
+            n_frames.to(device),
+            labels.to(device),
+        )
         x: DDDMInput = preprocessor(audio)
         g = style_encoder(x).unsqueeze(-1)
-        diff_loss, rec_loss = model.compute_loss(x, g)
-        loss = diff_loss + rec_loss
+        score_loss, src_ftr_loss, rec_loss = model.compute_loss(x, g)
+        loss = score_loss + src_ftr_loss + rec_loss
         loss.backward()
 
         end.record()

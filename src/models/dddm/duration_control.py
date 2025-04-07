@@ -4,6 +4,7 @@ from torch import nn
 
 import util
 from models import DDDMInput
+from models.dddm.preprocessor import Label
 
 
 class LayerNorm(nn.Module):
@@ -331,17 +332,21 @@ def _test() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     dc = DurationControl(1024, 512).to(device)
+    audio = torch.randn(32, 32000).to(device)
+    mel = torch.randn(32, 80, 118).to(device)
     x_mask = torch.full((32, 118), 1).unsqueeze(1).to(device).detach()
+    labels = torch.full((32, 5), 1).to(device).detach()
     ph = torch.full((32, 118), 1).to(device).detach()
     emb_c = torch.randn(32, 1024, 118).to(device)
     emb_p = torch.randn(32, 1024, 118).to(device)
 
     x = DDDMInput(
-        audio=None,
-        mel=None,
+        audio=audio,
+        mel=mel,
         mask=x_mask,
         emb_content=emb_c,
         emb_pitch=emb_p,
+        label=Label(labels),
         phonemes=ph,
     )
 

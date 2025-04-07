@@ -133,7 +133,7 @@ class Trainer:
             self.logger.info("No checkpoint loaded...")
             start_epoch, start_batch = 0, 0
 
-        batch: tuple[torch.Tensor, torch.Tensor]
+        batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         for epoch in range(start_epoch, n_epochs):
             if self.distributed:
                 self.train_dataloader.sampler.set_epoch(epoch)  # noqa
@@ -168,7 +168,9 @@ class Trainer:
             # start next epoch with all batches
             start_batch = 0
 
-    def _train_batch(self, batch: tuple[torch.Tensor, torch.Tensor]) -> TrainMetrics:
+    def _train_batch(
+        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    ) -> TrainMetrics:
         """
         Train single batch of training data.
 
@@ -183,11 +185,12 @@ class Trainer:
 
         self.optimizer.zero_grad()
 
-        audio, n_frames = (
+        audio, n_frames, labels = (
             batch[0].to(self.device, non_blocking=True),
             batch[1].to(self.device, non_blocking=True),
+            batch[2].to(self.device, non_blocking=True),
         )
-        x = self.preprocessor(audio, n_frames)
+        x = self.preprocessor(audio, n_frames, labels)
         g = self.style_encoder(x).unsqueeze(-1)
 
         if self.duration_control is not None:
@@ -263,14 +266,15 @@ class Trainer:
 
         sample_count = 0
 
-        batch: tuple[torch.Tensor, torch.Tensor]
+        batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         for batch_idx, batch in enumerate(self.eval_dataloader):
-            audio, n_frames = (
+            audio, n_frames, labels = (
                 batch[0].to(self.device, non_blocking=True),  # shape [B, ...]
                 batch[1].to(self.device, non_blocking=True),  # shape [B]
+                batch[2].to(self.device, non_blocking=True),  # shape [B, ...]
             )
 
-            x = self.preprocessor(audio, n_frames)
+            x = self.preprocessor(audio, n_frames, labels)
             g = self.style_encoder(x).unsqueeze(-1)
 
             y_mel, src_mel, ftr_mel = self.model(

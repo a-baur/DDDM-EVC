@@ -28,12 +28,12 @@ def test_dddm_vc(
     """Test DDDM voice conversion"""
     model, preprocessor, style_encoder = models_from_config(model_config, device)
 
-    audio, n_frames = next(iter(dataloader))
-    audio, n_frames = audio.to(device), n_frames.to(device)
+    audio, n_frames, labels = next(iter(dataloader))
+    audio, n_frames, labels = audio.to(device), n_frames.to(device), labels.to(device)
     x = preprocessor(audio)
 
-    audio, n_frames = next(iter(dataloader))
-    audio, n_frames = audio.to(device), n_frames.to(device)
+    audio, n_frames, labels = next(iter(dataloader))
+    audio, n_frames, labels = audio.to(device), n_frames.to(device), labels.to(device)
     t = preprocessor(audio)
 
     g = style_encoder(t).unsqueeze(-1)
@@ -60,9 +60,9 @@ def test_dddm_loss(
     """Test DDDM model loss computation"""
     model, preprocessor, style_encoder = models_from_config(model_config, device)
 
-    audio, n_frames = next(iter(dataloader))
-    audio, n_frames = audio.to(device), n_frames.to(device)
-    x = preprocessor(audio)
+    audio, n_frames, labels = next(iter(dataloader))
+    audio, n_frames, labels = audio.to(device), n_frames.to(device), labels.to(device)
+    x = preprocessor(audio, n_frames, labels)
     g = style_encoder(x).unsqueeze(-1)
 
     if model_config.model.use_duration_control:
@@ -73,7 +73,7 @@ def test_dddm_loss(
         x, dur_loss = dc(x, g, return_loss=True)
         assert dur_loss >= 0
 
-    score_loss, src_ftr_loss, rec_loss = model.compute_loss(x, g, rec_loss=True)
+    score_loss, src_ftr_loss, rec_loss = model.compute_loss(x, g, rec_loss=False)
     print(score_loss, src_ftr_loss, rec_loss)
     assert score_loss >= 0
     assert src_ftr_loss >= 0

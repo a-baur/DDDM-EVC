@@ -1,3 +1,4 @@
+import csv
 from pathlib import Path
 from typing import Literal, no_type_check
 
@@ -20,6 +21,8 @@ class MSPPodcast(torch.utils.data.Dataset):
     """
 
     MANIFEST_FOLDER = "Manifests"
+    LABELS_FOLDER = "Labels"
+    LABEL_ORDER = ["EmoAct", "EmoVal", "EmoDom", "SpkrID", "Gender"]
     MANIFEST_FILES = {
         "development": "manifest_file_development.txt",
         "test1": "manifest_file_test1.txt",
@@ -32,8 +35,8 @@ class MSPPodcast(torch.utils.data.Dataset):
         self,
         cfg: config.DataConfig,
         split: T_SPLITS,
-        return_filename: bool = False,
         random_segmentation: bool = True,
+        load_labels: bool = True,
     ) -> None:
         self.path = Path(cfg.dataset.path)
         if not self.path.is_absolute():
@@ -46,12 +49,15 @@ class MSPPodcast(torch.utils.data.Dataset):
 
         self.split = split
         self.fnames, self.lengths = self._load_manifest(split)
-        self.return_filename = return_filename
         self.random_segmentation = random_segmentation
+        self.load_labels = load_labels
+
+        if self.load_labels:
+            self._load_labels()
 
     def __getitem__(
         self, index: int
-    ) -> tuple[torch.Tensor, int] | tuple[torch.Tensor, int, str]:
+    ) -> tuple[torch.Tensor, int] | tuple[torch.Tensor, int, torch.Tensor]:
         """
         Get a sample from the dataset.
 
@@ -68,13 +74,36 @@ class MSPPodcast(torch.utils.data.Dataset):
             segment_size = audio.size(-1)
         n_frames = segment_size // self.hop_length  # number of frames without padding
 
-        if self.return_filename:
-            return audio, n_frames, fname
+        if self.load_labels:
+            label = self._get_label_for_sample(fname)
+            return audio, n_frames, label
 
         return audio, n_frames
 
     def __len__(self) -> int:
         return len(self.fnames)
+
+    def _get_label_for_sample(self, fname: str) -> torch.Tensor:
+        """
+        Get label tensor for a given filename.
+
+        Ordering reflects slicing indices in Label class.
+
+        :param fname: Filename
+        :return: Label dictionary
+        """
+        if fname not in self.labels:
+            raise ValueError(f"Label for {fname} not found.")
+        label = self.labels[fname]
+        label["Gender"] = 0 if label["Gender"] == "Male" else 1
+        label["SpkrID"] = -1 if label["SpkrID"] == "Unknown" else int(label["SpkrID"])
+        return torch.Tensor([float(label[key]) for key in self.LABEL_ORDER])
+
+    def _load_labels(self) -> None:
+        fname = self.path / self.LABELS_FOLDER / "labels_consensus.csv"
+        with open(fname, "r", newline="") as f:
+            reader = csv.DictReader(f)
+            self.labels = {row.pop("FileName"): row for row in reader}
 
     def _load_manifest(self, split: T_SPLITS) -> tuple[list[str], list[float]]:
         """

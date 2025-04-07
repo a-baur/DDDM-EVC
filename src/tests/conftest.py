@@ -30,8 +30,8 @@ def dddm_input(
     model_config: DictConfig, dataloader: AudioDataloader, device: torch.device
 ) -> DDDMInput:
     _, preprocessor, _ = models_from_config(model_config, device)
-    x, x_n_frames = next(iter(dataloader))
-    x = preprocessor(x)
+    x, x_n_frames, labels = next(iter(dataloader))
+    x = preprocessor(x, x_n_frames, labels)
     return x
 
 

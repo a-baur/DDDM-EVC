@@ -36,8 +36,8 @@ class DDDMInput:
     :param mask: Padding mask for the mel-spectrogram
     :param emb_pitch: Pitch embedding
     :param emb_content: Content embedding
+    :param label: Metadata labels
     :param phonemes: Phoneme sequence prediction
-    :param labels: Metadata labels
     """
 
     audio: torch.Tensor
@@ -45,8 +45,8 @@ class DDDMInput:
     mask: torch.Tensor
     emb_pitch: torch.Tensor
     emb_content: torch.Tensor
+    label: Label
     phonemes: torch.Tensor | None = None
-    labels: Label | None = None
 
     def __len__(self) -> int:
         """Get the number of samples in the batch."""
@@ -87,8 +87,8 @@ class DDDMInput:
         self.emb_content = self.emb_content.to(device, non_blocking=True)
         if self.phonemes is not None:
             self.phonemes = self.phonemes.to(device, non_blocking=True)
-        if self.labels is not None:
-            self.labels.label_tensor = self.labels.label_tensor.to(
+        if self.label is not None:
+            self.label.label_tensor = self.label.label_tensor.to(
                 device, non_blocking=True
             )
         return self
@@ -116,8 +116,9 @@ class BasePreprocessor(nn.Module):
         self,
         audio: torch.Tensor,
         n_frames: torch.Tensor | None = None,
+        label: torch.Tensor | None = None,
     ) -> DDDMInput:
-        return super().__call__(audio, n_frames)
+        return super().__call__(audio, n_frames, label)
 
 
 class DDDMPreprocessor(BasePreprocessor):
@@ -126,13 +127,14 @@ class DDDMPreprocessor(BasePreprocessor):
         self,
         audio: torch.Tensor,
         n_frames: torch.Tensor | None = None,
+        label: torch.Tensor | None = None,
     ) -> DDDMInput:
         """
         Preprocess the audio waveform.
 
         :param audio: Audio waveform
         :param n_frames: Number of unpaded frames in the mel-spectrogram
-        :param labels: Metadata labels
+        :param label: Metadata labels
         :return: DDDMInput object
         """
         mel = self.mel_transform(audio)
@@ -158,12 +160,16 @@ class DDDMPreprocessor(BasePreprocessor):
         audio_c = util.pad_for_xlsr(audio_c, self.sample_rate)
         emb_content = self.content_encoder(audio_c)
 
+        if label is not None:
+            label = Label(label)
+
         return DDDMInput(
             audio=audio,
             mel=mel,
             mask=mask.detach(),
             emb_pitch=emb_pitch.detach(),
             emb_content=emb_content.detach(),
+            label=label,
         )
 
 
@@ -173,13 +179,14 @@ class DurDDDMPreprocessor(BasePreprocessor):
         self,
         audio: torch.Tensor,
         n_frames: torch.Tensor | None = None,
+        label: torch.Tensor | None = None,
     ) -> DDDMInput:
         """
         Preprocess the audio waveform.
 
         :param audio: Audio waveform
         :param n_frames: Number of unpaded frames in the mel-spectrogram
-        :param labels: Metadata labels
+        :param label: Metadata labels
         :return: DDDMInput object
         """
         mel = self.mel_transform(audio)
@@ -205,6 +212,9 @@ class DurDDDMPreprocessor(BasePreprocessor):
         audio_c = util.pad_for_xlsr(audio_c, self.sample_rate)
         phonemes, emb_content = self.content_encoder(audio_c)
 
+        if label is not None:
+            label = Label(label)
+
         return DDDMInput(
             audio=audio,
             mel=mel,
@@ -212,4 +222,5 @@ class DurDDDMPreprocessor(BasePreprocessor):
             emb_pitch=emb_pitch.detach(),
             emb_content=emb_content.detach(),
             phonemes=phonemes,
+            label=label,
         )

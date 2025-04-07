@@ -9,10 +9,10 @@ from util import get_root_path, random_segment
 
 def librispeech_collate_fn(
     batch: list[tuple[torch.Tensor, ...]],
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     cfg = config.load_hydra_config("vc_xlsr")
 
-    audio = next(zip(*batch))
+    audio, _, labels = zip(*batch)
     segments = [random_segment(a, cfg.data.dataset.segment_size) for a in audio]
     audio, length = zip(*segments)
     audio = torch.stack(audio)
@@ -20,7 +20,10 @@ def librispeech_collate_fn(
     # number of frames without padding
     length = torch.tensor(length)
     length = length // cfg.data.mel_transform.hop_length
-    return audio, length
+
+    labels = torch.stack(labels)
+
+    return audio, length, labels
 
 
 def Librispeech(
