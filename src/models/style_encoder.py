@@ -16,6 +16,66 @@ from modules.w2v2_l_robust import RegressionHead
 from util import get_root_path, temporal_avg_pool
 
 
+class StyleLabelEncoder(nn.Module):
+    def __init__(self, cfg: StyleEncoderConfig):
+        super().__init__()
+        self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
+
+        self.speaker_encoder.requires_grad_(False)
+
+        emo_dim = cfg.emotion_emb_dim
+        self.emotion_emb = nn.Linear(cfg.emotion_encoder.out_dim, emo_dim)
+
+        self.l2_normalize = cfg.l2_normalize
+        self.p_spk_masking = cfg.p_spk_masking
+        self.p_emo_masking = cfg.p_emo_masking
+
+    def emotion_conversion(self, x: DDDMInput, emo_level: int) -> torch.Tensor:
+        assert x.label is not None, "Label is None. Cannot encode condition tensor."
+
+        emo = x.label.label_tensor[:, 0:2]
+        emo[:, 0] = emo_level
+        emo = self.emotion_emb(emo)
+        spk = self.speaker_encoder(x)
+
+        if self.l2_normalize:
+            spk = F.normalize(spk, p=2, dim=1)
+            emo = F.normalize(emo, p=2, dim=1)
+
+        cond = torch.cat([spk, emo], dim=1)
+        return cond
+
+    def forward(self, x: DDDMInput) -> torch.Tensor:
+        """
+        Encode condition tensor.
+
+        :param x: DDDM input object
+        :return: Condition tensor
+        """
+        assert x.label is not None, "Label is None. Cannot encode condition tensor."
+
+        emo = x.label.label_tensor[:, 0:3]
+        emo = self.emotion_emb(emo)
+        spk = self.speaker_encoder(x)
+
+        if self.l2_normalize:
+            spk = F.normalize(spk, p=2, dim=1)
+            emo = F.normalize(emo, p=2, dim=1)
+
+        if self.p_emo_masking > 0 and self.training:
+            r = torch.rand(x.batch_size, 1).to(x.audio.device)
+            emo_mask = 1 - (r < self.p_emo_masking).float()
+            emo = emo * emo_mask
+
+        if self.p_spk_masking > 0 and self.training:
+            r = torch.rand(x.batch_size, 1).to(x.audio.device)
+            spk_mask = 1 - (r < self.p_spk_masking).float()
+            spk = spk * spk_mask
+
+        cond = torch.cat([spk, emo], dim=1)
+        return cond
+
+
 class StyleEncoder(nn.Module):
     def __init__(self, cfg: StyleEncoderConfig):
         super().__init__()

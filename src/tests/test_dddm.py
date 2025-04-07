@@ -14,7 +14,8 @@ CONFIG_NAMES = [
     # "evc_xlsr_ph",
     # "vc_xlsr_ph_yin",
     # "evc_xlsr_ph_yin",
-    "evc_xlsr_yin",
+    # "evc_xlsr_yin",
+    "evc_xlsr_yin_label",
     # "vc_xlsr_yin_dc",
 ]
 
@@ -28,13 +29,21 @@ def test_dddm_vc(
     """Test DDDM voice conversion"""
     model, preprocessor, style_encoder = models_from_config(model_config, device)
 
-    audio, n_frames, labels = next(iter(dataloader))
-    audio, n_frames, labels = audio.to(device), n_frames.to(device), labels.to(device)
-    x = preprocessor(audio)
+    audio, n_frames, x_labels = next(iter(dataloader))
+    audio, n_frames, x_labels = (
+        audio.to(device),
+        n_frames.to(device),
+        x_labels.to(device),
+    )
+    x = preprocessor(audio, n_frames, x_labels)
 
-    audio, n_frames, labels = next(iter(dataloader))
-    audio, n_frames, labels = audio.to(device), n_frames.to(device), labels.to(device)
-    t = preprocessor(audio)
+    audio, n_frames, t_labels = next(iter(dataloader))
+    audio, n_frames, t_labels = (
+        audio.to(device),
+        n_frames.to(device),
+        t_labels.to(device),
+    )
+    t = preprocessor(audio, n_frames, t_labels)
 
     g = style_encoder(t).unsqueeze(-1)
 

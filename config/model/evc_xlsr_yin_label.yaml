@@ -1,0 +1,62 @@
+defaults:
+  - base_evc_xlsr_yin
+
+perturb_inputs: True
+flatten_pitch: False
+
+style_encoder:
+  l2_normalize: False
+  p_emo_masking: 0.0
+  p_spk_masking: 0.0
+
+  emotion_emb_dim: 256
+
+  emotion_encoder:
+    out_dim: 3
+
+  speaker_encoder:
+    in_dim: 80
+    hidden_dim: 256
+    out_dim: 256
+
+content_encoder:
+  out_dim: 1024
+
+pitch_encoder:
+  sample_rate: 16000
+  hop_length: 320       # 16000 / 50
+  win_length: 1468      # 16000 / 10.913 (midi 5)
+  fmin: 10.91           # midi 5
+  fmax: 1046.50         # midi 84, 80 semitones
+  scope_fmin: 25.97     # midi 20
+  scope_fmax: 440.00    # midi 69, 50 semitones
+  bins: 20              # bins per semitone
+  out_dim: 1000         # 50 semitones * 20 bins
+
+decoder:
+  frame_wise_pitch: True
+  in_dim: 128
+  hidden_dim: 128
+  out_dim: 80
+  kernel_size: 5
+  dilation_rate: 1
+  n_layers: 8
+  gin_channels: 512
+
+diffusion:
+  in_dim: 80
+  dec_dim: 128
+  cond_dim: 128
+  use_ref_t: False
+  beta_min: 0.05
+  beta_max: 20.0
+  gin_channels: 512
+
+vocoder:
+  in_dim: 80
+  resblock: 1
+  resblock_kernel_sizes: [3,7,11]
+  resblock_dilation_sizes: [[1,3,5], [1,3,5], [1,3,5]]
+  upsample_rates: [5,4,4,2,2]
+  upsample_initial_channel: 512
+  upsample_kernel_sizes: [11,8,8,4,4]
