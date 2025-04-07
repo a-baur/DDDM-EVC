@@ -98,6 +98,8 @@ class Trainer:
         if cfg.training.compute_emotion_loss:
             self.compute_emotion_loss = True
             self.emotion_model = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
+            self.emotion_model.requires_grad_(False)
+            self.emotion_model.to(device)
         else:
             self.compute_emotion_loss = False
             self.emotion_model = None
@@ -296,7 +298,7 @@ class Trainer:
 
             if self.compute_emotion_loss:
                 y = self.vocoder(y_mel)
-                emo_loss += self._compute_emo_loss(x, y)
+                emo_loss += self._compute_emo_loss(x, y.squeeze())
             else:
                 y = self.vocoder(y_mel[:5, ...])
 
@@ -503,8 +505,8 @@ class Trainer:
         assert x.label is not None, "Label is None. Cannot compute emotion loss."
         # shape [B, (Act, Dom, Val)]
         _, emo = self.emotion_model(y, embeddings_only=False)
-        labels = torch.cat([x.label.emo_act, x.label.emo_dom, x.label.emo_val])
-        emo_loss = F.mse_loss(emo, labels.float())
+        labels = x.label.label_tensor[:, [0, 2, 1]]
+        emo_loss = F.mse_loss(emo, labels)
         return emo_loss.item()
 
 
