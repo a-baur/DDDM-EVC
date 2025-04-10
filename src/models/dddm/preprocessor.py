@@ -19,6 +19,7 @@ class Label:
     label_tensor: torch.Tensor
 
     def __post_init__(self) -> None:
+        self.label_tensor[:, 0:3] /= 7  # Normalize emotion labels
         self.emo_act = self.label_tensor[:, 0]
         self.emo_val = self.label_tensor[:, 1]
         self.emo_dom = self.label_tensor[:, 2]
