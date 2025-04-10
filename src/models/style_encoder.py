@@ -33,7 +33,7 @@ class StyleLabelEncoder(nn.Module):
     def emotion_conversion(self, x: DDDMInput, emo_level: int) -> torch.Tensor:
         assert x.label is not None, "Label is None. Cannot encode condition tensor."
 
-        emo = x.label.label_tensor[:, 0:2]
+        emo = x.label.label_tensor[:, 0:3]
         emo[:, 0] = emo_level
         emo = self.emotion_emb(emo)
         spk = self.speaker_encoder(x)
