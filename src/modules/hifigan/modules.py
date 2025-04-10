@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Conv1d, ConvTranspose1d
-from torch.nn.utils import remove_weight_norm
 from torch.nn.utils.parametrizations import weight_norm
+from torch.nn.utils.parametrize import remove_parametrizations
 
 import util
 
@@ -107,9 +107,9 @@ class ResBlock1(torch.nn.Module):
 
     def remove_weight_norm(self) -> None:
         for layer in self.convs1:
-            remove_weight_norm(layer)
+            remove_parametrizations(layer, "weight")
         for layer in self.convs2:
-            remove_weight_norm(layer)
+            remove_parametrizations(layer, "weight")
 
 
 class ResBlock2(torch.nn.Module):
@@ -159,7 +159,7 @@ class ResBlock2(torch.nn.Module):
 
     def remove_weight_norm(self) -> None:
         for layer in self.convs:
-            remove_weight_norm(layer)
+            remove_parametrizations(layer, "weight")
 
 
 class Generator(torch.nn.Module):
@@ -233,6 +233,6 @@ class Generator(torch.nn.Module):
     def remove_weight_norm(self) -> None:
         print("Removing weight norm...")
         for layer in self.ups:
-            remove_weight_norm(layer)
+            remove_parametrizations(layer, "weight")
         for layer in self.resblocks:
             layer.remove_weight_norm()

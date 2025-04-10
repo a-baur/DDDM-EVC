@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.nn.utils.parametrizations import weight_norm
+from torch.nn.utils.parametrize import remove_parametrizations
 
 import util
 import util.math
@@ -42,10 +43,10 @@ class WaveNet(torch.nn.Module):
         self.drop = nn.Dropout(p_dropout)
 
         if gin_channels != 0:
-            cond_layer = torch.nn.Conv1d(
+            self.cond_layer = torch.nn.Conv1d(
                 gin_channels, 2 * hidden_channels * n_layers, 1
             )
-            self.cond_layer = weight_norm(cond_layer, name="weight")
+            # self.cond_layer = weight_norm(cond_layer, name="weight")
 
         for i in range(n_layers):
             dilation = dilation_rate**i
@@ -109,12 +110,12 @@ class WaveNet(torch.nn.Module):
         return output * x_mask
 
     def remove_weight_norm(self) -> None:
-        if self.gin_channels != 0:
-            torch.nn.utils.remove_weight_norm(self.cond_layer)
+        # if self.gin_channels != 0:
+        #     remove_parametrizations(self.cond_layer, "weight")
         for layer in self.in_layers:
-            torch.nn.utils.remove_weight_norm(layer)
+            remove_parametrizations(layer, "weight")
         for layer in self.res_skip_layers:
-            torch.nn.utils.remove_weight_norm(layer)
+            remove_parametrizations(layer, "weight")
 
 
 class Decoder(nn.Module):

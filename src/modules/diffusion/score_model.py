@@ -113,7 +113,7 @@ class GradLogPEstimator(torch.nn.Module):
         condition = torch.cat([condition, g.squeeze(-1)], 1)
         condition = self.cond_block(condition).unsqueeze(-1).unsqueeze(-1)
 
-        condition = condition.expand(-1, -1, x.shape[2], x.shape[3])
+        condition = condition.expand(-1, -1, x.shape[2], x.shape[3]).contiguous()
         x = torch.cat([x, condition], 1)
 
         hiddens = []
