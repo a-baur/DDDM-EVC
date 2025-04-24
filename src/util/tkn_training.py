@@ -279,7 +279,7 @@ class TknTrainer:
             x = self.preprocessor(audio, n_frames, labels)
             g = self.style_encoder(x).unsqueeze(-1)
 
-            y_mel = self.model(x, g, n_time_steps=6)
+            y_mel = self.model(x, g, n_time_steps=50)
 
             mel_loss += F.l1_loss(x.mel, y_mel, reduction="mean").item()
 
