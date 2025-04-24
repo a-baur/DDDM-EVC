@@ -4,6 +4,7 @@ from omegaconf import DictConfig
 
 from data import AudioDataloader
 from models import models_from_config
+from models.dddm.base import TokenDDDM
 from models.dddm.duration_control import DurationControl
 
 CONFIG_NAMES: list[str] = [
@@ -127,6 +128,7 @@ def test_tkn_dddm_loss(
     dataloader: AudioDataloader,
 ) -> None:
     """Test DDDM model loss computation"""
+    model: TokenDDDM
     model, preprocessor, style_encoder = models_from_config(model_config, device)
 
     audio, n_frames, labels = next(iter(dataloader))
@@ -134,6 +136,7 @@ def test_tkn_dddm_loss(
     x = preprocessor(audio, n_frames, labels)
     g = style_encoder(x).unsqueeze(-1)
 
-    score_loss, _, _ = model.compute_loss(x, g)
-    print(score_loss)
+    score_loss, rec_loss = model.compute_loss(x, g)  # type: ignore
+    print(score_loss, rec_loss)
     assert score_loss >= 0
+    assert rec_loss >= 0

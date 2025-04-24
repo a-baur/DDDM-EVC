@@ -154,7 +154,9 @@ class TokenDDDM(nn.Module):
         self.token_encoder = token_encoder
         self.diffusion = diffusion
 
-    def compute_loss(self, x: DDDMInput, g: torch.Tensor) -> torch.Tensor:
+    def compute_loss(
+        self, x: DDDMInput, g: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the resynthesis loss of the DDDM model.
 
@@ -169,9 +171,11 @@ class TokenDDDM(nn.Module):
         src_tkn, ftr_tkn, x_pad, x_mask_pad = util.pad_tensors_to_length(
             [src_tkn, ftr_tkn, x.mel, x.mask], max_length_new
         )
-        diff_loss = self.diffusion.compute_loss(x_pad, x_mask_pad, src_tkn, ftr_tkn)
+        diff_loss, rec_loss = self.diffusion.compute_loss(
+            x_pad, x_mask_pad, src_tkn, ftr_tkn
+        )
 
-        return diff_loss
+        return diff_loss, rec_loss
 
     def forward(
         self,

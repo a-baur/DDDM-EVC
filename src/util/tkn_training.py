@@ -14,7 +14,8 @@ from torch import GradScaler
 
 import util
 from data import AudioDataloader
-from models import DDDM, HifiGAN, W2V2LRobust
+from models import HifiGAN, W2V2LRobust
+from models.dddm.base import TokenDDDM
 from models.dddm.duration_control import DurationControl
 from models.dddm.preprocessor import BasePreprocessor, DDDMInput
 
@@ -37,6 +38,7 @@ except ModuleNotFoundError:
 class TrainMetrics:
     loss: float
     score_loss: float
+    rec_loss: float
     dur_loss: float
     grad_norm: float
     learning_rate: float
@@ -53,7 +55,7 @@ class EvalMetrics:
 class TknTrainer:
     def __init__(
         self,
-        model: DDDM,
+        model: TokenDDDM,
         preprocessor: BasePreprocessor,
         style_encoder: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
@@ -206,12 +208,13 @@ class TknTrainer:
             dur_loss = torch.tensor(0.0)
 
         if self.distributed:
-            score_loss = self.model.module.compute_loss(x, g)
+            score_loss, rec_loss = self.model.module.compute_loss(x, g)
         else:
-            score_loss = self.model.compute_loss(x, g)
+            score_loss, rec_loss = self.model.compute_loss(x, g)
 
         loss = (
             score_loss * self.cfg.training.score_loss_coef
+            + rec_loss * self.cfg.training.rec_loss_coef
             + dur_loss * self.cfg.training.dur_loss_coef
         )
 
@@ -237,6 +240,7 @@ class TknTrainer:
         return TrainMetrics(
             loss=loss.item(),
             score_loss=score_loss.item(),
+            rec_loss=rec_loss.item(),
             dur_loss=dur_loss.item(),
             grad_norm=grad_norm,
             learning_rate=self.optimizer.param_groups[0]["lr"],
@@ -376,7 +380,7 @@ class TknTrainer:
         batch_progress = batch_idx / self.n_batches
         self.logger.info(
             f"Epoch {epoch}: {batch_progress:7.2%} {batch_idx:4}/{self.n_batches} "
-            f"[{metrics.loss=:.5f}, {metrics.score_loss=:.5f}, {metrics.dur_loss=:.5f}]"
+            f"[{metrics.loss=:.5f}, {metrics.score_loss=:.5f}, {metrics.rec_loss=:.5f}]"
         )
         if not VISUALIZATION:
             return
@@ -384,7 +388,7 @@ class TknTrainer:
         losses = {
             "total": metrics.loss,
             "score": metrics.score_loss,
-            "duration": metrics.dur_loss,
+            "rec": metrics.rec_loss,
         }
 
         self.train_writer.add_scalars("loss", losses, global_step)

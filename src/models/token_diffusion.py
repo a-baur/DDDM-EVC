@@ -2,6 +2,7 @@ import math
 from typing import Literal
 
 import torch
+from torch.nn.functional import l1_loss
 
 from config import DiffusionConfig
 from modules.diffusion.score_model import TokenScoreEstimator
@@ -204,7 +205,7 @@ class TokenDiffusion(torch.nn.Module):
         src_tkn: torch.Tensor,
         ftr_tkn: torch.Tensor,
         t: float | torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the loss for time step t.
 
@@ -219,9 +220,20 @@ class TokenDiffusion(torch.nn.Module):
         z_estimation += self.estimator_ftr(xt, mask, ftr_tkn, t)
 
         z_estimation *= torch.sqrt(1.0 - self.get_gamma(0, t, p=2.0, use_torch=True))
-        loss = torch.sum((z_estimation + z) ** 2) / (torch.sum(mask) * self.n_feats)
+        score_loss = torch.sum((z_estimation + z) ** 2) / (
+            torch.sum(mask) * self.n_feats
+        )
 
-        return loss
+        x_hat = self.estimate_x0(xt, z_estimation, t)
+        rec_loss = l1_loss(x_hat, x0, reduction="mean")
+
+        return score_loss, rec_loss
+
+    def estimate_x0(
+        self, x_t: torch.Tensor, z_estimate: torch.Tensor, t: float
+    ) -> torch.Tensor:
+        alpha_t = self.get_gamma(0, t, p=2.0, use_torch=True)
+        return (x_t - torch.sqrt(1 - alpha_t) * z_estimate) / torch.sqrt(alpha_t)
 
     def compute_loss(
         self,
@@ -230,7 +242,7 @@ class TokenDiffusion(torch.nn.Module):
         src_tkn: torch.Tensor,
         ftr_tkn: torch.Tensor,
         offset: float = 1e-5,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the loss for the diffusion model.
 
