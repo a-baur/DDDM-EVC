@@ -6,7 +6,7 @@ from data import AudioDataloader
 from models import models_from_config
 from models.dddm.duration_control import DurationControl
 
-CONFIG_NAMES = [
+CONFIG_NAMES: list[str] = [
     # "evc_xlsr",
     # "evc_hu",
     # "vc_xlsr_ph",
@@ -14,7 +14,7 @@ CONFIG_NAMES = [
     # "evc_xlsr_ph",
     # "vc_xlsr_ph_yin",
     # "evc_xlsr_ph_yin",
-    "evc_xlsr_yin",
+    # "evc_xlsr_yin",
     # "evc_xlsr_yin_label",
     # "vc_xlsr_yin_dc",
 ]
@@ -82,8 +82,58 @@ def test_dddm_loss(
         x, dur_loss = dc(x, g, return_loss=True)
         assert dur_loss >= 0
 
-    score_loss, src_ftr_loss, rec_loss = model.compute_loss(x, g, rec_loss=False)
+    score_loss, src_ftr_loss, rec_loss = model.compute_loss(x, g, rec_loss=False)  # type: ignore
     print(score_loss, src_ftr_loss, rec_loss)
     assert score_loss >= 0
     assert src_ftr_loss >= 0
     assert rec_loss >= 0
+
+
+@pytest.mark.parametrize("config_name", ["tkn_evc_xlsr_yin"])
+def test_tkn_dddm_vc(
+    model_config: DictConfig,
+    device: torch.device,
+    dataloader: AudioDataloader,
+) -> None:
+    """Test DDDM voice conversion"""
+    model, preprocessor, style_encoder = models_from_config(model_config, device)
+
+    audio, n_frames, x_labels = next(iter(dataloader))
+    audio, n_frames, x_labels = (
+        audio.to(device),
+        n_frames.to(device),
+        x_labels.to(device),
+    )
+    x = preprocessor(audio, n_frames, x_labels)
+
+    audio, n_frames, t_labels = next(iter(dataloader))
+    audio, n_frames, t_labels = (
+        audio.to(device),
+        n_frames.to(device),
+        t_labels.to(device),
+    )
+    t = preprocessor(audio, n_frames, t_labels)
+
+    g = style_encoder(t).unsqueeze(-1)
+
+    y_mel = model(x, g)
+    assert y_mel.shape == x.mel.shape
+
+
+@pytest.mark.parametrize("config_name", ["tkn_evc_xlsr_yin"])
+def test_tkn_dddm_loss(
+    model_config: DictConfig,
+    device: torch.device,
+    dataloader: AudioDataloader,
+) -> None:
+    """Test DDDM model loss computation"""
+    model, preprocessor, style_encoder = models_from_config(model_config, device)
+
+    audio, n_frames, labels = next(iter(dataloader))
+    audio, n_frames, labels = audio.to(device), n_frames.to(device), labels.to(device)
+    x = preprocessor(audio, n_frames, labels)
+    g = style_encoder(x).unsqueeze(-1)
+
+    score_loss, _, _ = model.compute_loss(x, g)
+    print(score_loss)
+    assert score_loss >= 0

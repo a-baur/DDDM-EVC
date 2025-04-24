@@ -13,6 +13,7 @@ import config
 import util
 from data import AudioDataloader, MSPPodcast
 from models import models_from_config
+from util.tkn_training import TknTrainer
 from util.training import Trainer
 
 
@@ -45,7 +46,7 @@ def setup_trainer(
     device: torch.device,
     n_gpus: int,
     cfg: DictConfig,
-) -> Trainer:
+) -> Trainer | TknTrainer:
     on_cuda = n_gpus > 0
     distributed = n_gpus > 1
 
@@ -98,7 +99,12 @@ def setup_trainer(
         device="cuda" if on_cuda else "cpu", enabled=cfg.training.use_fp16_scaling
     )
 
-    return Trainer(
+    if cfg.model_choice.startswith("tkn"):
+        trainer = TknTrainer  # type: ignore
+    else:
+        trainer = Trainer  # type: ignore
+
+    return trainer(
         model=model,
         preprocessor=preprocessor,
         style_encoder=style_encoder,

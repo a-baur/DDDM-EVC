@@ -141,6 +141,14 @@ class VQVAEConfig:
 
 
 @dataclass
+class TokenEncoderConfig:
+    pitch_dim: int
+    content_dim: int
+    gin_channels: int
+    out_dim: int
+
+
+@dataclass
 class YinEncoderConfig:
     sample_rate: int
     win_length: int
@@ -237,6 +245,19 @@ class DDDM_EVC_XLSR_YIN_Config:
 
 
 @dataclass
+class TKN_DDDM_EVC_XLSR_YIN_Config:
+    style_encoder: StyleEncoderConfig
+    content_encoder: XLSRConfig
+    pitch_encoder: YinEncoderConfig
+    token_encoder: TokenEncoderConfig
+    diffusion: DiffusionConfig
+    vocoder: HifiGANConfig
+    perturb_inputs: bool = False
+    flatten_pitch: bool = False
+    use_duration_control: bool = False
+
+
+@dataclass
 class DDDM_EVC_XLSR_Config:
     style_encoder: StyleEncoderConfig
     content_encoder: XLSRConfig
@@ -290,6 +311,14 @@ class EVC_XLSR_YIN:
 
 
 @dataclass
+class TKN_EVC_XLSR_YIN:
+    component_id: str
+    training: TrainingConfig
+    data: DataConfig
+    model: TKN_DDDM_EVC_XLSR_YIN_Config
+
+
+@dataclass
 class EVC_XLSR:
     component_id: str
     training: TrainingConfig
@@ -322,6 +351,7 @@ cs.store(group="model", name="base_evc_xlsr", node=DDDM_EVC_XLSR_Config)
 cs.store(group="model", name="base_evc_hu", node=DDDM_EVC_HUBERT_Config)
 cs.store(group="model", name="base_vc_xlsr_yin", node=DDDM_VC_XLSR_YIN_Config)
 cs.store(group="model", name="base_evc_xlsr_yin", node=DDDM_EVC_XLSR_YIN_Config)
+cs.store(group="model", name="base_tkn_evc_xlsr_yin", node=TKN_DDDM_EVC_XLSR_YIN_Config)
 cs.store(group="training", name="base_training", node=TrainingConfig)
 cs.store(group="data", name="base_data", node=DataConfig)
 

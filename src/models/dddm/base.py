@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import util
 from models.dddm.preprocessor import DDDMInput
 from models.diffusion import Diffusion
+from models.token_diffusion import TokenDiffusion
 from modules.wavenet_decoder import WavenetDecoder
 
 
@@ -134,3 +135,71 @@ class DDDM(nn.Module):
             return y, _src_mel, _ftr_mel
         else:
             return y
+
+
+class TokenDDDM(nn.Module):
+    """
+    Decoupled Denoising Diffusion model for emotional voice conversion
+
+    Instead of data-driven priors, this model uses Gaussian priors
+    and is conditioned on pitch and filter tokens.
+
+    :param encoder: Source-Filter encoder
+    :param diffusion: Diffusion model
+    """
+
+    def __init__(self, token_encoder: nn.Module, diffusion: TokenDiffusion) -> None:
+        super().__init__()
+
+        self.token_encoder = token_encoder
+        self.diffusion = diffusion
+
+    def compute_loss(self, x: DDDMInput, g: torch.Tensor) -> torch.Tensor:
+        """
+        Compute the resynthesis loss of the DDDM model.
+
+        :param x: DDDM input object
+        :param g: Global conditioning tensor
+        :return: Tuple of (score loss, source-filter loss, reconstruction loss)
+        """
+        src_tkn, ftr_tkn = self.token_encoder(x, g)
+
+        # compute the diffusion loss on mixed up outputs
+        max_length_new = util.get_u_net_compatible_length(x.mel.size(-1))
+        src_tkn, ftr_tkn, x_pad, x_mask_pad = util.pad_tensors_to_length(
+            [src_tkn, ftr_tkn, x.mel, x.mask], max_length_new
+        )
+        diff_loss = self.diffusion.compute_loss(x_pad, x_mask_pad, src_tkn, ftr_tkn)
+
+        return diff_loss
+
+    def forward(
+        self,
+        x: DDDMInput,
+        g: torch.Tensor,
+        n_time_steps: int = 6,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass of the DDDM model.
+
+        :param x: DDDM input object
+        :param g: Global conditioning tensor
+        :param n_time_steps: Number of diffusion steps
+        :return: Output mel-spectrogram (and encoder output if return_enc_out is True)
+        """
+        src_tkn, ftr_tkn = self.token_encoder(x, g)
+
+        # Add noise to diffused mean to create priors for diffusion
+        z = torch.randn_like(x.mel, device=src_tkn.device)
+
+        # Pad the sequences for U-Net compatibility
+        max_length_new = util.get_u_net_compatible_length(x.mel.size(-1))
+        z, src_tkn, ftr_tkn, x_mask = util.pad_tensors_to_length(
+            [z, src_tkn, ftr_tkn, x.mask], max_length_new
+        )
+
+        # Diffusion
+        y = self.diffusion(z, x_mask, src_tkn, ftr_tkn, n_time_steps, "ml")
+        y = y[:, :, : x.mel.size(-1)]  # Remove the padded frames
+
+        return y

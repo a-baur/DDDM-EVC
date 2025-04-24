@@ -9,13 +9,19 @@ from models.pitch_encoder import VQVAEEncoder, YINEncoder
 from models.style_encoder import MetaStyleSpeech, StyleEncoder, StyleLabelEncoder
 from modules.wavenet_decoder import WavenetDecoder
 
-from .base import DDDM
+from ..speech_token_encoder import SpeechTokenConcatenator
+from ..token_diffusion import TokenDiffusion
+from .base import DDDM, TokenDDDM
 from .preprocessor import BasePreprocessor, DDDMPreprocessor, DurDDDMPreprocessor
 
 
 def models_from_config(
     config: DictConfig, device: torch.device = None
-) -> tuple[DDDM, BasePreprocessor, MetaStyleSpeech | StyleEncoder | StyleLabelEncoder]:
+) -> tuple[
+    DDDM | TokenDDDM,
+    BasePreprocessor,
+    MetaStyleSpeech | StyleEncoder | StyleLabelEncoder,
+]:
     """Build DDDM model from Hydra configuration."""
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,6 +48,8 @@ def models_from_config(
         return build_evc_xlsr_yin_label(config, device)
     elif model_choice == "evc_xlsr_yin_l2_norm":
         return build_evc_xlsr_yin(config, device)
+    elif model_choice == "tkn_evc_xlsr_yin":
+        return build_tkn_evc_xlsr_yin(config, device)
     else:
         raise ValueError(f"Unknown model configuration: {model_choice}")
 
@@ -423,5 +431,37 @@ def build_vc_xlsr_yin_dc(
         encoder=src_ftr_encoder,
         diffusion=Diffusion(cfg.model.diffusion).to(device),
     )
+
+    return model, preprocessor, style_encoder
+
+
+def build_tkn_evc_xlsr_yin(
+    cfg: DictConfig, device: torch.device
+) -> tuple[TokenDDDM, BasePreprocessor, StyleEncoder]:
+    """Build DDDM VC XLSR with pitch encoder model."""
+    style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
+    util.load_model(
+        style_encoder.speaker_encoder,
+        "metastylespeech.pth",
+        mode="eval",
+        freeze=True,
+    )
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform),
+        pitch_encoder=YINEncoder(cfg.model.pitch_encoder),
+        content_encoder=XLSR_ESPEAK_CTC(
+            return_logits=False,
+            return_hidden=True,
+        ),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
+    ).to(device)
+
+    model = TokenDDDM(
+        token_encoder=SpeechTokenConcatenator(cfg.model.token_encoder),
+        diffusion=TokenDiffusion(cfg.model.diffusion),
+    ).to(device)
 
     return model, preprocessor, style_encoder
