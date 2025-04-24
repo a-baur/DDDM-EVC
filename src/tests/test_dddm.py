@@ -14,8 +14,8 @@ CONFIG_NAMES = [
     # "evc_xlsr_ph",
     # "vc_xlsr_ph_yin",
     # "evc_xlsr_ph_yin",
-    # "evc_xlsr_yin",
-    "evc_xlsr_yin_label",
+    "evc_xlsr_yin",
+    # "evc_xlsr_yin_label",
     # "vc_xlsr_yin_dc",
 ]
 

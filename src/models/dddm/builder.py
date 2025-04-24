@@ -335,11 +335,11 @@ def build_evc_xlsr_yin(
         content_encoder=XLSR_ESPEAK_CTC(
             return_logits=False,
             return_hidden=True,
-        ).to(device),
+        ),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
         flatten_pitch=cfg.model.flatten_pitch,
-    )
+    ).to(device)
 
     src_ftr_encoder = WavenetDecoder(
         cfg.model.decoder,
@@ -349,8 +349,8 @@ def build_evc_xlsr_yin(
 
     model = DDDM(
         encoder=src_ftr_encoder,
-        diffusion=Diffusion(cfg.model.diffusion).to(device),
-    )
+        diffusion=Diffusion(cfg.model.diffusion),
+    ).to(device)
 
     return model, preprocessor, style_encoder
 

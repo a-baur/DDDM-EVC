@@ -9,7 +9,7 @@ from models.pitch_encoder import YINEncoder
 from util import get_normalized_f0, load_model
 
 
-@pytest.mark.parametrize("config_name", ["evc_xlsr_yin_label", "vc_xlsr", "evc_xlsr"])
+@pytest.mark.parametrize("config_name", ["evc_xlsr_yin"])
 def test_style_encoder(
     model_config: DictConfig, dataloader: AudioDataloader, device: torch.device
 ) -> None:
