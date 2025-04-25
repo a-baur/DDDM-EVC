@@ -112,14 +112,12 @@ class SinusoidalPosEmb(torch.nn.Module):
     def __init__(self, dim: int) -> None:
         super(SinusoidalPosEmb, self).__init__()
         self.dim = dim
-        self.scale = math.log(10000)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        device = x.device
         half_dim = self.dim // 2
-        emb = self.scale / (half_dim - 1)
-        emb = torch.exp(
-            torch.arange(half_dim, device=x.device, dtype=torch.float32) * -emb
-        )
+        emb = math.log(10000) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=device).float() * -emb)
         emb = 1000.0 * x.unsqueeze(1) * emb.unsqueeze(0)
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb

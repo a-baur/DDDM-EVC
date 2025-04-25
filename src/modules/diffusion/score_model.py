@@ -166,8 +166,7 @@ class TokenScoreEstimator(torch.nn.Module):
     ) -> None:
         super(TokenScoreEstimator, self).__init__()
 
-        gin_channels = 80
-        dims = [1 + dim_cond + gin_channels, *map(lambda m: dim_base * m, dim_mults)]
+        dims = [2, *map(lambda m: dim_base * m, dim_mults)]
         in_out = list(zip(dims[:-1], dims[1:]))
 
         self.time_pos_emb = SinusoidalPosEmb(dim_base)
@@ -177,13 +176,13 @@ class TokenScoreEstimator(torch.nn.Module):
             torch.nn.Linear(dim_base * 4, dim_base),
         )
 
-        # gin_channels = 80
-        # cond_total = dim_base + gin_channels
-        # self.cond_block = torch.nn.Sequential(
-        #     torch.nn.Conv1d(cond_total, 4 * dim_cond, 1),
-        #     Mish(),
-        #     torch.nn.Conv1d(4 * dim_cond, dim_cond, 1),
-        # )
+        gin_channels = 80
+        n_feats = 80
+        self.cond_block = torch.nn.Sequential(
+            torch.nn.Conv1d(gin_channels, 4 * gin_channels, 1),
+            Mish(),
+            torch.nn.Conv1d(4 * gin_channels, n_feats, 1),
+        )
 
         self.downs = torch.nn.ModuleList([])
         self.ups = torch.nn.ModuleList([])
@@ -241,12 +240,14 @@ class TokenScoreEstimator(torch.nn.Module):
         :param t:
         :return:
         """
-        condition = self.time_pos_emb(t)
-        t = self.mlp(condition)
+        t = self.time_pos_emb(t)
+        t = self.mlp(t)
+
+        condition = self.cond_block(stack_tensor)
 
         # g_emb = self.cond_emb(g)
         # x = torch.stack([x, stack_tensor], 1)  # [batch, enc_out, x_channel, time]
-        x = x[:, None, :, :]  # add dummy channel
+        # x = x[:, None, :, :]  # add dummy channel
         x_mask = x_mask.unsqueeze(1)
 
         # condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
@@ -254,13 +255,7 @@ class TokenScoreEstimator(torch.nn.Module):
         # condition = self.cond_block(condition)[:, :, None, :]
         # condition = condition.expand(-1, -1, x.shape[2], -1).contiguous()
 
-        condition = condition.unsqueeze(-1).expand(-1, -1, stack_tensor.size(-1))
-        condition = torch.cat([condition, stack_tensor], 1)[:, :, None, :]
-        # condition = self.cond_block(condition)[:, :, None, :]
-
-        condition = torch.cat(x.shape[2] * [condition], 2)
-
-        x = torch.cat([x, condition], 1)
+        x = torch.stack([x, condition], 1)  # [batch, enc_out, x_channel, time]
 
         hiddens = []
         masks = [x_mask]
