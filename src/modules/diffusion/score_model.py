@@ -166,7 +166,7 @@ class TokenScoreEstimator(torch.nn.Module):
     ) -> None:
         super(TokenScoreEstimator, self).__init__()
 
-        dims = [2 + dim_cond, *map(lambda m: dim_base * m, dim_mults)]
+        dims = [1 + dim_cond, *map(lambda m: dim_base * m, dim_mults)]
         in_out = list(zip(dims[:-1], dims[1:]))
         gin_channels = 80
         self.time_pos_emb = SinusoidalPosEmb(dim_base)
