@@ -246,10 +246,16 @@ class TokenScoreEstimator(torch.nn.Module):
         x = x[:, None, :, :]  # add dummy channel
         x_mask = x_mask.unsqueeze(1)
 
+        # condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
+        # condition = torch.cat([condition, stack_tensor], 1)
+        # condition = self.cond_block(condition)[:, :, None, :]
+        # condition = condition.expand(-1, -1, x.shape[2], -1).contiguous()
+
         condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
         condition = torch.cat([condition, stack_tensor], 1)
         condition = self.cond_block(condition)[:, :, None, :]
-        condition = condition.expand(-1, -1, x.shape[2], -1).contiguous()
+
+        condition = torch.cat(x.shape[2] * [condition], 2)
 
         x = torch.cat([x, condition], 1)
 
