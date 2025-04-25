@@ -226,6 +226,7 @@ class TokenScoreEstimator(torch.nn.Module):
         x: torch.Tensor,
         x_mask: torch.Tensor,
         g: torch.Tensor,
+        stack_tensor: torch.Tensor,
         t: float | torch.Tensor,
     ) -> torch.Tensor:
         """
@@ -242,7 +243,7 @@ class TokenScoreEstimator(torch.nn.Module):
         t = self.mlp(condition)
 
         # g_emb = self.cond_emb(g)
-        x = torch.stack([x, x], 1)  # [batch, enc_out, x_channel, time]
+        x = torch.stack([x, stack_tensor], 1)  # [batch, enc_out, x_channel, time]
         x_mask = x_mask.unsqueeze(1)
 
         condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
