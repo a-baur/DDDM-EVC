@@ -166,7 +166,7 @@ class TokenScoreEstimator(torch.nn.Module):
     ) -> None:
         super(TokenScoreEstimator, self).__init__()
 
-        dims = [2 + dim_cond, *map(lambda m: dim_base * m, dim_mults)]
+        dims = [1 + dim_cond, *map(lambda m: dim_base * m, dim_mults)]
         in_out = list(zip(dims[:-1], dims[1:]))
 
         self.time_pos_emb = SinusoidalPosEmb(dim_base)
@@ -241,12 +241,11 @@ class TokenScoreEstimator(torch.nn.Module):
         t = self.mlp(condition)
 
         # x = torch.stack([x, enc_out], 1) # [batch, enc_out, x_channel, time]
-        x = torch.stack([x, g], 1)  # [batch, 1, x_channel, time]
+        x = x[:, None, :, :]  # [batch, 1, x_channel, time]
         x_mask = x_mask.unsqueeze(1)
 
-        condition = condition.unsqueeze(-1)
-        # condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
-        # condition = torch.cat([condition, g], 1)
+        condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
+        condition = torch.cat([condition, g], 1)
         condition = self.cond_block(condition).unsqueeze(-2)
         condition = condition.expand(-1, -1, x.shape[2], -1).contiguous()
 
