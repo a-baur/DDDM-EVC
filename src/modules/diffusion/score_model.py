@@ -181,7 +181,7 @@ class TokenScoreEstimator(torch.nn.Module):
             Mish(),
             torch.nn.Conv1d(4 * dim_cond, dim_cond, 1),
         )
-        self.cond_emb = torch.nn.Conv1d(gin_channels, 80, 1)  # [batch, dim_cond, time]
+        # self.cond_emb = torch.nn.Conv1d(gin_channels, 80, 1)  # [batch, dim_cond, time]
 
         self.downs = torch.nn.ModuleList([])
         self.ups = torch.nn.ModuleList([])
@@ -241,8 +241,8 @@ class TokenScoreEstimator(torch.nn.Module):
         condition = self.time_pos_emb(t)
         t = self.mlp(condition)
 
-        g_emb = self.cond_emb(g)
-        x = torch.stack([x, g_emb], 1)  # [batch, enc_out, x_channel, time]
+        # g_emb = self.cond_emb(g)
+        x = torch.stack([x, x], 1)  # [batch, enc_out, x_channel, time]
         x_mask = x_mask.unsqueeze(1)
 
         condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
