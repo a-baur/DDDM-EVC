@@ -176,7 +176,6 @@ class TokenScoreEstimator(torch.nn.Module):
             torch.nn.Linear(dim_base * 4, dim_base),
         )
 
-        gin_channels = 80
         n_feats = 80
         self.cond_block = torch.nn.Sequential(
             torch.nn.Conv1d(gin_channels, 4 * gin_channels, 1),
@@ -243,7 +242,7 @@ class TokenScoreEstimator(torch.nn.Module):
         t = self.time_pos_emb(t)
         t = self.mlp(t)
 
-        condition = self.cond_block(stack_tensor)
+        condition = self.cond_block(g)
 
         # g_emb = self.cond_emb(g)
         # x = torch.stack([x, stack_tensor], 1)  # [batch, enc_out, x_channel, time]
