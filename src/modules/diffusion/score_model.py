@@ -166,21 +166,24 @@ class TokenScoreEstimator(torch.nn.Module):
     ) -> None:
         super(TokenScoreEstimator, self).__init__()
 
-        dims = [1 + dim_cond, *map(lambda m: dim_base * m, dim_mults)]
-        in_out = list(zip(dims[:-1], dims[1:]))
         gin_channels = 80
+        dims = [1 + dim_cond + gin_channels, *map(lambda m: dim_base * m, dim_mults)]
+        in_out = list(zip(dims[:-1], dims[1:]))
+
         self.time_pos_emb = SinusoidalPosEmb(dim_base)
         self.mlp = torch.nn.Sequential(
             torch.nn.Linear(dim_base, dim_base * 4),
             Mish(),
             torch.nn.Linear(dim_base * 4, dim_base),
         )
-        cond_total = dim_base + gin_channels
-        self.cond_block = torch.nn.Sequential(
-            torch.nn.Conv1d(cond_total, 4 * dim_cond, 1),
-            Mish(),
-            torch.nn.Conv1d(4 * dim_cond, dim_cond, 1),
-        )
+
+        # gin_channels = 80
+        # cond_total = dim_base + gin_channels
+        # self.cond_block = torch.nn.Sequential(
+        #     torch.nn.Conv1d(cond_total, 4 * dim_cond, 1),
+        #     Mish(),
+        #     torch.nn.Conv1d(4 * dim_cond, dim_cond, 1),
+        # )
 
         self.downs = torch.nn.ModuleList([])
         self.ups = torch.nn.ModuleList([])
@@ -251,9 +254,9 @@ class TokenScoreEstimator(torch.nn.Module):
         # condition = self.cond_block(condition)[:, :, None, :]
         # condition = condition.expand(-1, -1, x.shape[2], -1).contiguous()
 
-        condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
-        condition = torch.cat([condition, stack_tensor], 1)
-        condition = self.cond_block(condition)[:, :, None, :]
+        condition = condition.unsqueeze(-1).expand(-1, -1, stack_tensor.size(-1))
+        condition = torch.cat([condition, stack_tensor], 1)[:, :, None, :]
+        # condition = self.cond_block(condition)[:, :, None, :]
 
         condition = torch.cat(x.shape[2] * [condition], 2)
 

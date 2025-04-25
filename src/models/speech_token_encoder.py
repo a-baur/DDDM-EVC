@@ -21,7 +21,6 @@ class SpeechTokenConcatenator(nn.Module):
         self.emb_src = nn.Conv1d(pitch_in, self.out_dim, kernel_size=1)
         self.emb_ftr = nn.Conv1d(content_in, self.out_dim, kernel_size=1)
 
-    @torch.no_grad()  # type: ignore
     def forward(
         self, x: DDDMInput, g: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
