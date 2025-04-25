@@ -241,11 +241,12 @@ class TokenScoreEstimator(torch.nn.Module):
         t = self.mlp(condition)
 
         # x = torch.stack([x, enc_out], 1) # [batch, enc_out, x_channel, time]
-        x = x.unsqueeze(1)  # [batch, 1, x_channel, time]
+        x = torch.stack([x, g], 1)  # [batch, 1, x_channel, time]
         x_mask = x_mask.unsqueeze(1)
 
-        condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
-        condition = torch.cat([condition, g], 1)
+        condition = condition.unsqueeze(-1)
+        # condition = condition.unsqueeze(-1).expand(-1, -1, g.size(-1))
+        # condition = torch.cat([condition, g], 1)
         condition = self.cond_block(condition).unsqueeze(-2)
         condition = condition.expand(-1, -1, x.shape[2], -1).contiguous()
 
