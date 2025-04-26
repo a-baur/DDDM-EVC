@@ -162,8 +162,8 @@ class TokenDiffusion(torch.nn.Module):
 
             estimated_score = (
                 (
-                    self.estimator_src(xt, mask, src_tkn, z, time)
-                    + self.estimator_ftr(xt, mask, ftr_tkn, z, time)
+                    self.estimator_src(xt, mask, src_tkn, time)
+                    + self.estimator_ftr(xt, mask, ftr_tkn, time)
                 )
                 * (1.0 + kappa)
                 * (beta_t * h)
@@ -216,8 +216,8 @@ class TokenDiffusion(torch.nn.Module):
         """
         xt, z = self.forward_diffusion(x0, mask, t)
 
-        z_estimation = self.estimator_src(xt, mask, src_tkn, x0, t)
-        z_estimation += self.estimator_ftr(xt, mask, ftr_tkn, x0, t)
+        z_estimation = self.estimator_src(xt, mask, src_tkn, t)
+        z_estimation += self.estimator_ftr(xt, mask, ftr_tkn, t)
 
         z_estimation *= torch.sqrt(1.0 - self.get_gamma(0, t, p=2.0, use_torch=True))
         score_loss = torch.sum((z_estimation + z) ** 2) / (
