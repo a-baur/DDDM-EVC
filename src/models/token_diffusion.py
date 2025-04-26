@@ -224,9 +224,11 @@ class TokenDiffusion(torch.nn.Module):
 
         use_snr_weighting = True
         if use_snr_weighting:
-            snr_weight = alpha_t / (1.0 - alpha_t + 1e-5)
-            snr_weight = torch.clamp(snr_weight, max=3.0)
+            gamma = 5.0  # Recommended value from the paper
+            snr = alpha_t / (1.0 - alpha_t + 1e-5)
+            snr_weight = torch.minimum(gamma / snr, torch.ones_like(snr))
             snr_weight = snr_weight.detach()
+
             score_loss = torch.sum(snr_weight * (z_estimation + z) ** 2) / (
                 torch.sum(mask) * self.n_feats
             )
