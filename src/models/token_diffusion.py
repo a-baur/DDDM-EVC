@@ -44,7 +44,7 @@ class TokenDiffusion(torch.nn.Module):
         returns: Tensor of shape (same as t).
         """
         if isinstance(t, float):
-            t = torch.tensor(t, dtype=torch.float32, device="cpu")
+            t = torch.tensor(t, dtype=torch.float32, device=torch.device("cuda"))
 
         inner = (t + self.s) / (1.0 + self.s)
         alpha_t = torch.cos(inner * PI / 2) ** 2
@@ -57,7 +57,7 @@ class TokenDiffusion(torch.nn.Module):
         returns: Tensor of shape (same as t).
         """
         if isinstance(t, float):
-            t = torch.tensor(t, dtype=torch.float32, device="cpu")
+            t = torch.tensor(t, dtype=torch.float32, device=torch.device("cuda"))
 
         h = 1.0 / n_timesteps
         t_prev = torch.clamp(t - h, min=0.0)
