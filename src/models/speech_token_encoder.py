@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from config import TokenEncoderConfig
-from models import DDDMInput
+from models.dddm.preprocessor import DDDMInput
 
 
 class SpeechTokenConcatenator(nn.Module):
