@@ -1,11 +1,10 @@
-import math
-from typing import Literal
-
 import torch
 from torch.nn.functional import l1_loss
 
 from config import DiffusionConfig
 from modules.diffusion.score_model import TokenScoreEstimator
+
+PI = torch.pi
 
 
 class TokenDiffusion(torch.nn.Module):
@@ -27,6 +26,10 @@ class TokenDiffusion(torch.nn.Module):
         self.beta_min = cfg.beta_min
         self.beta_max = cfg.beta_max
 
+        self.use_snr_weighting = True
+
+        self.s = 0.008
+
         self.estimator_src = TokenScoreEstimator(
             cfg.dec_dim, cfg.cond_dim, cfg.gin_channels
         )
@@ -34,63 +37,34 @@ class TokenDiffusion(torch.nn.Module):
             cfg.dec_dim, cfg.cond_dim, cfg.gin_channels
         )
 
-    def get_beta(self, t: float | torch.Tensor) -> float | torch.Tensor:
+    def get_alpha_bar(self, t: torch.Tensor) -> torch.Tensor:
         """
-        Compute beta function.
-
-        :param t: time step.
-        :return: beta value.
+        Compute cumulative alpha_bar(t) following cosine schedule.
+        t: Tensor of shape (any).
+        returns: Tensor of shape (same as t).
         """
-        beta = self.beta_min + (self.beta_max - self.beta_min) * t
-        return beta
+        inner = (t + self.s) / (1.0 + self.s)
+        alpha_t = torch.cos(inner * PI / 2) ** 2
+        return alpha_t.unsqueeze(-1).unsqueeze(-1)
 
-    def get_gamma(
-        self,
-        s: float | torch.Tensor,
-        t: float | torch.Tensor,
-        p: float | torch.Tensor = 1.0,
-        use_torch: bool = False,
-    ) -> float | torch.Tensor:
+    def get_beta(self, t: float | torch.Tensor, n_timesteps: int) -> torch.Tensor:
         """
-        Compute gamma function.
-
-        :param s: start time.
-        :param t: end time.
-        :param p: scaling factor.
-        :param use_torch: whether to use torch or not.
-        :return: gamma value.
+        Compute beta(t) from alpha_bar(t) and alpha_bar(t - h).
+        t: Tensor of shape (any).
+        returns: Tensor of shape (same as t).
         """
-        beta_integral = self.beta_min + 0.5 * (self.beta_max - self.beta_min) * (t + s)
-        beta_integral *= t - s
-        if use_torch:
-            gamma = torch.exp(-0.5 * p * beta_integral).unsqueeze(-1).unsqueeze(-1)
-        else:
-            gamma = math.exp(-0.5 * p * beta_integral)
-        return gamma
+        if isinstance(t, float):
+            t = torch.tensor(t, dtype=torch.float32, device="cpu")
 
-    def get_mu(
-        self, s: float | torch.Tensor, t: float | torch.Tensor
-    ) -> float | torch.Tensor:
-        a = self.get_gamma(s, t)
-        b = 1.0 - self.get_gamma(0, s, p=2.0)
-        c = 1.0 - self.get_gamma(0, t, p=2.0)
-        return a * b / c
+        h = 1.0 / n_timesteps
+        t_prev = torch.clamp(t - h, min=0.0)
 
-    def get_nu(
-        self, s: float | torch.Tensor, t: float | torch.Tensor
-    ) -> float | torch.Tensor:
-        a = self.get_gamma(0, s)
-        b = 1.0 - self.get_gamma(s, t, p=2.0)
-        c = 1.0 - self.get_gamma(0, t, p=2.0)
-        return a * b / c
+        alpha_bar_now = self.get_alpha_bar(t)
+        alpha_bar_prev = self.get_alpha_bar(t_prev)
 
-    def get_sigma(
-        self, s: float | torch.Tensor, t: float | torch.Tensor
-    ) -> float | torch.Tensor:
-        a = 1.0 - self.get_gamma(0, s, p=2.0)
-        b = 1.0 - self.get_gamma(s, t, p=2.0)
-        c = 1.0 - self.get_gamma(0, t, p=2.0)
-        return math.sqrt(a * b / c)
+        beta = 1.0 - (alpha_bar_now / alpha_bar_prev)
+        beta = torch.clamp(beta, min=1e-8, max=0.999)  # numerical stability
+        return beta.unsqueeze(-1).unsqueeze(-1)
 
     def forward_diffusion(
         self,
@@ -106,7 +80,7 @@ class TokenDiffusion(torch.nn.Module):
         :param t: Time step.
         :return: Diffused source, filter, and noise tensors.
         """
-        variance = 1.0 - self.get_gamma(0, t, p=2.0, use_torch=True)
+        variance = 1.0 - self.get_alpha_bar(t)
         z = torch.randn(x0.shape, dtype=x0.dtype, device=x0.device, requires_grad=False)
         xt = x0 + z * torch.sqrt(variance)
         return xt * mask, z * mask
@@ -119,61 +93,45 @@ class TokenDiffusion(torch.nn.Module):
         src_tkn: torch.Tensor,
         ftr_tkn: torch.Tensor,
         n_timesteps: int,
-        mode: Literal["em", "ml"],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Reverse diffusion step.
 
-        If mode is 'ml', the fast maximum likelihood sampling scheme
-        by Popov et al. is used.
-        See Theorem 1: https://arxiv.org/abs/2109.13821
-
         :param z: Latent noise tensor.
         :param mask: Mask for the input tensor.
-        :param g: Global conditioning tensor.
+        :param src_tkn: Source token tensor.
+        :param ftr_tkn: Filter token tensor.
         :param n_timesteps: Number of diffusion steps.
-        :param mode: Inference mode (em, ml).
         :return: Updated source and filter tensors.
         """
         h = 1.0 / n_timesteps
         xt = z * mask
-        for i in range(n_timesteps):
-            t = 1.0 - i * h
-            time = t * torch.ones(z.shape[0], dtype=z.dtype, device=z.device)
-            beta_t = self.get_beta(t)
+        for i in reversed(range(n_timesteps)):
+            t = i / n_timesteps
+            time = torch.full((z.shape[0],), t, dtype=z.dtype, device=z.device)
 
-            if mode == "ml":
-                # Theorem 1: https://arxiv.org/abs/2109.13821
-                kappa = self.get_gamma(0, t - h) * (
-                    1.0 - self.get_gamma(t - h, t, p=2.0)
-                )
-                kappa /= self.get_gamma(0, t) * beta_t * h
-                kappa -= 1.0
-                omega = self.get_nu(t - h, t) / self.get_gamma(0, t)
-                omega += self.get_mu(t - h, t)
-                omega -= 0.5 * beta_t * h + 1.0
-                sigma = self.get_sigma(t - h, t)
+            beta_t_h = self.get_beta(t, n_timesteps) * h
+            alpha_t = self.get_alpha_bar(t)
+
+            noise_estimate = self.estimator_src(xt, mask, src_tkn, time)
+            noise_estimate += self.estimator_ftr(xt, mask, ftr_tkn, time)
+
+            # Coefficients
+            coef_xt = 1.0 / torch.sqrt(1.0 - beta_t_h)
+            coef_noise = beta_t_h / torch.sqrt(1.0 - alpha_t)
+
+            # Compute mean of p(xt-1 | xt)
+            mean = coef_xt * (xt - coef_noise * noise_estimate)
+
+            # Add noise unless it's the last step
+            if i > 0:
+                sigma = torch.sqrt(beta_t_h)
+                noise = torch.randn_like(xt)
+                xt = mean + sigma * noise
             else:
-                kappa = 0.0
-                omega = 0.0
-                sigma = math.sqrt(beta_t * h)
+                xt = mean
 
-            dxt = xt * (0.5 * beta_t * h + omega)
-
-            estimated_score = (
-                (
-                    self.estimator_src(xt, mask, src_tkn, time)
-                    + self.estimator_ftr(xt, mask, ftr_tkn, time)
-                )
-                * (1.0 + kappa)
-                * (beta_t * h)
-            )
-            dxt -= estimated_score
-
-            sigma_n = torch.randn_like(z, device=z.device) * sigma
-            dxt += sigma_n
-
-            xt = (xt - dxt) * mask
+            xt = xt * mask  # Apply mask if needed
 
         return xt
 
@@ -184,7 +142,6 @@ class TokenDiffusion(torch.nn.Module):
         src_tkn: torch.Tensor,
         ftr_tkn: torch.Tensor,
         n_timesteps: int,
-        mode: Literal["em", "ml"],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass of the diffusion model.
@@ -196,7 +153,7 @@ class TokenDiffusion(torch.nn.Module):
         :param mode: Inference mode (pf, em, ml).
         :return: Updated source and filter tensors.
         """
-        return self.reverse_diffusion(z, mask, src_tkn, ftr_tkn, n_timesteps, mode)
+        return self.reverse_diffusion(z, mask, src_tkn, ftr_tkn, n_timesteps)
 
     def loss_t(
         self,
@@ -218,22 +175,20 @@ class TokenDiffusion(torch.nn.Module):
 
         z_estimation = self.estimator_src(xt, mask, src_tkn, t)
         z_estimation += self.estimator_ftr(xt, mask, ftr_tkn, t)
-        z_estimation *= torch.sqrt(1.0 - self.get_gamma(0, t, p=2.0, use_torch=True))
 
-        alpha_t: torch.Tensor = self.get_gamma(0, t, p=2.0, use_torch=True)
+        alpha_t = self.get_alpha_bar(t)
 
-        use_snr_weighting = True
-        if use_snr_weighting:
+        if self.use_snr_weighting:
             gamma = 5.0  # Recommended value from the paper
             snr = alpha_t / (1.0 - alpha_t + 1e-5)
             snr_weight = torch.minimum(gamma / snr, torch.ones_like(snr))
             snr_weight = snr_weight.detach()
 
-            score_loss = torch.sum(snr_weight * (z_estimation + z) ** 2) / (
+            score_loss = torch.sum(snr_weight * (z_estimation - z) ** 2) / (
                 torch.sum(mask) * self.n_feats
             )
         else:
-            score_loss = torch.sum((z_estimation + z) ** 2) / (
+            score_loss = torch.sum((z_estimation - z) ** 2) / (
                 torch.sum(mask) * self.n_feats
             )
 

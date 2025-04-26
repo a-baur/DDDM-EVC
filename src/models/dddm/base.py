@@ -203,7 +203,7 @@ class TokenDDDM(nn.Module):
         )
 
         # Diffusion
-        y = self.diffusion(z, x_mask, src_tkn, ftr_tkn, n_time_steps, "ml")
+        y = self.diffusion(z, x_mask, src_tkn, ftr_tkn, n_time_steps)
         y = y[:, :, : x.mel.size(-1)]  # Remove the padded frames
 
         return y
