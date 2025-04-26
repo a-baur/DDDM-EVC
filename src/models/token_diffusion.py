@@ -43,6 +43,9 @@ class TokenDiffusion(torch.nn.Module):
         t: Tensor of shape (any).
         returns: Tensor of shape (same as t).
         """
+        if isinstance(t, float):
+            t = torch.tensor(t, dtype=torch.float32, device="cpu")
+
         inner = (t + self.s) / (1.0 + self.s)
         alpha_t = torch.cos(inner * PI / 2) ** 2
         return alpha_t.unsqueeze(-1).unsqueeze(-1)
