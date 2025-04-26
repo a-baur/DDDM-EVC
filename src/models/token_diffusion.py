@@ -218,22 +218,20 @@ class TokenDiffusion(torch.nn.Module):
 
         z_estimation = self.estimator_src(xt, mask, src_tkn, t)
         z_estimation += self.estimator_ftr(xt, mask, ftr_tkn, t)
-
         z_estimation *= torch.sqrt(1.0 - self.get_gamma(0, t, p=2.0, use_torch=True))
-        score_loss = torch.sum((z_estimation + z) ** 2) / (
+
+        alpha_t: torch.Tensor = self.get_gamma(0, t, p=2.0, use_torch=True)
+        snr_weight = alpha_t / (1.0 - alpha_t + 1e-5)
+        snr_weight = snr_weight.detach()
+
+        score_loss = torch.sum(snr_weight * (z_estimation + z) ** 2) / (
             torch.sum(mask) * self.n_feats
         )
+        x_hat = (xt - torch.sqrt(1 - alpha_t) * z_estimation) / torch.sqrt(alpha_t)
 
-        x_hat = self.estimate_x0(xt, z_estimation, t)
         rec_loss = l1_loss(x_hat, x0, reduction="mean")
 
         return score_loss, rec_loss
-
-    def estimate_x0(
-        self, x_t: torch.Tensor, z_estimate: torch.Tensor, t: float
-    ) -> torch.Tensor:
-        alpha_t = self.get_gamma(0, t, p=2.0, use_torch=True)
-        return (x_t - torch.sqrt(1 - alpha_t) * z_estimate) / torch.sqrt(alpha_t)
 
     def compute_loss(
         self,
