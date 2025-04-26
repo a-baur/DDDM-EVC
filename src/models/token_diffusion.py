@@ -222,7 +222,7 @@ class TokenDiffusion(torch.nn.Module):
 
         alpha_t: torch.Tensor = self.get_gamma(0, t, p=2.0, use_torch=True)
 
-        use_snr_weighting = False
+        use_snr_weighting = True
         if use_snr_weighting:
             snr_weight = alpha_t / (1.0 - alpha_t + 1e-5)
             snr_weight = torch.clamp(snr_weight, max=3.0)
