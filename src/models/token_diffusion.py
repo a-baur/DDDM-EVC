@@ -26,7 +26,9 @@ class TokenDiffusion(torch.nn.Module):
         self.beta_min = cfg.beta_min
         self.beta_max = cfg.beta_max
 
-        self.use_snr_weighting = False
+        self.eps_scale = torch.nn.Parameter(torch.tensor(0.1))  # NEW
+
+        self.use_snr_weighting = True
 
         self.s = 0.008
 
@@ -117,6 +119,7 @@ class TokenDiffusion(torch.nn.Module):
 
             eps_hat = self.estimator_src(xt, mask, src_tkn, t_cont)
             eps_hat += self.estimator_ftr(xt, mask, ftr_tkn, t_cont)
+            eps_hat = eps_hat * self.eps_scale  # scale the noise
 
             alpha_t = alphas[t - 1]  # αₜ
             beta_t = betas[t - 1]  # βₜ
