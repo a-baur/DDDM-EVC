@@ -110,26 +110,37 @@ class TokenDiffusion(torch.nn.Module):
         h = 1.0 / n_timesteps
         xt = z * mask
         for i in reversed(range(n_timesteps)):
-            t = i / n_timesteps
-            time = torch.full((z.shape[0],), t, dtype=z.dtype, device=z.device)
+            t = torch.tensor(i / n_timesteps, device=z.device)
+            time = torch.full((z.shape[0],), t.item(), dtype=z.dtype, device=z.device)
 
-            beta_t_h = self.get_beta(t, n_timesteps) * h
             alpha_t = self.get_alpha_bar(t)
+            t_prev = torch.clamp(t - h, min=0.0)
+            alpha_prev = self.get_alpha_bar(t_prev)
 
+            # Score (noise) prediction
             noise_estimate = self.estimator_src(xt, mask, src_tkn, time)
             noise_estimate += self.estimator_ftr(xt, mask, ftr_tkn, time)
 
-            # Coefficients
-            coef_xt = 1.0 / torch.sqrt(1.0 - beta_t_h)
-            coef_noise = beta_t_h / torch.sqrt(1.0 - alpha_t)
+            # Predict x0 from current noisy sample
+            x0_pred = (
+                xt
+                - torch.sqrt(1 - alpha_t).unsqueeze(-1).unsqueeze(-1) * noise_estimate
+            ) / torch.sqrt(alpha_t).unsqueeze(-1).unsqueeze(-1)
 
-            # Compute mean of p(xt-1 | xt)
-            mean = coef_xt * (xt - coef_noise * noise_estimate)
+            # Predict the mean of p(xt-1 | xt)
+            c0 = torch.sqrt(alpha_prev).unsqueeze(-1).unsqueeze(-1)
+            c1 = torch.sqrt(1 - alpha_prev).unsqueeze(-1).unsqueeze(-1)
 
-            # Add noise unless it's the last step
+            mean = c0 * x0_pred + c1 * noise_estimate
+
+            # Add noise if i > 0
             if i > 0:
-                sigma = torch.sqrt(beta_t_h)
                 noise = torch.randn_like(xt)
+                sigma = (
+                    torch.sqrt((1 - alpha_prev) - (1 - alpha_t))
+                    .unsqueeze(-1)
+                    .unsqueeze(-1)
+                )  # optional
                 xt = mean + sigma * noise
             else:
                 xt = mean
