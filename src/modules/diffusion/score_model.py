@@ -162,7 +162,7 @@ class TokenScoreEstimator(torch.nn.Module):
         dim_base: int,
         dim_cond: int,
         gin_channels: int,
-        dim_mults: tuple[int, ...] = (1, 2, 4),
+        dim_mults: tuple[int, ...] = (1, 2, 4, 8),
     ) -> None:
         super(TokenScoreEstimator, self).__init__()
 
