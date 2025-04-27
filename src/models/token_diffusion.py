@@ -48,7 +48,7 @@ class TokenDiffusion(torch.nn.Module):
 
         inner = (t + self.s) / (1.0 + self.s)
         alpha_t = torch.cos(inner * PI / 2) ** 2
-        return alpha_t.unsqueeze(-1).unsqueeze(-1)
+        return alpha_t
 
     def get_beta(self, t: float | torch.Tensor, n_timesteps: int) -> torch.Tensor:
         """
@@ -67,7 +67,7 @@ class TokenDiffusion(torch.nn.Module):
 
         beta = 1.0 - (alpha_bar_now / alpha_bar_prev)
         beta = torch.clamp(beta, min=1e-8, max=0.999)  # numerical stability
-        return beta.unsqueeze(-1).unsqueeze(-1)
+        return beta
 
     def forward_diffusion(
         self,
@@ -83,7 +83,7 @@ class TokenDiffusion(torch.nn.Module):
         :param t: Time step.
         :return: Diffused source, filter, and noise tensors.
         """
-        variance = 1.0 - self.get_alpha_bar(t)
+        variance = 1.0 - self.get_alpha_bar(t).unsqueeze(-1).unsqueeze(-1)
         z = torch.randn(x0.shape, dtype=x0.dtype, device=x0.device, requires_grad=False)
         xt = x0 + z * torch.sqrt(variance)
         return xt * mask, z * mask
@@ -179,7 +179,7 @@ class TokenDiffusion(torch.nn.Module):
         z_estimation = self.estimator_src(xt, mask, src_tkn, t)
         z_estimation += self.estimator_ftr(xt, mask, ftr_tkn, t)
 
-        alpha_t = self.get_alpha_bar(t)
+        alpha_t = self.get_alpha_bar(t).unsqueeze(-1).unsqueeze(-1)
 
         if self.use_snr_weighting:
             gamma = 5.0  # Recommended value from the paper
