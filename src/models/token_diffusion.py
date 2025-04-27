@@ -118,14 +118,14 @@ class TokenDiffusion(torch.nn.Module):
             eps_hat = self.estimator_src(xt, mask, src_tkn, t_cont)
             eps_hat += self.estimator_ftr(xt, mask, ftr_tkn, t_cont)
 
-            # alpha_t = alphas[t - 1]  # αₜ
-            # beta_t = betas[t - 1]  # βₜ
+            alpha_t = alphas[t - 1]  # αₜ
+            beta_t = betas[t - 1]  # βₜ
             abar_t = alphabars[t]  # ᾱₜ
             sigma_t = sigmas[t - 1]  # σₜ
-            abar_prev = alphabars[t - 1]  # ᾱₜ₋₁
 
-            x0_pred = (xt - torch.sqrt(1.0 - abar_t) * eps_hat) / torch.sqrt(abar_t)
-            mu = torch.sqrt(abar_prev) * x0_pred + torch.sqrt(1.0 - abar_prev) * eps_hat
+            mu = (xt - beta_t * 0.5 * eps_hat / torch.sqrt(1.0 - abar_t)) / torch.sqrt(
+                alpha_t
+            )
 
             if t > 1:  # add noise except at t = 1→0
                 xt = mu + sigma_t * torch.randn_like(xt)
