@@ -83,10 +83,10 @@ class TokenDiffusion(torch.nn.Module):
         :param t: Time step.
         :return: Diffused source, filter, and noise tensors.
         """
-        variance = 1.0 - self.get_alpha_bar(t).unsqueeze(-1).unsqueeze(-1)
-        z = torch.randn(x0.shape, dtype=x0.dtype, device=x0.device, requires_grad=False)
-        xt = x0 + z * torch.sqrt(variance)
-        return xt * mask, z * mask
+        alphabar = self.get_alpha_bar(t).view(-1, 1, 1)  # ᾱ(t)
+        noise = torch.randn_like(x0)
+        xt = (alphabar.sqrt() * x0 + (1.0 - alphabar).sqrt() * noise) * mask
+        return xt, noise * mask
 
     @torch.no_grad()  # type: ignore
     def reverse_diffusion(
@@ -107,45 +107,29 @@ class TokenDiffusion(torch.nn.Module):
         :param n_timesteps: Number of diffusion steps.
         :return: Updated source and filter tensors.
         """
-        h = 1.0 / n_timesteps
+        alphabars = self.get_alpha_bar(
+            torch.linspace(0, 1, n_timesteps + 1, device=z.device)
+        )
+        alphas = alphabars[1:] / alphabars[:-1]  # α_t
+        betas = 1 - alphas
+        sigmas = torch.sqrt(betas * (1 - alphabars[:-1]) / (1 - alphabars[1:]))
+
         xt = z * mask
-        for i in reversed(range(n_timesteps)):
-            t = torch.tensor(i / n_timesteps, device=z.device)
-            time = torch.full((z.shape[0],), t.item(), dtype=z.dtype, device=z.device)
+        for t in reversed(range(n_timesteps)):
+            time = torch.full((z.shape[0],), t, dtype=z.dtype, device=z.device)
 
-            alpha_t = self.get_alpha_bar(t)
-            t_prev = torch.clamp(t - h, min=0.0)
-            alpha_prev = self.get_alpha_bar(t_prev)
-
-            # Score (noise) prediction
             noise_estimate = self.estimator_src(xt, mask, src_tkn, time)
             noise_estimate += self.estimator_ftr(xt, mask, ftr_tkn, time)
 
-            # Predict x0 from current noisy sample
-            x0_pred = (
-                xt
-                - torch.sqrt(1 - alpha_t).unsqueeze(-1).unsqueeze(-1) * noise_estimate
-            ) / torch.sqrt(alpha_t).unsqueeze(-1).unsqueeze(-1)
+            mu = (
+                xt - betas[t] * noise_estimate / torch.sqrt(1 - alphabars[t + 1])
+            ) / torch.sqrt(alphas[t])
 
-            # Predict the mean of p(xt-1 | xt)
-            c0 = torch.sqrt(alpha_prev).unsqueeze(-1).unsqueeze(-1)
-            c1 = torch.sqrt(1 - alpha_prev).unsqueeze(-1).unsqueeze(-1)
-
-            mean = c0 * x0_pred + c1 * noise_estimate
-
-            # Add noise if i > 0
-            if i > 0:
-                noise = torch.randn_like(xt)
-                sigma = (
-                    torch.sqrt((1 - alpha_prev) - (1 - alpha_t))
-                    .unsqueeze(-1)
-                    .unsqueeze(-1)
-                )  # optional
-                xt = mean + sigma * noise
+            if t > 0:
+                xt = mu + sigmas[t] * torch.randn_like(xt)
             else:
-                xt = mean
-
-            xt = xt * mask  # Apply mask if needed
+                xt = mu
+            xt *= mask
 
         return xt
 
