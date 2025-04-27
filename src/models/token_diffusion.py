@@ -26,7 +26,7 @@ class TokenDiffusion(torch.nn.Module):
         self.beta_min = cfg.beta_min
         self.beta_max = cfg.beta_max
 
-        self.use_snr_weighting = True
+        self.use_snr_weighting = False
 
         self.s = 0.008
 
