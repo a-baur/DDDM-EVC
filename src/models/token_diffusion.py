@@ -123,7 +123,7 @@ class TokenDiffusion(torch.nn.Module):
             abar_t = alphabars[t]  # ᾱₜ
             sigma_t = sigmas[t - 1]  # σₜ
 
-            mu = (xt - beta_t * 0.5 * eps_hat / torch.sqrt(1.0 - abar_t)) / torch.sqrt(
+            mu = (xt - beta_t * eps_hat / torch.sqrt(1.0 - abar_t)) / torch.sqrt(
                 alpha_t
             )
 
