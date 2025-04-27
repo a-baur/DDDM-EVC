@@ -127,11 +127,12 @@ class TokenDiffusion(torch.nn.Module):
                 xt - betas[t] * noise_estimate / torch.sqrt(1 - alphabars[t + 1])
             ) / torch.sqrt(alphas[t])
 
-            if t > 0:
-                xt = mu + sigmas[t] * torch.randn_like(xt)
-            else:
-                xt = mu
+            xt = mu + (sigmas[t] * torch.randn_like(xt) if t > 0 else 0)
             xt *= mask
+
+            print(t, xt.abs().mean())
+            print(noise_estimate.abs().mean())
+            assert not torch.isnan(xt).any()
 
         return xt
 
