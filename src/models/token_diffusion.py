@@ -97,42 +97,42 @@ class TokenDiffusion(torch.nn.Module):
         ftr_tkn: torch.Tensor,
         n_timesteps: int,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Reverse diffusion step.
+        # ----- 1. pre-compute schedule  ------------------------------------
+        t_grid = torch.linspace(0, 1, n_timesteps + 1, device=z.device)
+        alphabars = self.get_alpha_bar(t_grid)  # ᾱ_0 … ᾱ_N
+        alphabars[-1] = 1e-5  # avoid ᾱ_N = 0
+        alphas = alphabars[1:] / alphabars[:-1]  # α₁ … α_N
+        betas = 1.0 - alphas  # β₁ … β_N
+        sigmas = torch.sqrt(
+            betas * (1.0 - alphabars[:-1]) / (1.0 - alphabars[1:])
+        )  # σ₁ … σ_N
 
-        :param z: Latent noise tensor.
-        :param mask: Mask for the input tensor.
-        :param src_tkn: Source token tensor.
-        :param ftr_tkn: Filter token tensor.
-        :param n_timesteps: Number of diffusion steps.
-        :return: Updated source and filter tensors.
-        """
-        alphabars = self.get_alpha_bar(
-            torch.linspace(0, 1, n_timesteps + 1, device=z.device)
-        )
-        alphabars[-1] = 1e-5  # numerical stability
-        alphas = alphabars[1:] / alphabars[:-1]  # α_t
-        betas = 1 - alphas
-        sigmas = torch.sqrt(betas * (1 - alphabars[:-1]) / (1 - alphabars[1:]))
-
-        xt = z * mask
-        for t in reversed(range(n_timesteps)):
-            time = torch.full(
-                (z.shape[0],), (t + 1) / n_timesteps, dtype=z.dtype, device=z.device
+        # ----- 2. reverse loop  -------------------------------------------
+        xt = z * mask  # x_N  (pure noise)
+        for t in range(n_timesteps, 0, -1):  # t = N … 1
+            # continuous time fed to the score nets
+            t_cont = torch.full(
+                (z.shape[0],), t / n_timesteps, dtype=z.dtype, device=z.device
             )
 
-            noise_estimate = self.estimator_src(xt, mask, src_tkn, time)
-            noise_estimate += self.estimator_ftr(xt, mask, ftr_tkn, time)
+            eps_hat = self.estimator_src(xt, mask, src_tkn, t_cont)
+            eps_hat += self.estimator_ftr(xt, mask, ftr_tkn, t_cont)
 
-            mu = (
-                xt - betas[t] * noise_estimate / torch.sqrt(1 - alphabars[t + 1])
-            ) / torch.sqrt(alphas[t])
+            alpha_t = alphas[t - 1]  # αₜ
+            beta_t = betas[t - 1]  # βₜ
+            abar_t = alphabars[t]  # ᾱₜ
+            sigma_t = sigmas[t - 1]  # σₜ
 
-            xt = mu + (sigmas[t] * torch.randn_like(xt) if t > 0 else 0)
-            xt *= mask
+            mu = (xt - beta_t * eps_hat / torch.sqrt(1.0 - abar_t)) / torch.sqrt(
+                alpha_t
+            )
 
-        print(xt.abs().mean())
-        assert not torch.isnan(xt).any()
+            if t > 1:  # add noise except at t = 1→0
+                xt = mu + sigma_t * torch.randn_like(xt)
+            else:
+                xt = mu
+            xt *= mask  # keep padding zeroed
+
         return xt
 
     def forward(
