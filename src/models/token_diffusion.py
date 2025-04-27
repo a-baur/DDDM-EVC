@@ -118,17 +118,17 @@ class TokenDiffusion(torch.nn.Module):
         xt = z * mask
         for t in reversed(range(n_timesteps)):
             time = torch.full(
-                (z.shape[0],), t / n_timesteps, dtype=z.dtype, device=z.device
+                (z.shape[0],), (t + 1) / n_timesteps, dtype=z.dtype, device=z.device
             )
 
             noise_estimate = self.estimator_src(xt, mask, src_tkn, time)
             noise_estimate += self.estimator_ftr(xt, mask, ftr_tkn, time)
 
             mu = (
-                xt - betas[t - 1] * noise_estimate / torch.sqrt(1 - alphabars[t])
-            ) / torch.sqrt(alphas[t - 1])
+                xt - betas[t] * noise_estimate / torch.sqrt(1 - alphabars[t + 1])
+            ) / torch.sqrt(alphas[t])
 
-            xt = mu + (sigmas[t - 1] * torch.randn_like(xt) if t > 0 else 0)
+            xt = mu + (sigmas[t] * torch.randn_like(xt) if t > 0 else 0)
             xt *= mask
 
         print(xt.abs().mean())
