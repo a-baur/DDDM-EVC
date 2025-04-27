@@ -178,6 +178,7 @@ class TokenDiffusion(torch.nn.Module):
 
         z_estimation = self.estimator_src(xt, mask, src_tkn, t)
         z_estimation += self.estimator_ftr(xt, mask, ftr_tkn, t)
+        z_estimation = z_estimation * self.eps_scale
 
         alpha_t = self.get_alpha_bar(t).unsqueeze(-1).unsqueeze(-1)
 
