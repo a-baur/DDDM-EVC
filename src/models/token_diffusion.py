@@ -110,6 +110,7 @@ class TokenDiffusion(torch.nn.Module):
         alphabars = self.get_alpha_bar(
             torch.linspace(0, 1, n_timesteps + 1, device=z.device)
         )
+        alphabars[-1] = 1e-5  # numerical stability
         alphas = alphabars[1:] / alphabars[:-1]  # α_t
         betas = 1 - alphas
         sigmas = torch.sqrt(betas * (1 - alphabars[:-1]) / (1 - alphabars[1:]))
