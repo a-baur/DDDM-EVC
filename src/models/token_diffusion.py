@@ -26,8 +26,6 @@ class TokenDiffusion(torch.nn.Module):
         self.beta_min = cfg.beta_min
         self.beta_max = cfg.beta_max
 
-        self.eps_scale = torch.nn.Parameter(torch.tensor(0.1))  # NEW
-
         self.use_snr_weighting = True
 
         self.s = 0.008
@@ -119,16 +117,15 @@ class TokenDiffusion(torch.nn.Module):
 
             eps_hat = self.estimator_src(xt, mask, src_tkn, t_cont)
             eps_hat += self.estimator_ftr(xt, mask, ftr_tkn, t_cont)
-            eps_hat = eps_hat * self.eps_scale  # scale the noise
 
-            alpha_t = alphas[t - 1]  # αₜ
-            beta_t = betas[t - 1]  # βₜ
+            # alpha_t = alphas[t - 1]  # αₜ
+            # beta_t = betas[t - 1]  # βₜ
             abar_t = alphabars[t]  # ᾱₜ
             sigma_t = sigmas[t - 1]  # σₜ
+            abar_prev = alphabars[t - 1]  # ᾱₜ₋₁
 
-            mu = (xt - beta_t * eps_hat / torch.sqrt(1.0 - abar_t)) / torch.sqrt(
-                alpha_t
-            )
+            x0_pred = (xt - torch.sqrt(1.0 - abar_t) * eps_hat) / torch.sqrt(abar_t)
+            mu = torch.sqrt(abar_prev) * x0_pred + torch.sqrt(1.0 - abar_prev) * eps_hat
 
             if t > 1:  # add noise except at t = 1→0
                 xt = mu + sigma_t * torch.randn_like(xt)
@@ -178,7 +175,6 @@ class TokenDiffusion(torch.nn.Module):
 
         z_estimation = self.estimator_src(xt, mask, src_tkn, t)
         z_estimation += self.estimator_ftr(xt, mask, ftr_tkn, t)
-        z_estimation = z_estimation * self.eps_scale
 
         alpha_t = self.get_alpha_bar(t).unsqueeze(-1).unsqueeze(-1)
 
@@ -195,17 +191,6 @@ class TokenDiffusion(torch.nn.Module):
             score_loss = torch.sum((z_estimation - z) ** 2) / (
                 torch.sum(mask) * self.n_feats
             )
-
-        with torch.no_grad():
-            # sample a batch of random times exactly as in loss_t
-            t = torch.rand(x0.shape[0], device=x0.device) * (1 - 2e-5) + 1e-5
-            xt, z = self.forward_diffusion(x0, mask, t)  # z ~ N(0,1)
-            z_pred = self.estimator_src(xt, mask, src_tkn, t) + self.estimator_ftr(
-                xt, mask, ftr_tkn, t
-            )
-
-            ratio = (z_pred.abs().mean() / z.abs().mean()).item()
-            print(f"    |ε̂| / |ε|  =  {ratio:.3f}")
 
         x_hat = (xt - torch.sqrt(1 - alpha_t) * z_estimation) / torch.sqrt(alpha_t)
         rec_loss = l1_loss(x_hat, x0, reduction="mean")
