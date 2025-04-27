@@ -125,16 +125,14 @@ class TokenDiffusion(torch.nn.Module):
             noise_estimate += self.estimator_ftr(xt, mask, ftr_tkn, time)
 
             mu = (
-                xt - betas[t] * noise_estimate / torch.sqrt(1 - alphabars[t + 1])
-            ) / torch.sqrt(alphas[t])
+                xt - betas[t - 1] * noise_estimate / torch.sqrt(1 - alphabars[t])
+            ) / torch.sqrt(alphas[t - 1])
 
-            xt = mu + (sigmas[t] * torch.randn_like(xt) if t > 0 else 0)
+            xt = mu + (sigmas[t - 1] * torch.randn_like(xt) if t > 0 else 0)
             xt *= mask
 
-            print(t, xt.abs().mean())
-            print(noise_estimate.abs().mean())
-            assert not torch.isnan(xt).any()
-
+        print(xt.abs().mean())
+        assert not torch.isnan(xt).any()
         return xt
 
     def forward(
