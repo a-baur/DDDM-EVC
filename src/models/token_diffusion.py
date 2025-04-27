@@ -192,6 +192,17 @@ class TokenDiffusion(torch.nn.Module):
                 torch.sum(mask) * self.n_feats
             )
 
+        with torch.no_grad():
+            # sample a batch of random times exactly as in loss_t
+            t = torch.rand(x0.shape[0], device=x0.device) * (1 - 2e-5) + 1e-5
+            xt, z = self.forward_diffusion(x0, mask, t)  # z ~ N(0,1)
+            z_pred = self.estimator_src(xt, mask, src_tkn, t) + self.estimator_ftr(
+                xt, mask, ftr_tkn, t
+            )
+
+            ratio = (z_pred.abs().mean() / z.abs().mean()).item()
+            print(f"    |ε̂| / |ε|  =  {ratio:.3f}")
+
         x_hat = (xt - torch.sqrt(1 - alpha_t) * z_estimation) / torch.sqrt(alpha_t)
         rec_loss = l1_loss(x_hat, x0, reduction="mean")
 
