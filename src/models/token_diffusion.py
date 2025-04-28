@@ -22,7 +22,6 @@ class TokenDiffusion(torch.nn.Module):
 
         self.n_feats = cfg.in_dim
         self.dim_unet = cfg.dec_dim
-        self.dim_cond = cfg.cond_dim
         self.beta_min = cfg.beta_min
         self.beta_max = cfg.beta_max
 
@@ -31,10 +30,10 @@ class TokenDiffusion(torch.nn.Module):
         self.s = 0.008
 
         self.estimator_src = TokenScoreEstimator(
-            cfg.dec_dim, cfg.cond_dim, cfg.gin_channels
+            cfg.in_dim, cfg.dec_dim, cfg.gin_channels
         )
         self.estimator_ftr = TokenScoreEstimator(
-            cfg.dec_dim, cfg.cond_dim, cfg.gin_channels
+            cfg.in_dim, cfg.dec_dim, cfg.gin_channels
         )
 
     def get_alpha_bar(self, t: torch.Tensor) -> torch.Tensor:
@@ -44,30 +43,11 @@ class TokenDiffusion(torch.nn.Module):
         returns: Tensor of shape (same as t).
         """
         if isinstance(t, float):
-            t = torch.tensor(t, dtype=torch.float32, device=torch.device("cuda"))
+            t = torch.tensor(t, dtype=torch.float32)
 
         inner = (t + self.s) / (1.0 + self.s)
         alpha_t = torch.cos(inner * PI / 2) ** 2
         return alpha_t
-
-    def get_beta(self, t: float | torch.Tensor, n_timesteps: int) -> torch.Tensor:
-        """
-        Compute beta(t) from alpha_bar(t) and alpha_bar(t - h).
-        t: Tensor of shape (any).
-        returns: Tensor of shape (same as t).
-        """
-        if isinstance(t, float):
-            t = torch.tensor(t, dtype=torch.float32, device=torch.device("cuda"))
-
-        h = 1.0 / n_timesteps
-        t_prev = torch.clamp(t - h, min=0.0)
-
-        alpha_bar_now = self.get_alpha_bar(t)
-        alpha_bar_prev = self.get_alpha_bar(t_prev)
-
-        beta = 1.0 - (alpha_bar_now / alpha_bar_prev)
-        beta = torch.clamp(beta, min=1e-8, max=0.999)  # numerical stability
-        return beta
 
     def forward_diffusion(
         self,
@@ -97,18 +77,16 @@ class TokenDiffusion(torch.nn.Module):
         ftr_tkn: torch.Tensor,
         n_timesteps: int,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        # ----- 1. pre-compute schedule  ------------------------------------
+        # Pre-compute cosine schedule
         t_grid = torch.linspace(0, 1, n_timesteps + 1, device=z.device)
-        alphabars = self.get_alpha_bar(t_grid)  # ᾱ_0 … ᾱ_N
-        alphabars[-1] = 1e-5  # avoid ᾱ_N = 0
-        alphas = alphabars[1:] / alphabars[:-1]  # α₁ … α_N
-        betas = 1.0 - alphas  # β₁ … β_N
-        sigmas = torch.sqrt(
-            betas * (1.0 - alphabars[:-1]) / (1.0 - alphabars[1:])
-        )  # σ₁ … σ_N
+        alphabars = self.get_alpha_bar(t_grid).to(z.device)
+        alphabars[-1] = 1e-5
+        alphas = alphabars[1:] / alphabars[:-1]
+        betas = 1.0 - alphas
+        sigmas = torch.sqrt(betas * (1.0 - alphabars[:-1]) / (1.0 - alphabars[1:]))
 
-        # ----- 2. reverse loop  -------------------------------------------
-        xt = z * mask  # x_N  (pure noise)
+        # Perform reverse diffusion
+        xt = z * mask
         for t in range(n_timesteps, 0, -1):  # t = N … 1
             # continuous time fed to the score nets
             t_cont = torch.full(
@@ -118,20 +96,20 @@ class TokenDiffusion(torch.nn.Module):
             eps_hat = self.estimator_src(xt, mask, src_tkn, t_cont)
             eps_hat += self.estimator_ftr(xt, mask, ftr_tkn, t_cont)
 
-            alpha_t = alphas[t - 1]  # αₜ
-            beta_t = betas[t - 1]  # βₜ
-            abar_t = alphabars[t]  # ᾱₜ
-            sigma_t = sigmas[t - 1]  # σₜ
+            alpha_t = alphas[t - 1]
+            beta_t = betas[t - 1]
+            abar_t = alphabars[t]
+            sigma_t = sigmas[t - 1]
 
             mu = (xt - beta_t * eps_hat / torch.sqrt(1.0 - abar_t)) / torch.sqrt(
                 alpha_t
             )
 
-            if t > 1:  # add noise except at t = 1→0
+            if t > 1:
                 xt = mu + sigma_t * torch.randn_like(xt)
             else:
                 xt = mu
-            xt *= mask  # keep padding zeroed
+            xt *= mask
 
         return xt
 
@@ -148,9 +126,9 @@ class TokenDiffusion(torch.nn.Module):
 
         :param z: Latent noise tensor.
         :param mask: Mask for the input tensor.
-        :param g: Global conditioning tensor.
+        :param src_tkn: Source token tensor.
+        :param ftr_tkn: Filter token tensor.
         :param n_timesteps: Number of diffusion steps.
-        :param mode: Inference mode (pf, em, ml).
         :return: Updated source and filter tensors.
         """
         return self.reverse_diffusion(z, mask, src_tkn, ftr_tkn, n_timesteps)
@@ -168,6 +146,8 @@ class TokenDiffusion(torch.nn.Module):
 
         :param x0: Initial input tensor.
         :param mask: Mask for the input tensor.
+        :param src_tkn: Source token tensor.
+        :param ftr_tkn: Filter token tensor.
         :param t: Time step.
         :return: Loss value.
         """
@@ -210,7 +190,8 @@ class TokenDiffusion(torch.nn.Module):
 
         :param x0: Initial input tensor.
         :param mask: Mask for the input tensor.
-        :param g: Global conditioning tensor.
+        :param src_tkn: Source token tensor.
+        :param ftr_tkn: Filter token tensor.
         :param offset: Offset value to avoid numerical instability.
         :return: Loss value.
         """

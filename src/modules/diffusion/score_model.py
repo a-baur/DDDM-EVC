@@ -152,15 +152,15 @@ class TokenScoreEstimator(torch.nn.Module):
     Score model for the diffusion model.
 
     :param dim_base: Base dimension.
-    :param dim_cond: Condition dimension.
+    :param
     :param gin_channels: Dimension of global conditioning tensor.
     :param dim_mults: Multipliers for downsampling and upsampling.
     """
 
     def __init__(
         self,
+        n_feats: int,
         dim_base: int,
-        dim_cond: int,
         gin_channels: int,
         dim_mults: tuple[int, ...] = (1, 2, 4),
     ) -> None:
@@ -176,7 +176,6 @@ class TokenScoreEstimator(torch.nn.Module):
             torch.nn.Linear(dim_base * 4, dim_base),
         )
 
-        n_feats = 80
         self.cond_block = torch.nn.Sequential(
             torch.nn.Conv1d(gin_channels, 4 * gin_channels, 1),
             Mish(),
