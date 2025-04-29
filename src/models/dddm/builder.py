@@ -5,7 +5,7 @@ import util
 from data import MelTransform
 from models.content_encoder import XLSR, XLSR_ESPEAK_CTC, Hubert
 from models.diffusion import Diffusion
-from models.pitch_encoder import VQVAEEncoder, YINEncoder
+from models.pitch_encoder import VQF0Encoder, YINEncoder
 from models.style_encoder import MetaStyleSpeech, StyleEncoder, StyleLabelEncoder
 from modules.wavenet_decoder import WavenetDecoder
 
@@ -60,7 +60,7 @@ def build_vc_xlsr(
     """Build DDDM VC XLSR model."""
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
 
-    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    vq_vae = VQF0Encoder(cfg.model.pitch_encoder).to(device)
     util.load_model(vq_vae, "vqvae.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(
@@ -93,7 +93,7 @@ def build_vc_xlsr_ph(
     style_encoder = MetaStyleSpeech(cfg.model.style_encoder).to(device)
     util.load_model(style_encoder, "metastylespeech.pth", mode="eval", freeze=True)
 
-    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    vq_vae = VQF0Encoder(cfg.model.pitch_encoder).to(device)
     util.load_model(vq_vae, "vqvae.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(
@@ -158,7 +158,7 @@ def build_evc_xlsr(
         style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
     )
 
-    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    vq_vae = VQF0Encoder(cfg.model.pitch_encoder).to(device)
     util.load_model(vq_vae, "vqvae.pth")
 
     preprocessor = DDDMPreprocessor(
@@ -193,7 +193,7 @@ def build_evc_xlsr_ph(
         style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
     )
 
-    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    vq_vae = VQF0Encoder(cfg.model.pitch_encoder).to(device)
     util.load_model(vq_vae, "vqvae.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(
@@ -266,7 +266,7 @@ def build_evc_hubert(
         style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
     )
 
-    vq_vae = VQVAEEncoder(cfg.model.pitch_encoder).to(device)
+    vq_vae = VQF0Encoder(cfg.model.pitch_encoder).to(device)
     util.load_model(vq_vae, "vqvae.pth", mode="eval", freeze=True)
 
     preprocessor = DDDMPreprocessor(

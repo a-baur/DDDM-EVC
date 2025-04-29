@@ -3,7 +3,7 @@ import torch
 from omegaconf import DictConfig
 
 from data import AudioDataloader
-from models import XLSR, Hubert, VQVAEEncoder, models_from_config
+from models import XLSR, Hubert, VQF0Encoder, models_from_config
 from models.content_encoder import XLSR_ESPEAK_CTC
 from models.pitch_encoder import YINEncoder
 from util import get_normalized_f0, load_model
@@ -27,7 +27,7 @@ def test_style_encoder(
 @pytest.mark.parametrize("config_name", ["vc_xlsr", "evc_xlsr", "evc_hu", "vc_xlsr_ph"])
 def test_vq_vae(model_config: DictConfig, dataloader: AudioDataloader) -> None:
     """Test VQ-VAE pitch encoder."""
-    pitch_encoder = VQVAEEncoder(model_config.model.pitch_encoder)
+    pitch_encoder = VQF0Encoder(model_config.model.pitch_encoder)
     load_model(pitch_encoder, "vqvae.pth")
 
     x, _ = next(iter(dataloader))

@@ -6,7 +6,7 @@ from torch import nn
 import util
 from data import MelTransform
 from models.content_encoder import XLSR, XLSR_ESPEAK_CTC, Hubert
-from models.pitch_encoder import VQVAEEncoder, YINEncoder
+from models.pitch_encoder import VQF0Encoder, YINEncoder
 from util.audio import PraatProcessor
 
 
@@ -99,7 +99,7 @@ class BasePreprocessor(nn.Module):
     def __init__(
         self,
         mel_transform: MelTransform,
-        pitch_encoder: VQVAEEncoder | YINEncoder,
+        pitch_encoder: VQF0Encoder | YINEncoder,
         content_encoder: XLSR | Hubert | XLSR_ESPEAK_CTC,
         sample_rate: int,
         perturb_inputs: bool = False,

@@ -9,7 +9,7 @@ from modules.vqvae import Bottleneck, Encoder
 from modules.yin_encoder.yingram import Yingram
 
 
-class VQVAEEncoder(nn.Module):
+class VQF0Encoder(nn.Module):
     """VQ-VAE Encoder module. Returns the quantized latent codes."""
 
     def __init__(self, cfg: VQVAEConfig) -> None:

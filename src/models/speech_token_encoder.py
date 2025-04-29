@@ -6,7 +6,7 @@ from models.dddm.preprocessor import DDDMInput
 
 
 class SpeechTokenConcatenator(nn.Module):
-    """Improved simple speech tokens using normalization and small feature adaptation"""
+    """Simple speech tokens using normalization and small feature adaptation"""
 
     def __init__(self, cfg: TokenEncoderConfig) -> None:
         super().__init__()
