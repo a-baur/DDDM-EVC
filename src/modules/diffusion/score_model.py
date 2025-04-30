@@ -25,14 +25,18 @@ class GradLogPEstimator(torch.nn.Module):
 
     def __init__(
         self,
+        n_feats: int,
         dim_base: int,
-        dim_cond: int,
         gin_channels: int,
         dim_mults: tuple[int, ...] = (1, 2, 4),
+        use_prior_conditioning: bool = False,
     ) -> None:
         super(GradLogPEstimator, self).__init__()
 
-        dims = [2 + dim_cond, *map(lambda m: dim_base * m, dim_mults)]
+        self.use_prior_conditioning = use_prior_conditioning
+
+        in_dim = 3 if use_prior_conditioning else 2
+        dims = [in_dim, *map(lambda m: dim_base * m, dim_mults)]
         in_out = list(zip(dims[:-1], dims[1:]))
 
         self.time_pos_emb = SinusoidalPosEmb(dim_base)
@@ -41,11 +45,10 @@ class GradLogPEstimator(torch.nn.Module):
             Mish(),
             torch.nn.Linear(dim_base * 4, dim_base),
         )
-        cond_total = dim_base + gin_channels
         self.cond_block = torch.nn.Sequential(
-            torch.nn.Linear(cond_total, 4 * dim_cond),
+            torch.nn.Linear(gin_channels, 4 * gin_channels),
             Mish(),
-            torch.nn.Linear(4 * dim_cond, dim_cond),
+            torch.nn.Linear(4 * gin_channels, n_feats),
         )
 
         self.downs = torch.nn.ModuleList([])
@@ -104,17 +107,17 @@ class GradLogPEstimator(torch.nn.Module):
         :param t:
         :return:
         """
-        condition = self.time_pos_emb(t)
-        t = self.mlp(condition)
+        t = self.time_pos_emb(t)
+        t = self.mlp(t)
 
-        x = torch.stack([enc_out, x], 1)
+        condition = self.cond_block(g.squeeze(-1))
+        condition = condition.unsqueeze(-1).expand(-1, -1, x.shape[2])
         x_mask = x_mask.unsqueeze(1)
 
-        condition = torch.cat([condition, g.squeeze(-1)], 1)
-        condition = self.cond_block(condition).unsqueeze(-1).unsqueeze(-1)
-
-        condition = condition.expand(-1, -1, x.shape[2], x.shape[3]).contiguous()
-        x = torch.cat([x, condition], 1)
+        if self.use_prior_conditioning:
+            x = torch.stack([x, enc_out, condition], 1)
+        else:
+            x = torch.stack([x, condition], 1)
 
         hiddens = []
         masks = [x_mask]
@@ -175,7 +178,6 @@ class TokenScoreEstimator(torch.nn.Module):
             Mish(),
             torch.nn.Linear(dim_base * 4, dim_base),
         )
-
         self.cond_block = torch.nn.Sequential(
             torch.nn.Conv1d(gin_channels, 4 * gin_channels, 1),
             Mish(),

@@ -27,10 +27,16 @@ class Diffusion(torch.nn.Module):
         self.beta_max = cfg.beta_max
 
         self.estimator_src = GradLogPEstimator(
-            cfg.dec_dim, cfg.cond_dim, cfg.gin_channels
+            cfg.in_dim,
+            cfg.cond_dim,
+            cfg.gin_channels,
+            use_prior_conditioning=False,
         )
         self.estimator_ftr = GradLogPEstimator(
-            cfg.dec_dim, cfg.cond_dim, cfg.gin_channels
+            cfg.in_dim,
+            cfg.cond_dim,
+            cfg.gin_channels,
+            use_prior_conditioning=True,
         )
 
     def get_beta(self, t: float | torch.Tensor) -> float | torch.Tensor:
