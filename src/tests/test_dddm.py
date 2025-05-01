@@ -15,7 +15,7 @@ CONFIG_NAMES: list[str] = [
     # "evc_xlsr_ph",
     # "vc_xlsr_ph_yin",
     # "evc_xlsr_ph_yin",
-    # "evc_xlsr_yin",
+    "evc_xlsr_yin",
     # "evc_xlsr_yin_label",
     # "vc_xlsr_yin_dc",
 ]
@@ -90,7 +90,7 @@ def test_dddm_loss(
     assert rec_loss >= 0
 
 
-@pytest.mark.parametrize("config_name", ["tkn_evc_xlsr_yin"])
+@pytest.mark.parametrize("config_name", ["tkn_autostylizer"])
 def test_tkn_dddm_vc(
     model_config: DictConfig,
     device: torch.device,
@@ -121,7 +121,7 @@ def test_tkn_dddm_vc(
     assert y_mel.shape == x.mel.shape
 
 
-@pytest.mark.parametrize("config_name", ["tkn_evc_xlsr_yin"])
+@pytest.mark.parametrize("config_name", ["tkn_autostylizer"])
 def test_tkn_dddm_loss(
     model_config: DictConfig,
     device: torch.device,

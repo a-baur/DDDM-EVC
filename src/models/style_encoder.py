@@ -93,7 +93,7 @@ class StyleEncoder(nn.Module):
         self.p_emo_masking = cfg.p_emo_masking
 
     def emotion_conversion(self, x: DDDMInput, emo_level: int) -> torch.Tensor:
-        path = get_root_path() / "avgclass_emo_embeds" / "Train"
+        path = get_root_path() / "avgclass_emo_embeds" / "Development"
         emo = np.load(path / f"{emo_level}.npy").astype(np.float32)
         emo = torch.tensor(emo).to(x.audio.device).unsqueeze(0).expand(x.batch_size, -1)
         emo = self.emotion_emb(emo)

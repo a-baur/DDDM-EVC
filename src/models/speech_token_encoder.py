@@ -1,8 +1,60 @@
 import torch
 import torch.nn as nn
 
-from config import TokenEncoderConfig
+from config import SpeechTokenAutoencoderConfig, TokenEncoderConfig
 from models.dddm.preprocessor import DDDMInput
+from modules.style_transformer import StyleTransformer
+
+
+class SpeechTokenAutoStylizer(nn.Module):
+    def __init__(self, cfg: SpeechTokenAutoencoderConfig) -> None:
+        super().__init__()
+
+        common_kwargs = {
+            "gin_channels": cfg.gin_channels,
+            "n_heads": cfg.n_heads,
+            "n_layers": cfg.n_layers,
+            "use_positional_encoding": cfg.use_positional_encoding,
+        }
+        self.pitch_destylizer = StyleTransformer(
+            in_dim=cfg.hidden_dim, norm="mixstyle", **common_kwargs
+        )
+        self.content_destylizer = StyleTransformer(
+            in_dim=cfg.hidden_dim, norm="mixstyle", **common_kwargs
+        )
+        self.pitch_stylizer = StyleTransformer(
+            in_dim=cfg.hidden_dim, norm="saln", **common_kwargs
+        )
+        self.content_stylizer = StyleTransformer(
+            in_dim=cfg.hidden_dim, norm="saln", **common_kwargs
+        )
+
+        self.pitch_proj = nn.Conv1d(cfg.pitch_dim, cfg.hidden_dim, kernel_size=1)
+        self.content_proj = nn.Conv1d(cfg.content_dim, cfg.hidden_dim, kernel_size=1)
+
+        self.pitch_proj_out = nn.Conv1d(cfg.hidden_dim, cfg.out_dim, kernel_size=1)
+        self.content_proj_out = nn.Conv1d(cfg.hidden_dim, cfg.out_dim, kernel_size=1)
+
+    def forward(
+        self, x: DDDMInput, g: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Feature adaptation
+        pitch = self.pitch_proj(x.emb_pitch) * x.mask
+        content = self.content_proj(x.emb_content) * x.mask
+
+        # Destylization
+        pitch = self.pitch_destylizer(pitch, g, x.mask)
+        content = self.content_destylizer(content, g, x.mask)
+
+        # Stylization
+        pitch = self.pitch_stylizer(pitch, g, x.mask)
+        content = self.content_stylizer(content, g, x.mask)
+
+        # Projection
+        pitch = self.pitch_proj_out(pitch) * x.mask
+        content = self.content_proj_out(content) * x.mask
+
+        return pitch, content
 
 
 class SpeechTokenConcatenator(nn.Module):
