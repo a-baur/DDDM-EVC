@@ -235,6 +235,14 @@ class TknTrainer:
             )
             self.optimizer.step()
 
+        grad = g.grad
+        grad_dim = grad.shape[1]
+        grad_spk = grad[:, : grad_dim // 2]
+        grad_emo = grad[:, grad_dim // 2 :]
+        print(
+            f"grad_spk: {grad_spk.norm(dim=1).mean()}, grad_emo: {grad_emo.norm(dim=1).mean()}"
+        )
+
         self.scheduler.step()
 
         return TrainMetrics(
