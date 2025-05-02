@@ -201,7 +201,8 @@ class Trainer:
             batch[2].to(self.device, non_blocking=True),
         )
         x = self.preprocessor(audio, n_frames, labels)
-        g = self.style_encoder(x).unsqueeze(-1)
+        # g = self.style_encoder(x).unsqueeze(-1)
+        g = torch.zeros((x.batch_size, 512, 1)).to(self.device)
 
         if self.duration_control is not None:
             x, dur_loss = self.duration_control(x, g, return_loss=True)
