@@ -8,6 +8,7 @@ import util
 import util.math
 from config import WavenetDecoderConfig
 from models.dddm.preprocessor import DDDMInput
+from modules.style_transformer import StyleTransformer
 
 
 class WaveNet(torch.nn.Module):
@@ -199,6 +200,102 @@ class WavenetDecoder(nn.Module):
             pitch = F.interpolate(
                 pitch, content.shape[-1]
             )  # match the length of content emb
+
+        if mixup_ratios is not None:
+            batch_size = x.batch_size
+            # Randomly shuffle the speaker embeddings
+            random_style = g[torch.randperm(g.size()[0])]
+
+            # Concatenate mixed up batches to the original batch
+            g = torch.cat([g, random_style], dim=0)
+            content = torch.cat([content, content], dim=0)
+            pitch = torch.cat([pitch, pitch], dim=0)
+            mask = torch.cat([x.mask, x.mask], dim=0)
+
+            # Decode the source and filter representations
+            y_ftr = self.dec_ftr(F.relu(content), mask, g=g)
+            y_src = self.dec_src(pitch, mask, g=g)
+
+            # Mixup the outputs according to the mixup ratio
+            mixup_ratios = mixup_ratios[:, None, None]  # (B) -> (B x 1 x 1)
+            y_src_mixup = (
+                mixup_ratios * y_src[:batch_size, :, :]
+                + (1 - mixup_ratios) * y_src[batch_size:, :, :]
+            )
+            y_ftr_mixup = (
+                mixup_ratios * y_ftr[:batch_size, :, :]
+                + (1 - mixup_ratios) * y_ftr[batch_size:, :, :]
+            )
+            y_src_true = y_src[:batch_size, :, :]
+            y_ftr_true = y_ftr[:batch_size, :, :]
+            return y_src_true, y_ftr_true, y_src_mixup, y_ftr_mixup
+        else:
+            y_ftr = self.dec_ftr(F.relu(content), x.mask, g=g)
+            y_src = self.dec_src(pitch, x.mask, g=g)
+            return y_src, y_ftr
+
+
+class WavenetAutostylizedDecoder(nn.Module):
+    def __init__(
+        self,
+        cfg: WavenetDecoderConfig,
+        content_dim: int,
+        pitch_dim: int,
+    ) -> None:
+        super().__init__()
+        self.pitch_frame_wise = cfg.frame_wise_pitch
+
+        self.content_proj = nn.Conv1d(content_dim, cfg.hidden_dim, 1)
+        self.pitch_proj = nn.Conv1d(pitch_dim, cfg.hidden_dim, 1)
+
+        common_kwargs = {
+            "gin_channels": cfg.gin_channels,
+            "n_heads": 4,
+            "n_layers": 4,
+            "use_positional_encoding": True,
+        }
+        self.pitch_destylizer = StyleTransformer(
+            in_dim=cfg.hidden_dim, norm="mixstyle", **common_kwargs
+        )
+        self.content_destylizer = StyleTransformer(
+            in_dim=cfg.hidden_dim, norm="mixstyle", **common_kwargs
+        )
+        self.pitch_stylizer = StyleTransformer(
+            in_dim=cfg.hidden_dim, norm="saln", **common_kwargs
+        )
+        self.content_stylizer = StyleTransformer(
+            in_dim=cfg.hidden_dim, norm="saln", **common_kwargs
+        )
+
+        self.dec_ftr = Decoder(cfg)
+        self.dec_src = Decoder(cfg)
+
+    def forward(
+        self,
+        x: DDDMInput,
+        g: torch.Tensor,
+        mixup_ratios: torch.Tensor = None,
+    ) -> (
+        tuple[torch.Tensor, torch.Tensor]
+        | tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    ):
+        """
+        Forward pass of the Source-Filter encoder.
+
+        :param x: DDDMInput object
+        :param g: Global conditioning tensor
+        :param mixup_ratios: Mixup ratios for each sample in the batch
+        :return: Source, and Filter representations
+            If mixup_ratios is not None, return the mixed up outputs as well
+        """
+
+        content = self.content_proj(x.emb_content)
+        content = self.content_destylizer(content, g, x.mask)
+        content = self.content_stylizer(content, g, x.mask)
+
+        pitch = self.pitch_proj(x.emb_pitch)
+        pitch = self.pitch_destylizer(pitch, g, x.mask)
+        pitch = self.pitch_stylizer(pitch, g, x.mask)
 
         if mixup_ratios is not None:
             batch_size = x.batch_size

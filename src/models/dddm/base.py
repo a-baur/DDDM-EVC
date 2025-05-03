@@ -6,7 +6,7 @@ import util
 from models.dddm.preprocessor import DDDMInput
 from models.diffusion import Diffusion
 from models.token_diffusion import TokenDiffusion
-from modules.wavenet_decoder import WavenetDecoder
+from modules.wavenet_decoder import WavenetDecoder, WavenetAutostylizedDecoder
 
 
 class DDDM(nn.Module):
@@ -17,7 +17,9 @@ class DDDM(nn.Module):
     :param diffusion: Diffusion model
     """
 
-    def __init__(self, encoder: WavenetDecoder, diffusion: Diffusion) -> None:
+    def __init__(
+        self, encoder: WavenetDecoder | WavenetAutostylizedDecoder, diffusion: Diffusion
+    ) -> None:
         super().__init__()
 
         self.encoder = encoder

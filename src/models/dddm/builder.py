@@ -7,7 +7,7 @@ from models.content_encoder import XLSR, XLSR_ESPEAK_CTC, Hubert
 from models.diffusion import Diffusion
 from models.pitch_encoder import VQF0Encoder, YINEncoder
 from models.style_encoder import MetaStyleSpeech, StyleEncoder, StyleLabelEncoder
-from modules.wavenet_decoder import WavenetDecoder
+from modules.wavenet_decoder import WavenetDecoder, WavenetAutostylizedDecoder
 
 from ..speech_token_encoder import SpeechTokenAutoStylizer, SpeechTokenConcatenator
 from ..token_diffusion import TokenDiffusion
@@ -52,6 +52,8 @@ def models_from_config(
         return build_tkn_evc_xlsr_yin(config, device)
     elif model_choice == "tkn_autostylizer":
         return build_tkn_autostylizer(config, device)
+    elif model_choice == "evc_autostylizer":
+        return build_evc_autostylizer(config, device)
     else:
         raise ValueError(f"Unknown model configuration: {model_choice}")
 
@@ -496,6 +498,44 @@ def build_tkn_autostylizer(
     model = TokenDDDM(
         token_encoder=SpeechTokenAutoStylizer(cfg.model.token_encoder),
         diffusion=TokenDiffusion(cfg.model.diffusion),
+    ).to(device)
+
+    return model, preprocessor, style_encoder
+
+
+def build_evc_autostylizer(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, BasePreprocessor, StyleEncoder]:
+    """Build DDDM VC XLSR with pitch encoder model."""
+    style_encoder = StyleEncoder(cfg.model.style_encoder).to(device)
+    util.load_model(
+        style_encoder.speaker_encoder,
+        "metastylespeech.pth",
+        mode="eval",
+        freeze=True,
+    )
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
+        content_encoder=XLSR_ESPEAK_CTC(
+            return_logits=False,
+            return_hidden=True,
+        ),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
+    ).to(device)
+
+    src_ftr_encoder = WavenetAutostylizedDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion),
     ).to(device)
 
     return model, preprocessor, style_encoder
