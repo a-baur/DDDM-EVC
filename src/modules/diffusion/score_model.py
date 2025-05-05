@@ -13,7 +13,7 @@ from .modules import (
 )
 
 
-class GradLogPEstimator(torch.nn.Module):
+class GradLogPEstimatorV1(torch.nn.Module):
     """
     Score model for the diffusion model.
 
@@ -30,7 +30,7 @@ class GradLogPEstimator(torch.nn.Module):
         gin_channels: int,
         dim_mults: tuple[int, ...] = (1, 2, 4),
     ) -> None:
-        super(GradLogPEstimator, self).__init__()
+        super(GradLogPEstimatorV1, self).__init__()
 
         dims = [2 + dim_cond, *map(lambda m: dim_base * m, dim_mults)]
         in_out = list(zip(dims[:-1], dims[1:]))
@@ -147,7 +147,7 @@ class GradLogPEstimator(torch.nn.Module):
         return (output * x_mask).squeeze(1)
 
 
-class GradLogPEstimatorV1(torch.nn.Module):
+class GradLogPEstimatorV2(torch.nn.Module):
     """
     Score model for the diffusion model.
 
@@ -165,7 +165,7 @@ class GradLogPEstimatorV1(torch.nn.Module):
         dim_mults: tuple[int, ...] = (1, 2, 4),
         use_prior_conditioning: bool = False,
     ) -> None:
-        super(GradLogPEstimatorV1, self).__init__()
+        super(GradLogPEstimatorV2, self).__init__()
 
         self.use_prior_conditioning = use_prior_conditioning
 

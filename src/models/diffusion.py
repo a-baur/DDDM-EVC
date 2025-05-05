@@ -4,7 +4,7 @@ from typing import Literal
 import torch
 
 from config import DiffusionConfig
-from modules.diffusion import GradLogPEstimator, GradLogPEstimatorV1
+from modules.diffusion import GradLogPEstimatorV1, GradLogPEstimatorV2
 
 
 class Diffusion(torch.nn.Module):
@@ -38,13 +38,13 @@ class Diffusion(torch.nn.Module):
                 cfg.gin_channels,
             )
         elif score_model_ver == 2:
-            self.estimator_src = GradLogPEstimator(
+            self.estimator_src = GradLogPEstimatorV2(
                 cfg.in_dim,
                 cfg.cond_dim,
                 cfg.gin_channels,
                 use_prior_conditioning=False,
             )
-            self.estimator_ftr = GradLogPEstimator(
+            self.estimator_ftr = GradLogPEstimatorV2(
                 cfg.in_dim,
                 cfg.cond_dim,
                 cfg.gin_channels,

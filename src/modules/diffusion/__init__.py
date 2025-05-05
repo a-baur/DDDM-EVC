@@ -1,8 +1,8 @@
 from .base import BaseModule
-from .score_model import GradLogPEstimator, GradLogPEstimatorV1
+from .score_model import GradLogPEstimatorV1, GradLogPEstimatorV2
 
 __all__ = [
     "BaseModule",
-    "GradLogPEstimator",
     "GradLogPEstimatorV1",
+    "GradLogPEstimatorV2",
 ]
