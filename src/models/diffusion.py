@@ -42,7 +42,7 @@ class Diffusion(torch.nn.Module):
                 cfg.in_dim,
                 cfg.cond_dim,
                 cfg.gin_channels,
-                use_prior_conditioning=False,
+                use_prior_conditioning=True,
             )
             self.estimator_ftr = GradLogPEstimatorV2(
                 cfg.in_dim,
