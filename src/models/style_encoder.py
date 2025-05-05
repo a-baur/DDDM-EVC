@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -92,12 +91,29 @@ class StyleEncoder(nn.Module):
         self.p_spk_masking = cfg.p_spk_masking
         self.p_emo_masking = cfg.p_emo_masking
 
-    def emotion_conversion(self, x: DDDMInput, emo_level: int) -> torch.Tensor:
-        path = get_root_path() / "avgclass_emo_embeds" / "Development"
-        emo = np.load(path / f"{emo_level}.npy").astype(np.float32)
-        emo = torch.tensor(emo).to(x.audio.device).unsqueeze(0).expand(x.batch_size, -1)
-        emo = self.emotion_emb(emo)
+    def emotion_conversion(
+        self,
+        x: DDDMInput,
+        emo_level: int,
+        emo_dim: str = "EmoAct",
+        emo_factor: float = 0.0,
+        spk_factor: float = 0.0,
+    ) -> torch.Tensor:
+        emo = self.emotion_encoder(x.audio, embeddings_only=True)
         spk = self.speaker_encoder(x)
+
+        if emo_factor > 0:
+            emo_path = get_root_path() / "avgclass_emo_embeds" / "emo" / emo_dim
+            emo_avg = torch.load(emo_path / f"{emo_level}.pt").to(x.audio.device)
+            emo_avg = emo_avg.unsqueeze(0).expand(x.batch_size, -1)
+            emo = emo * (1 - emo_factor) + emo_avg * emo_factor
+        if spk_factor > 0:
+            spk_path = get_root_path() / "avgclass_emo_embeds" / "spk" / emo_dim
+            spk_avg = torch.load(spk_path / f"{emo_level}.pt").to(x.audio.device)
+            spk_avg = spk_avg.unsqueeze(0).expand(x.batch_size, -1)
+            spk = spk * (1 - spk_factor) + spk_avg * spk_factor
+
+        emo = self.emotion_emb(emo)
 
         if self.l2_normalize:
             spk = F.normalize(spk, p=2, dim=1)
