@@ -17,7 +17,10 @@ class MSPPodcast(torch.utils.data.Dataset):
 
     :param cfg: DatasetConfig object
     :param split: Split name
-    :param return_filename: Return filename for each sample
+    :param random_segmentation: Whether to use random segmentation
+    :param load_labels: Whether to load labels
+    :param label_filter: Dictionary of labels to filter by.
+        E.g. {"EmoAct": 7, "EmoVal": 0.5}
     """
 
     MANIFEST_FOLDER = "Manifests"
@@ -36,8 +39,13 @@ class MSPPodcast(torch.utils.data.Dataset):
         cfg: config.DataConfig,
         split: T_SPLITS,
         random_segmentation: bool = True,
-        load_labels: bool = True,
+        load_labels: bool = False,
+        label_filter: dict[str, ...] = None,
     ) -> None:
+        assert not (label_filter and not load_labels), (
+            "Label filter requires loading labels."
+        )
+
         self.path = Path(cfg.dataset.path)
         if not self.path.is_absolute():
             self.path = Path(util.get_root_path()) / self.path
@@ -54,6 +62,8 @@ class MSPPodcast(torch.utils.data.Dataset):
 
         if self.load_labels:
             self._load_labels()
+        if label_filter:
+            self.fnames, self.lengths = self._filter_fnames(label_filter)
 
     def __getitem__(
         self, index: int
@@ -83,6 +93,33 @@ class MSPPodcast(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return len(self.fnames)
 
+    def _filter_fnames(self, label_filter) -> tuple[list[str], list[float]]:
+        """
+        Get list of samples for labels.
+
+        :return: List of samples
+        """
+
+        def filter_label(fname: str) -> bool:
+            for key, value in label_filter.items():
+                if self._transform_label(fname)[key] != value:
+                    return False
+            return True
+
+        res = list(filter(lambda x: filter_label(x[0]), zip(self.fnames, self.lengths)))
+        if not res:
+            raise ValueError(f"No samples found for labels: {label_filter}")
+        fnames, lengths = zip(*res)
+        return list(fnames), list(lengths)
+
+    def _transform_label(self, fname: str) -> dict[str, ...]:
+        if fname not in self.labels:
+            raise ValueError(f"Label for {fname} not found.")
+        label = self.labels[fname]
+        label["Gender"] = 0 if label["Gender"] == "Male" else 1
+        label["SpkrID"] = -1 if label["SpkrID"] == "Unknown" else int(label["SpkrID"])
+        return {k: float(label[k]) for k in self.LABEL_ORDER}
+
     def _get_label_for_sample(self, fname: str) -> torch.Tensor:
         """
         Get label tensor for a given filename.
@@ -92,12 +129,8 @@ class MSPPodcast(torch.utils.data.Dataset):
         :param fname: Filename
         :return: Label dictionary
         """
-        if fname not in self.labels:
-            raise ValueError(f"Label for {fname} not found.")
-        label = self.labels[fname]
-        label["Gender"] = 0 if label["Gender"] == "Male" else 1
-        label["SpkrID"] = -1 if label["SpkrID"] == "Unknown" else int(label["SpkrID"])
-        return torch.Tensor([float(label[key]) for key in self.LABEL_ORDER])
+        label = self._transform_label(fname)
+        return torch.Tensor(list(label.values()))
 
     def _load_labels(self) -> None:
         fname = self.path / self.LABELS_FOLDER / "labels_consensus.csv"

@@ -26,6 +26,13 @@ class Label:
         self.spk_id = self.label_tensor[:, 3]
         self.spk_gender = self.label_tensor[:, 4]
 
+    def __repr__(self):
+        return (
+            f"Label(emo_act={self.emo_act}, emo_val={self.emo_val}, "
+            f"emo_dom={self.emo_dom}, spk_id={self.spk_id}, "
+            f"spk_gender={self.spk_gender})"
+        )
+
 
 @dataclass
 class DDDMInput:
