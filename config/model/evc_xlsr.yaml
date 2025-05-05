@@ -1,6 +1,10 @@
 defaults:
   - base_evc_xlsr
 
+
+perturb_inputs: True
+perturb_target: "content"
+
 style_encoder:
   l2_normalize: False
   p_emo_masking: 0.0

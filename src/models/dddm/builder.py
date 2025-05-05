@@ -209,6 +209,7 @@ def build_evc_xlsr_ph(
         ).to(device),
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
+        perturb_target=cfg.model.perturb_target,
         flatten_pitch=cfg.model.flatten_pitch,
     )
 

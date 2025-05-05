@@ -226,6 +226,7 @@ class DDDM_VC_XLSR_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    perturb_target: str = None
     flatten_pitch: bool = False
     use_duration_control: bool = False
 
@@ -239,6 +240,7 @@ class DDDM_VC_XLSR_YIN_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    perturb_target: str = None
     flatten_pitch: bool = False
     use_duration_control: bool = False
 
@@ -252,6 +254,7 @@ class DDDM_EVC_XLSR_YIN_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    perturb_target: str = None
     flatten_pitch: bool = False
     use_duration_control: bool = False
 
@@ -265,6 +268,7 @@ class TKN_DDDM_EVC_XLSR_YIN_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    perturb_target: str = None
     flatten_pitch: bool = False
     use_duration_control: bool = False
 
@@ -278,6 +282,7 @@ class TKN_DDDM_AUTOSTYLIZER_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    perturb_target: str = None
     flatten_pitch: bool = False
     use_duration_control: bool = False
 
@@ -291,6 +296,7 @@ class DDDM_EVC_XLSR_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    perturb_target: str = None
     flatten_pitch: bool = False
     use_duration_control: bool = False
 
@@ -304,6 +310,7 @@ class DDDM_EVC_HUBERT_Config:
     diffusion: DiffusionConfig
     vocoder: HifiGANConfig
     perturb_inputs: bool = False
+    perturb_target: str = None
     flatten_pitch: bool = False
     use_duration_control: bool = False
 

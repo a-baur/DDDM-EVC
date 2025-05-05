@@ -110,6 +110,7 @@ class BasePreprocessor(nn.Module):
         content_encoder: XLSR | Hubert | XLSR_ESPEAK_CTC,
         sample_rate: int,
         perturb_inputs: bool = False,
+        perturb_target: str = None,
         flatten_pitch: bool = False,
     ) -> None:
         super().__init__()
@@ -118,6 +119,7 @@ class BasePreprocessor(nn.Module):
         self.content_encoder = content_encoder
         self.sample_rate = sample_rate
         self.perturb_inputs = perturb_inputs
+        self.perturb_target = perturb_target
         self._praat_processor = PraatProcessor(sample_rate, flatten_pitch)
 
     def __call__(
@@ -155,8 +157,14 @@ class DDDMPreprocessor(BasePreprocessor):
 
         if self.perturb_inputs and self.training:
             detached = audio.detach().cpu()
-            audio_p = self._praat_processor.g_batched(detached).to(audio.device)
-            audio_c = self._praat_processor.f_batched(detached).to(audio.device)
+            if self.perturb_target == "pitch" or self.perturb_target is None:
+                audio_p = self._praat_processor.g_batched(detached).to(audio.device)
+            else:
+                audio_p = detached
+            if self.perturb_target == "content" or self.perturb_target is None:
+                audio_c = self._praat_processor.f_batched(detached).to(audio.device)
+            else:
+                audio_c = detached
         else:
             detached = audio.detach()
             audio_p = detached
