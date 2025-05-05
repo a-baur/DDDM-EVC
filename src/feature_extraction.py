@@ -66,16 +66,16 @@ def avg_embed(filter_dim: str, value: float) -> None:
     spk_embeds = torch.cat(spk_embeds)
     emo_embeds = torch.cat(emo_embeds)
 
-    avg_spk_embeds = spk_embeds.mean(-1)
-    avg_emo_embeds = emo_embeds.mean(-1)
+    avg_spk_embeds = spk_embeds.mean(0)
+    avg_emo_embeds = emo_embeds.mean(0)
 
     f_emo_path = get_root_path() / "emo" / filter_dim / f"{value}.pt"
     f_emo_path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(avg_spk_embeds, f_emo_path)
+    torch.save(avg_emo_embeds, f_emo_path)
 
     f_spk_path = get_root_path() / "spk" / filter_dim / f"{value}.pt"
     f_spk_path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(avg_emo_embeds, f_spk_path)
+    torch.save(avg_spk_embeds, f_spk_path)
 
 
 filter_dim = "EmoAct"
