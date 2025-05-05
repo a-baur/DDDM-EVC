@@ -4,7 +4,7 @@ from typing import Literal
 import torch
 
 from config import DiffusionConfig
-from modules.diffusion import GradLogPEstimator
+from modules.diffusion import GradLogPEstimator, GradLogPEstimatorV1
 
 
 class Diffusion(torch.nn.Module):
@@ -17,7 +17,7 @@ class Diffusion(torch.nn.Module):
     :param cfg: DiffusionConfig object.
     """
 
-    def __init__(self, cfg: DiffusionConfig) -> None:
+    def __init__(self, cfg: DiffusionConfig, score_model_ver: int = 1) -> None:
         super(Diffusion, self).__init__()
 
         self.n_feats = cfg.in_dim
@@ -26,18 +26,30 @@ class Diffusion(torch.nn.Module):
         self.beta_min = cfg.beta_min
         self.beta_max = cfg.beta_max
 
-        self.estimator_src = GradLogPEstimator(
-            cfg.in_dim,
-            cfg.cond_dim,
-            cfg.gin_channels,
-            use_prior_conditioning=False,
-        )
-        self.estimator_ftr = GradLogPEstimator(
-            cfg.in_dim,
-            cfg.cond_dim,
-            cfg.gin_channels,
-            use_prior_conditioning=True,
-        )
+        if score_model_ver == 1:
+            self.estimator_src = GradLogPEstimatorV1(
+                cfg.dec_dim,
+                cfg.cond_dim,
+                cfg.gin_channels,
+            )
+            self.estimator_ftr = GradLogPEstimatorV1(
+                cfg.dec_dim,
+                cfg.cond_dim,
+                cfg.gin_channels,
+            )
+        elif score_model_ver == 2:
+            self.estimator_src = GradLogPEstimator(
+                cfg.in_dim,
+                cfg.cond_dim,
+                cfg.gin_channels,
+                use_prior_conditioning=False,
+            )
+            self.estimator_ftr = GradLogPEstimator(
+                cfg.in_dim,
+                cfg.cond_dim,
+                cfg.gin_channels,
+                use_prior_conditioning=True,
+            )
 
     def get_beta(self, t: float | torch.Tensor) -> float | torch.Tensor:
         """
