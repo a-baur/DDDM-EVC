@@ -39,7 +39,7 @@ class MSPPodcast(torch.utils.data.Dataset):
         cfg: config.DataConfig,
         split: T_SPLITS,
         random_segmentation: bool = True,
-        load_labels: bool = False,
+        load_labels: bool = True,
         label_filter: dict[str, ...] = None,
     ) -> None:
         assert not (label_filter and not load_labels), (
