@@ -37,8 +37,8 @@ token_encoder:
   pitch_dim: 1000
   content_dim: 1024
   gin_channels: 512
-  hidden_dim: 512
-  out_dim: 512
+  hidden_dim: 128
+  out_dim: 128
   n_layers: 4
   n_heads: 4
   use_positional_encoding: True
@@ -50,7 +50,7 @@ diffusion:
   use_ref_t: False
   beta_min: 0.05
   beta_max: 20.0
-  gin_channels: 512
+  gin_channels: 128
 
 vocoder:
   in_dim: 80

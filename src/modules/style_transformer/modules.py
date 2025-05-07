@@ -235,6 +235,7 @@ class StyleTransformerBlock(nn.Module):
         self.ffn = nn.Sequential(
             nn.Conv1d(in_dim, 4 * in_dim, 1),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Conv1d(4 * in_dim, in_dim, 1),
         )
 
