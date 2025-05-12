@@ -1,13 +1,12 @@
+import torch
+
+import util
+from config import load_hydra_config
+from data import AudioDataloader, MelTransform, MSPPodcast
+from models import DDDMPreprocessor
 from models.content_encoder import XLSR_ESPEAK_CTC
 from models.pitch_encoder import YINEncoder
-from models import DDDMPreprocessor
-import util
-import torch
-from data import AudioDataloader, MSPPodcast, MelTransform
-from config import load_hydra_config
-
 from models.style_encoder import DisentangledStyleEncoder
-
 
 cfg = load_hydra_config("evc_xlsr_yin", overrides=["data.dataset.segment_size=38000"])
 train_dataloader = AudioDataloader(
@@ -19,7 +18,7 @@ train_dataloader = AudioDataloader(
 eval_dataloader = AudioDataloader(
     dataset=MSPPodcast(cfg.data, split="test1", random_segmentation=True),
     cfg=cfg.data.dataloader,
-    batch_size=32,
+    batch_size=100,
     shuffle=False,
 )
 
@@ -109,9 +108,6 @@ def main():
     print("Training Style Encoder")
     preprocessor.eval()
     for i, batch in enumerate(train_dataloader):
-        if i > 100:
-            break
-
         loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv = train(batch)
 
         if i % LOG_INTERVAL == 0:
