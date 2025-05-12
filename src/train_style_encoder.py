@@ -72,15 +72,15 @@ def train(batch):
     )
     x = preprocessor(audio, n_frames, labels)
     loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv = style_encoder.compute_loss(
-        x, adv_loss_coef=0.1
+        x, adv_loss_coef=0.01
     )
     return loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv
 
-
+dl_iter = iter(eval_dataloader)
 def eval():
     style_encoder.eval()
     with torch.no_grad():
-        eval_batch = next(iter(eval_dataloader))
+        eval_batch = next(dl_iter)
         eval_audio, eval_n_frames, eval_labels = (
             eval_batch[0].to(device),
             eval_batch[1].to(device),
@@ -93,7 +93,7 @@ def eval():
             loss_emo_eval,
             loss_spk_adv_eval,
             loss_emo_adv_eval,
-        ) = style_encoder.compute_loss(x_eval, adv_loss_coef=0.1)
+        ) = style_encoder.compute_loss(x_eval, adv_loss_coef=0.01)
         print(
             f">>> EVAL BATCH: "
             f"loss: {loss_eval.item():.4f}, loss_spk: {loss_spk_eval.item():.4f}, "
@@ -105,22 +105,23 @@ def eval():
 def main():
     print("Training Style Encoder")
     preprocessor.eval()
-    for i, batch in enumerate(train_dataloader):
-        loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv = train(batch)
+    for j in range(0, 100):
+        for i, batch in enumerate(train_dataloader):
+            loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv = train(batch)
 
-        if i % LOG_INTERVAL == 0:
-            print(
-                f"BATCH {i}: "
-                f"loss: {loss.item():.4f}, loss_spk: {loss_spk.item():.4f}, "
-                f"loss_emo: {loss_emo.item():.4f}, loss_spk_adv: {loss_spk_adv.item():.4f}, "
-                f"loss_emo_adv: {loss_emo_adv.item():.4f}"
-            )
-        if i % EVAL_INTERVAL == 0 and i > 0:
-            eval()
+            if i % LOG_INTERVAL == 0:
+                print(
+                    f"EPOCH {j} BATCH {i}: "
+                    f"loss: {loss.item():.4f}, loss_spk: {loss_spk.item():.4f}, "
+                    f"loss_emo: {loss_emo.item():.4f}, loss_spk_adv: {loss_spk_adv.item():.4f}, "
+                    f"loss_emo_adv: {loss_emo_adv.item():.4f}"
+                )
+            if i % EVAL_INTERVAL == 0 and i > 0:
+                eval()
 
-        loss.backward()
-        optimizer.step()
-        scheduler_g.step()
+            loss.backward()
+            optimizer.step()
+            scheduler_g.step()
 
 
 if __name__ == "__main__":
