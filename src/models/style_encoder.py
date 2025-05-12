@@ -290,7 +290,7 @@ class DisentangledStyleEncoder(nn.Module):
 
         loss_spk_adv = CCCLoss(self.spk_adv(grad_reverse(spk)), emo_target)
         loss_emo_adv = F.cross_entropy(
-            self.emo_adv(grad_reverse(emo)), spk_target.long()
+            self.emo_adv(grad_reverse(emo))[known_mask], spk_target[known_mask].long()
         )
 
         loss = (
