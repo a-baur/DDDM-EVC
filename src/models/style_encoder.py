@@ -197,7 +197,12 @@ class DisentangledStyleEncoder(nn.Module):
         self.emotion_encoder.eval().requires_grad_(False)
 
         self.emo_proj = nn.Linear(cfg.emotion_encoder.out_dim, hidden_dim, bias=False)
-        self.spk_proj = nn.Linear(cfg.speaker_encoder.out_dim, hidden_dim, bias=False)
+        self.spk_proj = nn.Sequential(
+            nn.Linear(cfg.speaker_encoder.out_dim, hidden_dim),
+            nn.GELU(),
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
 
         self.n_spk = n_spk + 1  # +1 for unknown speaker
 
