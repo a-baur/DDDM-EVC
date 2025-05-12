@@ -72,11 +72,14 @@ def train(batch):
     )
     x = preprocessor(audio, n_frames, labels)
     loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv = style_encoder.compute_loss(
-        x, adv_loss_coef=0.01
+        x, adv_spk_coef=0.01, adv_emo_coef=0.01
     )
     return loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv
 
+
 dl_iter = iter(eval_dataloader)
+
+
 def eval():
     style_encoder.eval()
     with torch.no_grad():
@@ -93,7 +96,7 @@ def eval():
             loss_emo_eval,
             loss_spk_adv_eval,
             loss_emo_adv_eval,
-        ) = style_encoder.compute_loss(x_eval, adv_loss_coef=0.01)
+        ) = style_encoder.compute_loss(x_eval, adv_spk_coef=0.01, adv_emo_coef=0.01)
         print(
             f">>> EVAL BATCH: "
             f"loss: {loss_eval.item():.4f}, loss_spk: {loss_spk_eval.item():.4f}, "
