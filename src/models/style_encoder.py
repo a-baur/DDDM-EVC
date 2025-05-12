@@ -15,6 +15,11 @@ from modules.w2v2_l_robust import RegressionHead
 from util import get_root_path, temporal_avg_pool
 
 
+def CCCLoss(x, y):
+    ccc = 2 * torch.cov(x, y) / (x.var() + y.var() + (x.mean() - y.mean()) ** 2)
+    return ccc
+
+
 class GradReverse(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x):
@@ -242,7 +247,8 @@ class DisentangledStyleEncoder(nn.Module):
     def compute_loss(
         self,
         x: DDDMInput,
-        adv_loss_coef: float = 0.1,
+        adv_spk_coef: float = 0.1,
+        adv_emo_coef: float = 0.1,
     ):
         spk_target = x.label.spk_id
         spk_target = spk_target + 1
@@ -256,14 +262,19 @@ class DisentangledStyleEncoder(nn.Module):
         spk, emo = self.encode(x)
 
         loss_spk = F.cross_entropy(self.spk_cls(spk), spk_target.long())
-        loss_emo = F.mse_loss(self.emo_reg(emo), emo_target)
+        loss_emo = CCCLoss(self.emo_reg(emo), emo_target)
 
-        loss_spk_adv = F.mse_loss(self.spk_adv(grad_reverse(spk)), emo_target)
+        loss_spk_adv = CCCLoss(self.spk_adv(grad_reverse(spk)), emo_target)
         loss_emo_adv = F.cross_entropy(
             self.emo_adv(grad_reverse(emo)), spk_target.long()
         )
 
-        loss = loss_spk + loss_emo + adv_loss_coef * (loss_spk_adv + loss_emo_adv)
+        loss = (
+            loss_spk
+            + loss_emo
+            + adv_spk_coef * loss_spk_adv
+            + adv_emo_coef * loss_emo_adv
+        )
         return loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv
 
 
