@@ -19,7 +19,7 @@ eval_dataloader = AudioDataloader(
     dataset=MSPPodcast(cfg.data, split="test1", random_segmentation=True),
     cfg=cfg.data.dataloader,
     batch_size=100,
-    shuffle=False,
+    shuffle=True,
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -77,12 +77,10 @@ def train(batch):
     return loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv
 
 
-eval_batch = next(iter(eval_dataloader))
-
-
 def eval():
     style_encoder.eval()
     with torch.no_grad():
+        eval_batch = next(iter(eval_dataloader))
         eval_audio, eval_n_frames, eval_labels = (
             eval_batch[0].to(device),
             eval_batch[1].to(device),
