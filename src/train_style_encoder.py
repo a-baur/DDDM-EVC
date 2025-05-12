@@ -39,6 +39,12 @@ style_encoder = DisentangledStyleEncoder(
     hidden_dim=256,
     n_spk=1459,
 ).to(device)
+# Unfreeze the self-attention and final convolution layers:
+for param in style_encoder.speaker_encoder.slf_attn.parameters():
+    param.requires_grad = True
+
+for param in style_encoder.speaker_encoder.fc.parameters():
+    param.requires_grad = True
 
 util.load_model(
     style_encoder.speaker_encoder,
@@ -48,11 +54,11 @@ util.load_model(
 )
 
 optimizer = torch.optim.AdamW(
-    style_encoder.parameters(),
-    5e-5,
-    betas=(0.85, 0.98),
-    eps=1e-8,
+    filter(lambda p: p.requires_grad, style_encoder.parameters()),
+    lr=1e-5,
+    weight_decay=1e-4,
 )
+
 scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
     optimizer, gamma=0.9999, last_epoch=-1
 )
@@ -96,7 +102,9 @@ def eval():
             loss_emo_eval,
             loss_spk_adv_eval,
             loss_emo_adv_eval,
-        ) = style_encoder.compute_loss(x_eval, adv_spk_coef=0.01, adv_emo_coef=0.01, include_acc=True)
+        ) = style_encoder.compute_loss(
+            x_eval, adv_spk_coef=0.01, adv_emo_coef=0.01, include_acc=True
+        )
         print(
             f">>> EVAL BATCH: "
             f"loss: {loss_eval.item():.4f}, loss_spk: {loss_spk_eval.item():.4f}, "
