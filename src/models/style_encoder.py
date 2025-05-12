@@ -15,9 +15,26 @@ from modules.w2v2_l_robust import RegressionHead
 from util import get_root_path, temporal_avg_pool
 
 
-def CCCLoss(x, y):
-    ccc = 2 * torch.cov(x, y) / (x.var() + y.var() + (x.mean() - y.mean()) ** 2)
-    return ccc
+def CCCLoss(preds, labels, eps=1e-8):
+    """
+    Computes Concordance Correlation Coefficient loss.
+
+    :param preds: [batch_size, dims]
+    :param labels: [batch_size, dims]
+    :return: loss = 1 - mean(CCC over dims)
+    """
+    preds_mean = preds.mean(dim=0)
+    labels_mean = labels.mean(dim=0)
+
+    covariance = ((preds - preds_mean) * (labels - labels_mean)).mean(dim=0)
+    preds_var = preds.var(dim=0)
+    labels_var = labels.var(dim=0)
+
+    ccc = (2 * covariance) / (
+        preds_var + labels_var + (preds_mean - labels_mean).pow(2) + eps
+    )
+
+    return 1 - ccc.mean()
 
 
 class GradReverse(torch.autograd.Function):
