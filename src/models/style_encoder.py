@@ -271,6 +271,7 @@ class DisentangledStyleEncoder(nn.Module):
         x: DDDMInput,
         adv_spk_coef: float = 0.1,
         adv_emo_coef: float = 0.1,
+        include_acc: bool = False,
     ):
         spk_target = x.label.spk_id
         known_mask = spk_target >= 0
@@ -292,6 +293,11 @@ class DisentangledStyleEncoder(nn.Module):
         loss_emo_adv = F.cross_entropy(
             self.emo_adv(grad_reverse(emo))[known_mask], spk_target[known_mask].long()
         )
+        
+        if include_acc:   
+            logits = self.spk_cls(spk)
+            acc = (logits.argmax(dim=1) == spk_target.long()).float().mean()
+            print(f"Sanity check accuracy: {acc.item()*100:.2f}%")
 
         loss = (
             loss_spk
