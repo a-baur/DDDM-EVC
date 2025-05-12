@@ -273,7 +273,7 @@ class DisentangledStyleEncoder(nn.Module):
         adv_emo_coef: float = 0.1,
     ):
         spk_target = x.label.spk_id
-        spk_target = spk_target + 1
+        known_mask = spk_target >= 0
 
         assert spk_target.max() <= self.n_spk, (
             f"Speaker ID {spk_target.max()} exceeds number of speakers {self.n_spk}."
@@ -283,7 +283,9 @@ class DisentangledStyleEncoder(nn.Module):
 
         spk, emo = self.encode(x)
 
-        loss_spk = F.cross_entropy(self.spk_cls(spk), spk_target.long())
+        loss_spk = F.cross_entropy(
+            self.spk_cls(spk)[known_mask], spk_target[known_mask].long()
+        )
         loss_emo = CCCLoss(self.emo_reg(emo), emo_target)
 
         loss_spk_adv = CCCLoss(self.spk_adv(grad_reverse(spk)), emo_target)
