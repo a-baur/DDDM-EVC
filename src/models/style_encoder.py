@@ -171,8 +171,8 @@ class DisentangledStyleEncoder(nn.Module):
         self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
         self.emotion_encoder = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
 
-        self.speaker_encoder = self.speaker_encoder.eval().requires_grad_(False)
-        self.emotion_encoder = self.emotion_encoder.eval().requires_grad_(False)
+        self.speaker_encoder.eval().requires_grad_(False)
+        self.emotion_encoder.eval().requires_grad_(False)
 
         self.emo_proj = nn.Linear(cfg.emotion_encoder.out_dim, hidden_dim, bias=False)
         self.spk_proj = nn.Linear(cfg.speaker_encoder.out_dim, hidden_dim, bias=False)
@@ -213,8 +213,8 @@ class DisentangledStyleEncoder(nn.Module):
         spk = self.spk_proj(spk)
 
         if self.l2_normalize:
-            spk = F.normalize(spk, p=2, dim=1)
             emo = F.normalize(emo, p=2, dim=1)
+            spk = F.normalize(spk, p=2, dim=1)
 
         return spk, emo
 
@@ -236,7 +236,7 @@ class DisentangledStyleEncoder(nn.Module):
         :param spk_factor: Speaker factor
         :return: Condition tensor
         """
-        emo, spk = self.encode(x, emo_level, emo_dim, emo_factor, spk_factor)
+        spk, emo = self.encode(x, emo_level, emo_dim, emo_factor, spk_factor)
         return torch.cat([spk, emo], dim=1)
 
     def compute_loss(
