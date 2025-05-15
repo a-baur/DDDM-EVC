@@ -196,15 +196,15 @@ class StyleEncoder(nn.Module):
 class DisentangledStyleEncoder(nn.Module):
     def __init__(self, cfg: StyleEncoderConfig, hidden_dim: int = 256, n_spk: int = 10):
         super().__init__()
-        self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
-        self.emotion_encoder = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
+        self.speaker_encoder = ECAPA_TDNN_NEMO()
+        self.emotion_encoder = WavLM_Odyssey()
 
         self.speaker_encoder.eval().requires_grad_(False)
         self.emotion_encoder.eval().requires_grad_(False)
 
-        self.emo_proj = nn.Linear(cfg.emotion_encoder.out_dim, hidden_dim, bias=False)
+        self.emo_proj = nn.Linear(2048, hidden_dim, bias=False)
         self.spk_proj = nn.Sequential(
-            nn.Linear(cfg.speaker_encoder.out_dim, hidden_dim),
+            nn.Linear(129, hidden_dim),
             nn.GELU(),
             nn.LayerNorm(hidden_dim),
             nn.Linear(hidden_dim, hidden_dim),
@@ -228,8 +228,8 @@ class DisentangledStyleEncoder(nn.Module):
         emo_factor: float = 0.0,
         spk_factor: float = 0.0,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        emo = self.emotion_encoder(x.audio, embeddings_only=True)
-        spk = self.speaker_encoder(x)
+        emo = self.emotion_encoder(x.audio)
+        spk = self.speaker_encoder(x.audio)
 
         if emo_level and emo_factor > 0:
             emo_path = get_root_path() / "avgclass_emo_embeds" / "emo" / emo_dim

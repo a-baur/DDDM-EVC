@@ -1,6 +1,5 @@
 import torch
 
-import util
 from config import load_hydra_config
 from data import AudioDataloader, MelTransform, MSPPodcast
 from models import DDDMPreprocessor
@@ -39,19 +38,6 @@ style_encoder = DisentangledStyleEncoder(
     hidden_dim=256,
     n_spk=1459,
 ).to(device)
-# Unfreeze the self-attention and final convolution layers:
-for param in style_encoder.speaker_encoder.slf_attn.parameters():
-    param.requires_grad = True
-
-for param in style_encoder.speaker_encoder.fc.parameters():
-    param.requires_grad = True
-
-util.load_model(
-    style_encoder.speaker_encoder,
-    "metastylespeech.pth",
-    mode="eval",
-    freeze=True,
-)
 
 optimizer = torch.optim.AdamW(
     filter(lambda p: p.requires_grad, style_encoder.parameters()),
