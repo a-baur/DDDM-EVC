@@ -15,6 +15,14 @@ class MSPPodcast(torch.utils.data.Dataset):
     Dataset class for the MSP Podcast dataset.
     https://doi.org/10.1109/TAFFC.2017.2736999
 
+    Available labels:
+
+    - EmoAct: Emotion Act
+    - EmoVal: Emotion Valence
+    - EmoDom: Emotion Dominance
+    - SpkrID: Speaker ID
+    - Gender: Speaker Gender
+
     :param cfg: DatasetConfig object
     :param split: Split name
     :param random_segmentation: Whether to use random segmentation
@@ -102,8 +110,12 @@ class MSPPodcast(torch.utils.data.Dataset):
 
         def filter_label(fname: str) -> bool:
             for key, value in label_filter.items():
-                if self._transform_label(fname)[key] != value:
-                    return False
+                if isinstance(value, list):
+                    if self._transform_label(fname)[key] not in value:
+                        return False
+                else:
+                    if self._transform_label(fname)[key] != value:
+                        return False
             return True
 
         res = list(filter(lambda x: filter_label(x[0]), zip(self.fnames, self.lengths)))

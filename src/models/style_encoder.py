@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -6,6 +8,10 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
     Wav2Vec2Model,
     Wav2Vec2PreTrainedModel,
 )
+from speechbrain.inference.speaker import EncoderClassifier
+from huggingface_hub import hf_hub_download
+import nemo.collections.asr as nemo_asr
+from transformers import AutoModelForAudioClassification
 
 from config import MetaStyleSpeechConfig, StyleEncoderConfig
 from models.dddm.preprocessor import DDDMInput
@@ -293,11 +299,11 @@ class DisentangledStyleEncoder(nn.Module):
         loss_emo_adv = F.cross_entropy(
             self.emo_adv(grad_reverse(emo))[known_mask], spk_target[known_mask].long()
         )
-        
-        if include_acc:   
+
+        if include_acc:
             logits = self.spk_cls(spk)
             acc = (logits.argmax(dim=1) == spk_target.long()).float().mean()
-            print(f"Sanity check accuracy: {acc.item()*100:.2f}%")
+            print(f"Sanity check accuracy: {acc.item() * 100:.2f}%")
 
         loss = (
             loss_spk
@@ -306,6 +312,25 @@ class DisentangledStyleEncoder(nn.Module):
             + adv_emo_coef * loss_emo_adv
         )
         return loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv
+
+
+class WavLM_Odyssey(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = AutoModelForAudioClassification.from_pretrained(
+            "3loi/SER-Odyssey-Baseline-WavLM-Multi-Attributes",
+            trust_remote_code=True,
+        )
+        self.model.eval().requires_grad_(False)
+
+    @torch.no_grad()
+    def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+        if mask is None:
+            mask = torch.ones(x.shape[0], x.shape[1]).to(x.device)
+        attn_mask = mask.unsqueeze(2) * mask.unsqueeze(-1)
+        x = self.model.ssl_model(x, attention_mask=attn_mask).last_hidden_state
+        x = self.model.pool_model(x, mask)
+        return x
 
 
 class W2V2LRobust(Wav2Vec2PreTrainedModel):
@@ -330,7 +355,7 @@ class W2V2LRobust(Wav2Vec2PreTrainedModel):
     def forward(
         self,
         x: torch.Tensor,
-        embeddings_only: bool = False,
+        embeddings_only: bool = True,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass.
@@ -437,3 +462,48 @@ class MetaStyleSpeech(nn.Module):
         w = temporal_avg_pool(_x, mask=x.mask)
 
         return w
+
+
+class ECAPA_TDNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        save_dir = get_root_path() / "pretrained" / "ecapa_tdnn"
+        self.model = EncoderClassifier.from_hparams(
+            source="speechbrain/spkrec-ecapa-voxceleb",
+            run_opts={"device": "cuda"},
+            savedir=save_dir.as_posix(),
+            huggingface_cache_dir=os.environ.get("HF_HOME"),
+        )
+        self.model.eval().requires_grad_(False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model.encode_batch(x, normalize=True).squeeze(1)
+
+
+class ECAPA2(nn.Module):
+    def __init__(self):
+        super().__init__()
+        model_file = hf_hub_download(repo_id="Jenthe/ECAPA2", filename="ecapa2.pt")
+        self.model = torch.jit.load(
+            model_file, map_location="cuda" if torch.cuda.is_available() else "cpu"
+        )
+        self.model.half()
+
+    @torch.no_grad()
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        with torch.jit.optimized_execution(False):
+            out = self.model(x).squeeze(1)
+        return out
+
+
+class ECAPA_TDNN_NEMO(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained(
+            model_name="ecapa_tdnn"
+        )
+        self.model.eval().requires_grad_(False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        lengths = torch.full((x.shape[0],), x.shape[1], dtype=torch.int64).to(x.device)
+        return self.model(x, lengths)[1]

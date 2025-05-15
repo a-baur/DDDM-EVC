@@ -23,8 +23,8 @@ class Label:
         self.emo_act = self.label_tensor[:, 0]
         self.emo_val = self.label_tensor[:, 1]
         self.emo_dom = self.label_tensor[:, 2]
-        self.spk_id = self.label_tensor[:, 3]
-        self.spk_gender = self.label_tensor[:, 4]
+        self.spk_id = self.label_tensor[:, 3].long()
+        self.spk_gender = self.label_tensor[:, 4].long()
 
     def __repr__(self):
         return (
