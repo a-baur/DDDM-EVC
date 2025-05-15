@@ -1,132 +1,43 @@
 # %%
 
-from models.content_encoder import XLSR_ESPEAK_CTC
-from models.pitch_encoder import YINEncoder
-from models import DDDMPreprocessor
-import util
+from src.models.content_encoder import XLSR_ESPEAK_CTC
+from src.models.pitch_encoder import YINEncoder
+from src.models import DDDMPreprocessor
+import src.util as util
 import torch
 from data import AudioDataloader, MSPPodcast, MelTransform
 from config import load_hydra_config
+from collections import defaultdict
+import numpy as np
 
-from models.style_encoder import (
+from src.models.style_encoder import (
     StyleEncoder,
     ECAPA_TDNN,
     ECAPA2,
     ECAPA_TDNN_NEMO,
     WavLM_Odyssey,
 )
-from util import get_root_path
+from src.util import get_root_path
+from sklearn.preprocessing import StandardScaler
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+from sklearn.metrics import (
+    silhouette_score,
+    calinski_harabasz_score,
+    davies_bouldin_score,
+    adjusted_rand_score,
+    mean_absolute_error,
+)
+from scipy.stats import pearsonr
+from sklearn.model_selection import KFold, cross_val_predict
+from sklearn.neighbors import KNeighborsRegressor
 
 cfg = load_hydra_config("evc_xlsr_yin", overrides=["data.dataset.segment_size=38000"])
 
-# rdm_spk_ids = torch.randint(0, 1459, (100,)).long().tolist()  # 100 random speaker
-rdm_spk_ids = [
-    172,
-    166,
-    1044,
-    1394,
-    1247,
-    1056,
-    1370,
-    25,
-    765,
-    997,
-    845,
-    781,
-    1390,
-    1113,
-    856,
-    37,
-    543,
-    1158,
-    36,
-    995,
-    55,
-    1098,
-    1093,
-    309,
-    1351,
-    652,
-    924,
-    1405,
-    1351,
-    212,
-    1095,
-    356,
-    1155,
-    164,
-    1057,
-    922,
-    518,
-    528,
-    216,
-    704,
-    374,
-    1158,
-    1438,
-    210,
-    942,
-    531,
-    582,
-    731,
-    592,
-    206,
-    754,
-    494,
-    295,
-    1386,
-    705,
-    517,
-    172,
-    5,
-    1042,
-    719,
-    585,
-    56,
-    566,
-    929,
-    276,
-    956,
-    1308,
-    1217,
-    1203,
-    288,
-    806,
-    926,
-    358,
-    791,
-    1325,
-    839,
-    73,
-    313,
-    106,
-    882,
-    1037,
-    786,
-    974,
-    99,
-    700,
-    444,
-    283,
-    918,
-    470,
-    623,
-    875,
-    5,
-    658,
-    618,
-    697,
-    929,
-    1380,
-    954,
-    743,
-    1446,
-]
 dataset = MSPPodcast(
     cfg.data,
     split="train",
     random_segmentation=True,
-    # label_filter={"SpkrID": rdm_spk_ids}
 )
 dataloader = AudioDataloader(
     dataset=dataset,
@@ -172,9 +83,6 @@ emotion_encoder = {
     "Wav2Vec2": style_encoder.emotion_encoder,
 }
 print("Loading models done.")
-# %%
-from collections import defaultdict
-import numpy as np
 
 
 _spk_embeds = defaultdict(list)
@@ -212,26 +120,12 @@ with torch.no_grad():
 
         _spk_labels.append(x.label.spk_id.cpu().numpy())
         _emo_labels.append(x.label.label_tensor[:, 0:3].cpu().numpy())
-# %%
+
 # Concatenate all embeddings and labels
 spk_embeds = {k: np.concatenate(v, axis=0) for k, v in _spk_embeds.items()}
 emo_embeds = {k: np.concatenate(v, axis=0) for k, v in _emo_embeds.items()}
 emo_labels = np.concatenate(_emo_labels, axis=0)
 spk_labels = np.concatenate(_spk_labels, axis=0)
-# %%
-from sklearn.preprocessing import StandardScaler
-from sklearn.manifold import TSNE
-import matplotlib.pyplot as plt
-from sklearn.metrics import (
-    silhouette_score,
-    calinski_harabasz_score,
-    davies_bouldin_score,
-    adjusted_rand_score,
-    mean_absolute_error,
-)
-from scipy.stats import pearsonr
-from sklearn.model_selection import KFold, cross_val_predict
-from sklearn.neighbors import KNeighborsRegressor
 
 
 def nn_regression(emb, labels):
