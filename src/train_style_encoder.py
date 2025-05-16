@@ -1,3 +1,13 @@
+"""
+Minimal train script for optimizing projectin layers of the style encoder
+to maximize the disentanglment of the speaker and emotion embeddings.
+
+Approach:
+Minimize speaker classification loss of speaker encoder while maximizing
+emotion regression loss of speaker encoder via Gradient Reversal Layer.
+Vice versa for the emotion encoder.
+"""
+
 import torch
 
 from config import load_hydra_config
@@ -17,7 +27,7 @@ train_dataloader = AudioDataloader(
 eval_dataloader = AudioDataloader(
     dataset=MSPPodcast(cfg.data, split="test1", random_segmentation=True),
     cfg=cfg.data.dataloader,
-    batch_size=100,
+    batch_size=32,
     shuffle=True,
 )
 
@@ -51,6 +61,8 @@ scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
 
 LOG_INTERVAL = 10
 EVAL_INTERVAL = 50
+EVAL_BATCHES = 10
+CKPT_INTERVAL = 1950  # 1 epoch = 1950 batches
 
 
 def train(batch):
@@ -69,13 +81,23 @@ def train(batch):
     return loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv
 
 
-dl_iter = iter(eval_dataloader)
-
-
+@torch.no_grad()
 def eval():
     style_encoder.eval()
-    with torch.no_grad():
-        eval_batch = next(dl_iter)
+
+    losses = {
+        "loss": 0.0,
+        "loss_adv": 0.0,
+        "loss_spk": 0.0,
+        "loss_emo": 0.0,
+        "loss_spk_adv": 0.0,
+        "loss_emo_adv": 0.0,
+    }
+
+    eval_batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    for i, eval_batch in enumerate(eval_dataloader):
+        if i >= EVAL_BATCHES:
+            break
         eval_audio, eval_n_frames, eval_labels = (
             eval_batch[0].to(device),
             eval_batch[1].to(device),
@@ -93,12 +115,24 @@ def eval():
         )
         loss = loss_spk_eval.item() + loss_emo_eval.item()
         adv_loss = loss_emo_adv_eval.item() + loss_spk_adv_eval.item()
-        print(
-            f">>> EVAL BATCH: "
-            f"loss: {loss:.4f} | adv loss: {adv_loss:.4f} | loss_spk: {loss_spk_eval.item():.4f} | "
-            f"loss_emo: {loss_emo_eval.item():.4f} | loss_spk_adv: {loss_spk_adv_eval.item():.4f}"
-            f" | loss_emo_adv: {loss_emo_adv_eval.item():.4f}"
-        )
+        losses["loss"] += loss
+        losses["loss_adv"] += adv_loss
+        losses["loss_spk"] += loss_spk_eval.item()
+        losses["loss_emo"] += loss_emo_eval.item()
+        losses["loss_spk_adv"] += loss_spk_adv_eval.item()
+        losses["loss_emo_adv"] += loss_emo_adv_eval.item()
+
+    losses = {k: v / EVAL_BATCHES for k, v in losses.items()}
+
+    print(
+        f">>> EVAL BATCH: "
+        f"loss: {losses['loss']:.4f}, "
+        f"loss_adv: {losses['loss_adv']:.4f}, "
+        f"loss_spk: {losses['loss_spk']:.4f}, "
+        f"loss_emo: {losses['loss_emo']:.4f}, "
+        f"loss_spk_adv: {losses['loss_spk_adv']:.4f}, "
+        f"loss_emo_adv: {losses['loss_emo_adv']:.4f}"
+    )
 
 
 def main():
@@ -117,6 +151,17 @@ def main():
                 )
             if i % EVAL_INTERVAL == 0 and i > 0:
                 eval()
+            if i % CKPT_INTERVAL == 0 and i > 0:
+                print("Saving checkpoint...")
+                torch.save(
+                    {
+                        "epoch": j,
+                        "batch": i,
+                        "model": style_encoder.state_dict(),
+                        "optimizer": optimizer.state_dict(),
+                    },
+                    f"style_encoder_{j}_{i}.pth",
+                )
 
             loss.backward()
             optimizer.step()
