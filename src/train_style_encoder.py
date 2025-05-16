@@ -64,7 +64,7 @@ def train(batch):
     )
     x = preprocessor(audio, n_frames, labels)
     loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv = style_encoder.compute_loss(
-        x, adv_spk_coef=0.0, adv_emo_coef=0.05
+        x, adv_spk_coef=0.001, adv_emo_coef=0.1
     )
     return loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv
 
@@ -89,13 +89,15 @@ def eval():
             loss_spk_adv_eval,
             loss_emo_adv_eval,
         ) = style_encoder.compute_loss(
-            x_eval, adv_spk_coef=0.01, adv_emo_coef=0.01, include_acc=True
+            x_eval, adv_spk_coef=0.000001, adv_emo_coef=0.1, include_acc=True
         )
+        loss = loss_spk_eval.item() + loss_emo_eval.item()
+        adv_loss = loss_emo_adv_eval.item() + loss_spk_adv_eval.item()
         print(
             f">>> EVAL BATCH: "
-            f"loss: {loss_eval.item():.4f}, loss_spk: {loss_spk_eval.item():.4f}, "
-            f"loss_emo: {loss_emo_eval.item():.4f}, loss_spk_adv: {loss_spk_adv_eval.item():.4f}, "
-            f"loss_emo_adv: {loss_emo_adv_eval.item():.4f}"
+            f"loss: {loss:.4f} | adv loss: {adv_loss:.4f} | loss_spk: {loss_spk_eval.item():.4f} | "
+            f"loss_emo: {loss_emo_eval.item():.4f} | loss_spk_adv: {loss_spk_adv_eval.item():.4f}"
+            f" | loss_emo_adv: {loss_emo_adv_eval.item():.4f}"
         )
 
 

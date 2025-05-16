@@ -208,12 +208,7 @@ class DisentangledStyleEncoder(nn.Module):
             nn.LayerNorm(hidden_dim),
             nn.Linear(hidden_dim, hidden_dim),
         )
-        self.spk_proj = nn.Sequential(
-            nn.Linear(192, hidden_dim),
-            nn.GELU(),
-            nn.LayerNorm(hidden_dim),
-            nn.Linear(hidden_dim, hidden_dim),
-        )
+        self.spk_proj = nn.Linear(192, hidden_dim)
 
         self.n_spk = n_spk + 1  # +1 for unknown speaker
 
