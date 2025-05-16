@@ -6,7 +6,12 @@ from data import MelTransform
 from models.content_encoder import XLSR, XLSR_ESPEAK_CTC, Hubert
 from models.diffusion import Diffusion
 from models.pitch_encoder import VQF0Encoder, YINEncoder
-from models.style_encoder import MetaStyleSpeech, StyleEncoder, StyleLabelEncoder
+from models.style_encoder import (
+    MetaStyleSpeech,
+    StyleEncoder,
+    StyleLabelEncoder,
+    DisentangledStyleEncoder,
+)
 from modules.wavenet_decoder import WavenetDecoder, WavenetAutostylizedDecoder
 
 from ..speech_token_encoder import SpeechTokenAutoStylizer, SpeechTokenConcatenator
@@ -38,6 +43,8 @@ def models_from_config(
         return build_vc_xlsr_yin_dc(config, device)
     elif model_choice == "evc_xlsr":
         return build_evc_xlsr(config, device)
+    elif model_choice == "evc_xlsr_disentangled":
+        return build_evc_xlsr_disentangled(config, device)
     elif model_choice == "evc_xlsr_ph":
         return build_evc_xlsr_ph(config, device)
     elif model_choice == "evc_xlsr_ph_yin":
@@ -161,6 +168,38 @@ def build_evc_xlsr(
     util.load_model(
         style_encoder.speaker_encoder, "metastylespeech.pth", mode="eval", freeze=True
     )
+
+    vq_vae = VQF0Encoder(cfg.model.pitch_encoder).to(device)
+    util.load_model(vq_vae, "vqvae.pth")
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=vq_vae,
+        content_encoder=XLSR().to(device),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
+    )
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion, score_model_ver=2).to(device),
+    )
+
+    return model, preprocessor, style_encoder
+
+
+def build_evc_xlsr_disentangled(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, DDDMPreprocessor, StyleEncoder]:
+    """Build DDDM EVC XLSR model."""
+    style_encoder = DisentangledStyleEncoder(cfg.model.style_encoder).to(device)
 
     vq_vae = VQF0Encoder(cfg.model.pitch_encoder).to(device)
     util.load_model(vq_vae, "vqvae.pth")
