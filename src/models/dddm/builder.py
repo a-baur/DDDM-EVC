@@ -375,7 +375,11 @@ def build_evc_xlsr_yin_disentangled(
     cfg: DictConfig, device: torch.device
 ) -> tuple[DDDM, BasePreprocessor, StyleEncoder]:
     """Build DDDM VC XLSR with pitch encoder model."""
-    style_encoder = DisentangledStyleEncoder(cfg.model.style_encoder).to(device)
+    style_encoder = DisentangledStyleEncoder(
+        cfg.model.style_encoder,
+        hidden_dim=256,
+        n_spk=1459,
+    ).to(device)
     util.load_model(
         style_encoder,
         "disentangled_style_encoder.pth",
