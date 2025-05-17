@@ -19,10 +19,10 @@ def get_root_path() -> pathlib.Path:
 def load_model(
     model: torch.nn.Module,
     ckpt_file: str | pathlib.Path,
-    model_key: str = None,
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     freeze: bool = False,
     mode: Literal["train", "eval"] = "eval",
+    model_key: str = None,
 ) -> None:
     """Load model from checkpoint file."""
     ckpt_dir = util.get_root_path() / "pretrained"
