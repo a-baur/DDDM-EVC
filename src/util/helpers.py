@@ -19,6 +19,7 @@ def get_root_path() -> pathlib.Path:
 def load_model(
     model: torch.nn.Module,
     ckpt_file: str | pathlib.Path,
+    model_key: str = None,
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     freeze: bool = False,
     mode: Literal["train", "eval"] = "eval",
@@ -26,6 +27,10 @@ def load_model(
     """Load model from checkpoint file."""
     ckpt_dir = util.get_root_path() / "pretrained"
     ckpt = torch.load(ckpt_dir / ckpt_file, map_location=device, weights_only=True)
+    if model_key is not None:
+        if model_key not in ckpt:
+            raise ValueError(f"Key {model_key} not found in checkpoint.")
+        ckpt = ckpt[model_key]
     model.load_state_dict(ckpt)
     model.to(device)
     if freeze:

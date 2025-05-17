@@ -45,6 +45,8 @@ def models_from_config(
         return build_evc_xlsr(config, device)
     elif model_choice == "evc_xlsr_disentangled":
         return build_evc_xlsr_disentangled(config, device)
+    elif model_choice == "evc_xlsr_yin_disentangled":
+        return build_evc_xlsr_yin_disentangled(config, device)
     elif model_choice == "evc_xlsr_ph":
         return build_evc_xlsr_ph(config, device)
     elif model_choice == "evc_xlsr_ph_yin":
@@ -365,6 +367,45 @@ def build_vc_xlsr_yin(
         encoder=src_ftr_encoder,
         diffusion=Diffusion(cfg.model.diffusion).to(device),
     )
+
+    return model, preprocessor, style_encoder
+
+
+def build_evc_xlsr_yin_disentangled(
+    cfg: DictConfig, device: torch.device
+) -> tuple[DDDM, BasePreprocessor, StyleEncoder]:
+    """Build DDDM VC XLSR with pitch encoder model."""
+    style_encoder = DisentangledStyleEncoder(cfg.model.style_encoder).to(device)
+    util.load_model(
+        style_encoder,
+        "disentangled_style_encoder.pth",
+        model_key="model",
+        mode="eval",
+        freeze=True,
+    )
+
+    preprocessor = DDDMPreprocessor(
+        mel_transform=MelTransform(cfg.data.mel_transform).to(device),
+        pitch_encoder=YINEncoder(cfg.model.pitch_encoder).to(device),
+        content_encoder=XLSR_ESPEAK_CTC(
+            return_logits=False,
+            return_hidden=True,
+        ),
+        sample_rate=cfg.data.dataset.sampling_rate,
+        perturb_inputs=cfg.model.perturb_inputs,
+        flatten_pitch=cfg.model.flatten_pitch,
+    ).to(device)
+
+    src_ftr_encoder = WavenetDecoder(
+        cfg.model.decoder,
+        content_dim=cfg.model.content_encoder.out_dim,
+        pitch_dim=cfg.model.pitch_encoder.out_dim,
+    ).to(device)
+
+    model = DDDM(
+        encoder=src_ftr_encoder,
+        diffusion=Diffusion(cfg.model.diffusion),
+    ).to(device)
 
     return model, preprocessor, style_encoder
 
