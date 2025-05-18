@@ -419,7 +419,7 @@ def build_evc_xlsr_yin_disentangled(
 
     model = DDDM(
         encoder=src_ftr_encoder,
-        diffusion=Diffusion(cfg.model.diffusion),
+        diffusion=Diffusion(cfg.model.diffusion, score_model_ver=2),
     ).to(device)
 
     return model, preprocessor, style_encoder
