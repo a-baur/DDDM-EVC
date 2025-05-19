@@ -160,11 +160,11 @@ class DDDMPreprocessor(BasePreprocessor):
             if self.perturb_target == "pitch" or self.perturb_target is None:
                 audio_p = self._praat_processor.g_batched(detached).to(audio.device)
             else:
-                audio_p = detached
+                audio_p = detached.to(audio.device)
             if self.perturb_target == "content" or self.perturb_target is None:
                 audio_c = self._praat_processor.f_batched(detached).to(audio.device)
             else:
-                audio_c = detached
+                audio_c = detached.to(audio.device)
         else:
             detached = audio.detach()
             audio_p = detached

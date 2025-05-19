@@ -224,6 +224,7 @@ def build_evc_xlsr_disentangled(
         sample_rate=cfg.data.dataset.sampling_rate,
         perturb_inputs=cfg.model.perturb_inputs,
         flatten_pitch=cfg.model.flatten_pitch,
+        perturb_target=cfg.model.perturb_target,
     )
 
     src_ftr_encoder = WavenetDecoder(

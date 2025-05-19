@@ -196,7 +196,7 @@ class StyleEncoder(nn.Module):
 class DisentangledStyleEncoder(nn.Module):
     def __init__(self, cfg: StyleEncoderConfig, hidden_dim: int = 256, n_spk: int = 10):
         super().__init__()
-        self.speaker_encoder = ECAPA_TDNN_NEMO()
+        self.speaker_encoder = MetaStyleSpeech(cfg.speaker_encoder)
         self.emotion_encoder = WavLM_Odyssey()
 
         self.speaker_encoder.eval().requires_grad_(False)
@@ -208,7 +208,7 @@ class DisentangledStyleEncoder(nn.Module):
             nn.LayerNorm(hidden_dim),
             nn.Linear(hidden_dim, hidden_dim),
         )
-        self.spk_proj = nn.Linear(192, hidden_dim)
+        self.spk_proj = nn.Linear(256, hidden_dim)
 
         self.n_spk = n_spk + 1  # +1 for unknown speaker
 
@@ -229,7 +229,7 @@ class DisentangledStyleEncoder(nn.Module):
         spk_factor: float = 0.0,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         emo = self.emotion_encoder(x.audio)
-        spk = self.speaker_encoder(x.audio)
+        spk = self.speaker_encoder(x)
 
         if emo_level and emo_factor > 0:
             emo_path = get_root_path() / "avgclass_emo_embeds" / "emo" / emo_dim
@@ -251,6 +251,7 @@ class DisentangledStyleEncoder(nn.Module):
 
         return spk, emo
 
+    @torch.no_grad()
     def forward(
         self,
         x: DDDMInput,
@@ -299,11 +300,6 @@ class DisentangledStyleEncoder(nn.Module):
         loss_emo_adv = F.cross_entropy(
             self.emo_adv(grad_reverse(emo))[known_mask], spk_target[known_mask].long()
         )
-
-        if include_acc:
-            logits = self.spk_cls(spk)
-            acc = (logits.argmax(dim=1) == spk_target.long()).float().mean()
-            print(f"Sanity check accuracy: {acc.item() * 100:.2f}%")
 
         loss = (
             loss_spk
