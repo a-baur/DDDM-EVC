@@ -49,14 +49,33 @@ style_encoder = DisentangledStyleEncoder(
     n_spk=1459,
 ).to(device)
 
-optimizer = torch.optim.AdamW(
-    filter(lambda p: p.requires_grad, style_encoder.parameters()),
+
+spk_params = list(style_encoder.spk_proj.parameters()) + list(
+    style_encoder.spk_cls.parameters()
+)
+optimizer_spk = torch.optim.AdamW(
+    spk_params,
+    lr=1e-6,
+    weight_decay=0.0,
+)
+scheduler_spk = torch.optim.lr_scheduler.ExponentialLR(
+    optimizer_spk, gamma=0.9999, last_epoch=-1
+)
+
+
+emo_params = (
+    list(style_encoder.emo_proj.parameters())
+    + list(style_encoder.emo_reg.parameters())
+    + list(style_encoder.emo_adv.parameters())
+    + list(style_encoder.spk_adv.parameters())
+)
+optimizer_emo = torch.optim.AdamW(
+    emo_params,
     lr=1e-5,
     weight_decay=1e-4,
 )
-
-scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
-    optimizer, gamma=0.9999, last_epoch=-1
+scheduler_emo = torch.optim.lr_scheduler.ExponentialLR(
+    optimizer_emo, gamma=0.9999, last_epoch=-1
 )
 
 LOG_INTERVAL = 10
@@ -67,7 +86,8 @@ CKPT_INTERVAL = 1950  # 1 epoch = 1950 batches
 
 def train(batch):
     style_encoder.train()
-    optimizer.zero_grad()
+    optimizer_spk.zero_grad()
+    optimizer_emo.zero_grad()
 
     audio, n_frames, labels = (
         batch[0].to(device),
@@ -76,7 +96,7 @@ def train(batch):
     )
     x = preprocessor(audio, n_frames, labels)
     loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv = style_encoder.compute_loss(
-        x, adv_spk_coef=0.001, adv_emo_coef=0.1
+        x, adv_spk_coef=0.0, adv_emo_coef=0.1
     )
     return loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv
 
@@ -111,7 +131,7 @@ def eval():
             loss_spk_adv_eval,
             loss_emo_adv_eval,
         ) = style_encoder.compute_loss(
-            x_eval, adv_spk_coef=0.000001, adv_emo_coef=0.1, include_acc=True
+            x_eval, adv_spk_coef=0.0, adv_emo_coef=0.1, include_acc=True
         )
         loss = loss_spk_eval.item() + loss_emo_eval.item()
         adv_loss = loss_emo_adv_eval.item() + loss_spk_adv_eval.item()
@@ -158,14 +178,17 @@ def main():
                         "epoch": j,
                         "batch": i,
                         "model": style_encoder.state_dict(),
-                        "optimizer": optimizer.state_dict(),
                     },
                     f"style_encoder_{j}_{i}.pth",
                 )
 
             loss.backward()
-            optimizer.step()
-            scheduler_g.step()
+
+            optimizer_spk.step()
+            optimizer_emo.step()
+
+            scheduler_spk.step()
+            scheduler_emo.step()
 
 
 if __name__ == "__main__":
