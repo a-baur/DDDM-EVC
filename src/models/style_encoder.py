@@ -145,12 +145,19 @@ class StyleEncoder(nn.Module):
         spk = self.speaker_encoder(x)
 
         if emo_factor > 0:
-            emo_path = get_root_path() / "avgclass_emo_embeds" / "emo" / emo_dim
+            emo_path = (
+                get_root_path() / "avgclass_emo_embeds" / "emo_wav2vec2" / emo_dim
+            )
             emo_avg = torch.load(emo_path / f"{emo_level}.pt").to(x.audio.device)
             emo_avg = emo_avg.unsqueeze(0).expand(x.batch_size, -1)
             emo = emo * (1 - emo_factor) + emo_avg * emo_factor
         if spk_factor > 0:
-            spk_path = get_root_path() / "avgclass_emo_embeds" / "spk" / emo_dim
+            spk_path = (
+                get_root_path()
+                / "avgclass_emo_embeds"
+                / "spk_metastylespeech"
+                / emo_dim
+            )
             spk_avg = torch.load(spk_path / f"{emo_level}.pt").to(x.audio.device)
             spk_avg = spk_avg.unsqueeze(0).expand(x.batch_size, -1)
             spk = spk * (1 - spk_factor) + spk_avg * spk_factor
@@ -238,12 +245,12 @@ class DisentangledStyleEncoder(nn.Module):
         spk = self.speaker_encoder(x.audio)
 
         if emo_level and emo_factor > 0:
-            emo_path = get_root_path() / "avgclass_emo_embeds" / "emo" / emo_dim
+            emo_path = get_root_path() / "avgclass_emo_embeds" / "emo_wavlm" / emo_dim
             emo_avg = torch.load(emo_path / f"{emo_level}.pt").to(x.audio.device)
             emo_avg = emo_avg.unsqueeze(0).expand(x.batch_size, -1)
             emo = emo * (1 - emo_factor) + emo_avg * emo_factor
         if emo_level and spk_factor > 0:
-            spk_path = get_root_path() / "avgclass_emo_embeds" / "spk" / emo_dim
+            spk_path = get_root_path() / "avgclass_emo_embeds" / "spk_ecapa" / emo_dim
             spk_avg = torch.load(spk_path / f"{emo_level}.pt").to(x.audio.device)
             spk_avg = spk_avg.unsqueeze(0).expand(x.batch_size, -1)
             spk = spk * (1 - spk_factor) + spk_avg * spk_factor
