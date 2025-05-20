@@ -312,10 +312,10 @@ class Trainer:
                 src_wv = self.vocoder(src_mel[i].unsqueeze(0))
                 ftr_wv = self.vocoder(ftr_mel[i].unsqueeze(0))
 
-                smpl_audio[f"gen/audio_{sample_count}"] = y_wv.squeeze()
-                smpl_audio[f"gen/audio_enc_{sample_count}"] = enc_wv.squeeze()
-                smpl_audio[f"gen/audio_src_{sample_count}"] = src_wv.squeeze()
-                smpl_audio[f"gen/audio_ftr_{sample_count}"] = ftr_wv.squeeze()
+                smpl_audio[f"gen/audio_{sample_count}"] = y_wv.squeeze().cpu()
+                smpl_audio[f"gen/audio_enc_{sample_count}"] = enc_wv.squeeze().cpu()
+                smpl_audio[f"gen/audio_src_{sample_count}"] = src_wv.squeeze().cpu()
+                smpl_audio[f"gen/audio_ftr_{sample_count}"] = ftr_wv.squeeze().cpu()
 
                 smpl_img[f"gen/mel_{sample_count}"] = _plot_spectrogram_to_numpy(
                     [x.mel[i], y_mel[i], rec_mel[i], ftr_mel[i], src_mel[i]],
@@ -331,9 +331,9 @@ class Trainer:
         enc_loss /= max_batches
 
         return EvalMetrics(
-            mel_loss=mel_loss,
-            enc_loss=enc_loss,
-            emo_loss=emo_loss,
+            mel_loss=mel_loss.cpu(),
+            enc_loss=enc_loss.cpu(),
+            emo_loss=emo_loss.cpu(),
             images=smpl_img,
             audio=smpl_audio,
         )
