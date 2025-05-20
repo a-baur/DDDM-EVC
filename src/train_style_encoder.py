@@ -58,10 +58,6 @@ optimizer_spk = torch.optim.AdamW(
     lr=1e-6,
     weight_decay=0.0,
 )
-scheduler_spk = torch.optim.lr_scheduler.ExponentialLR(
-    optimizer_spk, gamma=0.9999, last_epoch=-1
-)
-
 
 emo_params = (
     list(style_encoder.emo_proj.parameters())
@@ -73,9 +69,6 @@ optimizer_emo = torch.optim.AdamW(
     emo_params,
     lr=1e-5,
     weight_decay=1e-4,
-)
-scheduler_emo = torch.optim.lr_scheduler.ExponentialLR(
-    optimizer_emo, gamma=0.9999, last_epoch=-1
 )
 
 LOG_INTERVAL = 10
@@ -186,9 +179,6 @@ def main():
 
             optimizer_spk.step()
             optimizer_emo.step()
-
-            scheduler_spk.step()
-            scheduler_emo.step()
 
 
 if __name__ == "__main__":

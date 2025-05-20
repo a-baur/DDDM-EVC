@@ -5,7 +5,7 @@ from config import load_hydra_config
 from models import models_from_config
 from util import get_root_path
 
-cfg = load_hydra_config("evc_xlsr_yin_disentangled", overrides=["data.dataset.segment_size=32000"])
+cfg = load_hydra_config("evc_xlsr", overrides=["data.dataset.segment_size=32000"])
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 _, preprocessor, style_encoder = models_from_config(cfg, device)
@@ -57,10 +57,10 @@ def avg_embed(filter_dim: str, value: float) -> None:
 
         x = preprocessor(audio, n_frames, labels)
 
-        spk = style_encoder.speaker_encoder(x.audio)
+        spk = style_encoder.speaker_encoder(x)
         spk_embeds.append(spk)
 
-        emo = style_encoder.emotion_encoder(x.audio)
+        emo = style_encoder.emotion_encoder(x.audio, embeddings_only=True)
         emo_embeds.append(emo)
 
     spk_embeds = torch.cat(spk_embeds)

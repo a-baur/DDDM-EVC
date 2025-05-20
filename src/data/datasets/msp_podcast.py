@@ -114,7 +114,7 @@ class MSPPodcast(torch.utils.data.Dataset):
                     if self._transform_label(fname)[key] not in value:
                         return False
                 else:
-                    if self._transform_label(fname)[key] != value:
+                    if int(self._transform_label(fname)[key]) != value:
                         return False
             return True
 
