@@ -204,7 +204,7 @@ class DisentangledStyleEncoder(nn.Module):
     def __init__(self, cfg: StyleEncoderConfig, hidden_dim: int = 256, n_spk: int = 10):
         super().__init__()
         self.speaker_encoder = ECAPA_TDNN_NEMO()
-        self.emotion_encoder = WavLM_Odyssey()
+        self.emotion_encoder = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
 
         self.speaker_encoder.eval().requires_grad_(False)
         self.emotion_encoder.eval().requires_grad_(False)
