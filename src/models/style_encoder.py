@@ -209,7 +209,7 @@ class DisentangledStyleEncoder(nn.Module):
         self.speaker_encoder.eval().requires_grad_(False)
         self.emotion_encoder.eval().requires_grad_(False)
 
-        self.emo_proj = nn.Linear(2048, hidden_dim)
+        self.emo_proj = nn.Linear(1024, hidden_dim)
         self.spk_proj = nn.Linear(192, hidden_dim)
 
         self.l2_normalize = cfg.l2_normalize
