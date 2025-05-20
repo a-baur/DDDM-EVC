@@ -206,13 +206,13 @@ def build_evc_xlsr_disentangled(
         hidden_dim=256,
         n_spk=1459,
     ).to(device)
-    # util.load_model(
-    #    style_encoder,
-    #    "disentangled_style_encoder.pth",
-    #    model_key="model",
-    #    mode="eval",
-    #    freeze=True,
-    #)
+    util.load_model(
+        style_encoder,
+        "disentangled_style_encoder.pth",
+        model_key="model",
+        mode="eval",
+        freeze=True,
+    )
 
     vq_vae = VQF0Encoder(cfg.model.pitch_encoder).to(device)
     util.load_model(vq_vae, "vqvae.pth")
@@ -235,7 +235,7 @@ def build_evc_xlsr_disentangled(
 
     model = DDDM(
         encoder=src_ftr_encoder,
-        diffusion=Diffusion(cfg.model.diffusion, score_model_ver=2).to(device),
+        diffusion=Diffusion(cfg.model.diffusion, score_model_ver=1).to(device),
     )
 
     return model, preprocessor, style_encoder
