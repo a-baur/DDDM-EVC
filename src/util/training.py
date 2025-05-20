@@ -171,6 +171,7 @@ class Trainer:
                         torch.cuda.empty_cache()
                         eval_metrics = self.eval()
                         self._log_eval(global_step, global_progress, eval_metrics)
+                        torch.cuda.empty_cache()
 
                     if global_step % self.cfg.training.save_interval == 0:
                         self.save_checkpoint(epoch, batch_idx)
@@ -331,9 +332,9 @@ class Trainer:
         enc_loss /= max_batches
 
         return EvalMetrics(
-            mel_loss=mel_loss.cpu(),
-            enc_loss=enc_loss.cpu(),
-            emo_loss=emo_loss.cpu(),
+            mel_loss=mel_loss,
+            enc_loss=enc_loss,
+            emo_loss=emo_loss,
             images=smpl_img,
             audio=smpl_audio,
         )
