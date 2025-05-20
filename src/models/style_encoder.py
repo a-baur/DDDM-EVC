@@ -209,27 +209,8 @@ class DisentangledStyleEncoder(nn.Module):
         self.speaker_encoder.eval().requires_grad_(False)
         self.emotion_encoder.eval().requires_grad_(False)
 
-        self.emo_proj = nn.Sequential(
-            nn.Linear(2048, hidden_dim),
-            nn.GELU(),
-            nn.LayerNorm(hidden_dim),
-            nn.Linear(hidden_dim, hidden_dim),
-        )
-        # self.spk_proj = nn.Linear(256, hidden_dim)
-        self.spk_proj = nn.Sequential(
-            nn.Linear(192, hidden_dim),
-            nn.GELU(),
-            nn.LayerNorm(hidden_dim),
-            nn.Linear(hidden_dim, hidden_dim),
-        )
-
-        self.n_spk = n_spk + 1  # +1 for unknown speaker
-
-        self.emo_reg = nn.Linear(hidden_dim, 3)
-        self.spk_cls = nn.Linear(hidden_dim, self.n_spk)
-
-        self.emo_adv = nn.Linear(hidden_dim, self.n_spk)
-        self.spk_adv = nn.Linear(hidden_dim, 3)
+        self.emo_proj = nn.Linear(2048, hidden_dim)
+        self.spk_proj = nn.Linear(192, hidden_dim)
 
         self.l2_normalize = cfg.l2_normalize
 
@@ -285,42 +266,6 @@ class DisentangledStyleEncoder(nn.Module):
         """
         spk, emo = self.encode(x, emo_level, emo_dim, emo_factor, spk_factor)
         return torch.cat([spk, emo], dim=1)
-
-    def compute_loss(
-        self,
-        x: DDDMInput,
-        adv_spk_coef: float = 0.1,
-        adv_emo_coef: float = 0.1,
-        include_acc: bool = False,
-    ):
-        spk_target = x.label.spk_id
-        known_mask = spk_target >= 0
-
-        assert spk_target.max() <= self.n_spk, (
-            f"Speaker ID {spk_target.max()} exceeds number of speakers {self.n_spk}."
-        )
-
-        emo_target = x.label.label_tensor[:, 0:3]
-
-        spk, emo = self.encode(x)
-
-        loss_spk = F.cross_entropy(
-            self.spk_cls(spk)[known_mask], spk_target[known_mask].long()
-        )
-        loss_emo = CCCLoss(self.emo_reg(emo), emo_target)
-
-        loss_spk_adv = CCCLoss(self.spk_adv(grad_reverse(spk)), emo_target)
-        loss_emo_adv = F.cross_entropy(
-            self.emo_adv(grad_reverse(emo))[known_mask], spk_target[known_mask].long()
-        )
-
-        loss = (
-            loss_spk
-            + loss_emo
-            + adv_spk_coef * loss_spk_adv
-            + adv_emo_coef * loss_emo_adv
-        )
-        return loss, loss_spk, loss_emo, loss_spk_adv, loss_emo_adv
 
 
 class WavLM_Odyssey(nn.Module):
