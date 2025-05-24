@@ -3,8 +3,13 @@ import os
 import torch
 import torch.nn.functional as F
 from torch import nn
-from transformers import Wav2Vec2Config, Wav2Vec2Processor
-from transformers.models.wav2vec2.modeling_wav2vec2 import (
+from transformers import (
+    Wav2Vec2Config,
+    Wav2Vec2Processor,
+    WavLMModel,
+)
+from transformers import (
+    Wav2Vec2FeatureExtractor,
     Wav2Vec2Model,
     Wav2Vec2PreTrainedModel,
 )
@@ -226,7 +231,9 @@ class DisentangledStyleEncoder(nn.Module):
         spk = self.speaker_encoder(x.audio)
 
         if emo_level and emo_factor > 0:
-            emo_path = get_root_path() / "avgclass_emo_embeds" / "emo_wavlm" / emo_dim
+            emo_path = (
+                get_root_path() / "avgclass_emo_embeds" / "emo_wav2vec2" / emo_dim
+            )
             emo_avg = torch.load(emo_path / f"{emo_level}.pt").to(x.audio.device)
             emo_avg = emo_avg.unsqueeze(0).expand(x.batch_size, -1)
             emo = emo * (1 - emo_factor) + emo_avg * emo_factor
@@ -285,6 +292,30 @@ class WavLM_Odyssey(nn.Module):
         x = self.model.ssl_model(x, attention_mask=attn_mask).last_hidden_state
         x = self.model.pool_model(x, mask)
         return x
+
+
+class WavLM_Large(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        model_id = "microsoft/wavlm-large"
+
+        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_id)
+        self.model = WavLMModel.from_pretrained(model_id)
+
+        self.model.eval().requires_grad_(False)
+
+    @torch.no_grad()
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        original_device = x.device
+        inputs = self.feature_extractor(
+            x.cpu().numpy(),
+            sampling_rate=16000,
+            return_tensors="pt",
+            padding=True,
+        ).to(original_device)
+        x = self.model(**inputs).last_hidden_state
+        return x.mean(dim=1)  # Average pooling over time dimension
 
 
 class W2V2LRobust(Wav2Vec2PreTrainedModel):
