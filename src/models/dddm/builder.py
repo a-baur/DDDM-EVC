@@ -206,16 +206,16 @@ def build_evc_xlsr_disentangled(
         hidden_dim=256,
         n_spk=1459,
     ).to(device)
-    util.load_model(
-        style_encoder,
-        "disentangled_style_encoder.pth",
-        model_key="model",
-        mode="eval",
-        freeze=True,
-    )
+    # util.load_model(
+    #     style_encoder,
+    #     "disentangled_style_encoder.pth",
+    #     model_key="model",
+    #     mode="eval",
+    #     freeze=True,
+    # )
 
     vq_vae = VQF0Encoder(cfg.model.pitch_encoder).to(device)
-    util.load_model(vq_vae, "vqvae.pth")
+    util.load_model(vq_vae, "vqvae.pth", freeze=True, mode="eval")
 
     preprocessor = DDDMPreprocessor(
         mel_transform=MelTransform(cfg.data.mel_transform).to(device),
