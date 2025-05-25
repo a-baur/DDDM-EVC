@@ -12,10 +12,8 @@ import numpy as np
 
 from src.models.style_encoder import (
     StyleEncoder,
-    ECAPA_TDNN,
-    ECAPA2,
-    ECAPA_TDNN_NEMO,
     WavLM_Odyssey,
+    WavLM_Large,
 )
 from src.util import get_root_path
 from sklearn.preprocessing import StandardScaler
@@ -73,14 +71,15 @@ util.load_model(
 )
 
 speaker_encoder = {
-    "ECAPA_TDNN": ECAPA_TDNN(),
-    "ECAPA2": ECAPA2(),
-    "ECAPA_TDNN_NEMO": ECAPA_TDNN_NEMO(),
-    "MetaStyleSpeech": style_encoder.speaker_encoder,
+    # "ECAPA_TDNN": ECAPA_TDNN(),
+    # "ECAPA2": ECAPA2(),
+    # "ECAPA_TDNN_NEMO": ECAPA_TDNN_NEMO(),
+    # "MetaStyleSpeech": style_encoder.speaker_encoder,
+    "WavLM_Large": WavLM_Large(),
 }
 emotion_encoder = {
     "WavLM_Odyssey": WavLM_Odyssey(),
-    "Wav2Vec2": style_encoder.emotion_encoder,
+    # "Wav2Vec2": style_encoder.emotion_encoder,
 }
 print("Loading models done.")
 
@@ -228,18 +227,10 @@ def plot_tsne(emb, name=None):
     )
 
 
-# %%
-plot_tsne(spk_embeds["MetaStyleSpeech"], "MetaStyleSpeech")
-# %%
-plot_tsne(spk_embeds["ECAPA_TDNN"], "ECAPA_TDNN")
-# %%
-plot_tsne(spk_embeds["ECAPA2"], "ECAPA2")
-# %%
-plot_tsne(spk_embeds["ECAPA_TDNN_NEMO"], "ECAPA_TDNN_NEMO")
-# %%
-plot_tsne(emo_embeds["Wav2Vec2"], "Wav2Vec2")
-# %%
-plot_tsne(emo_embeds["WavLM_Odyssey"], "WavLM_Odyssey")
-# %%
-
-# %%
+# plot_tsne(spk_embeds["MetaStyleSpeech"], "MetaStyleSpeech")
+# plot_tsne(spk_embeds["ECAPA_TDNN"], "ECAPA_TDNN")
+# plot_tsne(spk_embeds["ECAPA2"], "ECAPA2")
+# plot_tsne(spk_embeds["ECAPA_TDNN_NEMO"], "ECAPA_TDNN_NEMO")
+plot_tsne(spk_embeds["WavLM_Large"], "WavLM_Large")
+# plot_tsne(emo_embeds["Wav2Vec2"], "Wav2Vec2")
+# plot_tsne(emo_embeds["WavLM_Odyssey"], "WavLM_Odyssey")
