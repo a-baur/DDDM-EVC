@@ -208,14 +208,14 @@ class StyleEncoder(nn.Module):
 class DisentangledStyleEncoder(nn.Module):
     def __init__(self, cfg: StyleEncoderConfig, hidden_dim: int = 256, n_spk: int = 10):
         super().__init__()
-        self.speaker_encoder = ECAPA_TDNN_NEMO()
+        self.speaker_encoder = MetaStyleSpeech()
         self.emotion_encoder = W2V2LRobust.from_pretrained(W2V2LRobust.MODEL_NAME)
 
         self.speaker_encoder.eval().requires_grad_(False)
         self.emotion_encoder.eval().requires_grad_(False)
 
         self.emo_proj = nn.Linear(1024, hidden_dim)
-        self.spk_proj = nn.Linear(192, hidden_dim)
+        self.spk_proj = nn.Linear(256, hidden_dim)
 
         self.l2_normalize = cfg.l2_normalize
 
